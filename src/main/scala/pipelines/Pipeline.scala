@@ -1,6 +1,5 @@
 package pipelines
 
-import org.opencv.core._
 import org.apache.spark.rdd.RDD
 import pipelines.Pipelines.PipelineNode
 
@@ -9,10 +8,6 @@ import scala.reflect.ClassTag
 
 object Pipelines {
   type PipelineNode[Input, Output] = (Input => Output)
-}
-
-trait OpenCVUser {
-  OpenCVUtils.init()
 }
 
 trait PipelineStage[A, B]
@@ -96,6 +91,3 @@ abstract class SupervisedEstimator[I, O, L] extends Serializable with PipelineSt
   def fit(data: RDD[I], labels: RDD[L]): Transformer[I, O]
 }
 
-object OpenCVUtils {
-  def init() { System.loadLibrary(Core.NATIVE_LIBRARY_NAME) }
-}

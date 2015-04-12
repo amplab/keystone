@@ -30,7 +30,9 @@ trait PipelineStage[I, O]
  * @tparam C Output type.
  * @tparam L Label type.
  */
-class Pipeline[A : ClassTag, B : ClassTag, C : ClassTag, L] private (initStage: PipelineStage[A, B], nextStage: PipelineStage[B, C]) extends SupervisedEstimator[A, C, L] {
+class Pipeline[A : ClassTag, B : ClassTag, C : ClassTag, L] private (
+    initStage: PipelineStage[A, B],
+    nextStage: PipelineStage[B, C]) extends SupervisedEstimator[A, C, L] {
 
   /**
    * Adds a transformer to the end of the pipeline.
@@ -88,7 +90,10 @@ class Pipeline[A : ClassTag, B : ClassTag, C : ClassTag, L] private (initStage: 
    * @tparam D Output type of the new supervised estimator.
    * @return A new pipeline with the estimator appended.
    */
-  def addStage[D : ClassTag](stage: SupervisedEstimator[C, D, L], data: RDD[C], labels: RDD[L]): Pipeline[A, C, D, L] = {
+  def addStage[D : ClassTag](
+      stage: SupervisedEstimator[C, D, L],
+      data: RDD[C],
+      labels: RDD[L]): Pipeline[A, C, D, L] = {
     new Pipeline[A, C, D, L](this, SupervisedEstimatorWithData(stage, data, labels))
   }
 
@@ -132,7 +137,9 @@ object Pipeline {
    * @param b Second stage.
    * @return A pipeline.
    */
-  def apply[A : ClassTag, B : ClassTag, C : ClassTag, L](a: PipelineStage[A, B], b: PipelineStage[B, C]) = new Pipeline[A, B, C, L](a, b)
+  def apply[A : ClassTag, B : ClassTag, C : ClassTag, L](
+      a: PipelineStage[A, B],
+      b: PipelineStage[B, C]) = new Pipeline[A, B, C, L](a, b)
 
   /**
    * Construct a one-stage supervised pipeline.
@@ -161,7 +168,9 @@ object Pipeline {
  * @tparam B Intermediate type.
  * @tparam C Output type.
  */
-private class TransformerChain[A : ClassTag, B, C : ClassTag](val a: Transformer[A, B], val b: Transformer[B, C]) extends Transformer[A, C] {
+private class TransformerChain[A : ClassTag, B, C : ClassTag](
+    val a: Transformer[A, B],
+    val b: Transformer[B, C]) extends Transformer[A, C] {
 
   /**
    * Transform an input.
@@ -193,7 +202,10 @@ class IdentityTransformer[T : ClassTag] extends Transformer[T, T] {
  * @tparam A Input type.
  * @tparam B Output type.
  */
-abstract class Transformer[A : ClassTag, B : ClassTag] extends PipelineNode[RDD[A], RDD[B]] with Serializable with PipelineStage[A, B] {
+abstract class Transformer[A : ClassTag, B : ClassTag]
+    extends PipelineNode[RDD[A], RDD[B]]
+    with Serializable
+    with PipelineStage[A, B] {
 
   /**
    * Takes an A and returns a B.
@@ -258,7 +270,9 @@ abstract class SupervisedEstimator[I, O, L] extends Serializable with PipelineSt
  * @tparam A Input type.
  * @tparam B Output type.
  */
-private case class UnsupervisedEstimatorWithData[A, B](e: UnsupervisedEstimator[A, B], data: RDD[A]) extends PipelineStage[A, B]
+private case class UnsupervisedEstimatorWithData[A, B](
+    e: UnsupervisedEstimator[A, B],
+    data: RDD[A]) extends PipelineStage[A, B]
 
 /**
  * A supervised estimator that carries its data with it.
@@ -269,4 +283,7 @@ private case class UnsupervisedEstimatorWithData[A, B](e: UnsupervisedEstimator[
  * @tparam O Output type.
  * @tparam L Label type.
  */
-private case class SupervisedEstimatorWithData[I, O, L](e: SupervisedEstimator[I, O, L], data: RDD[I], labels: RDD[L]) extends PipelineStage[I, O]
+private case class SupervisedEstimatorWithData[I, O, L](
+    e: SupervisedEstimator[I, O, L],
+    data: RDD[I],
+    labels: RDD[L]) extends PipelineStage[I, O]

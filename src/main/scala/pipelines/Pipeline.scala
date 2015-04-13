@@ -6,7 +6,7 @@ import pipelines.Pipelines.PipelineNode
 import scala.reflect.ClassTag
 
 /**
- * Helper object contains fundamental tyep definition. A node is a unary function.
+ * Helper object contains fundamental type definition. A node is a unary function.
  */
 object Pipelines {
   type PipelineNode[Input, Output] = (Input => Output)

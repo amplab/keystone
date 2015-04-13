@@ -267,12 +267,12 @@ abstract class SupervisedEstimator[I, O, L] extends Serializable with PipelineSt
  * An unsupervised estimator that carries its data with it.
  * @param e Estimator.
  * @param data Data.
- * @tparam A Input type.
- * @tparam B Output type.
+ * @tparam I Input type.
+ * @tparam O Output type.
  */
-private case class UnsupervisedEstimatorWithData[A, B](
-    e: UnsupervisedEstimator[A, B],
-    data: RDD[A]) extends PipelineStage[A, B]
+private case class UnsupervisedEstimatorWithData[I, O](
+    e: UnsupervisedEstimator[I, O],
+    data: RDD[I]) extends PipelineStage[I, O]
 
 /**
  * A supervised estimator that carries its data with it.

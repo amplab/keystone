@@ -19,15 +19,17 @@ class LinearMapperSuite extends FunSuite with LocalSparkContext with Logging {
     val Aary = A.rdd.flatMap(part => MatrixUtils.matrixToRowArray(part.mat).toIterator)
     val bary = b.rdd.flatMap(part => MatrixUtils.matrixToRowArray(part.mat).toIterator)
 
-    val mapper = LinearMapper.fit(Aary, bary)
+    val mapper = new LinearMapEstimator().fit(Aary, bary)
 
     assert(Stats.aboutEq(mapper.x, x.t), "Coefficients from the solve must match the hand-created model.")
 
     val point = Array(2.0, -3.0, 2.0, 3.0, 5.0)
-    assert(Stats.aboutEq(mapper.transform(point)(0), 5.0), "Linear model applied to a point should be 5.0")
+    assert(Stats.aboutEq(mapper(sc.parallelize(Seq(point))).first()(0), 5.0),
+        "Linear model applied to a point should be 5.0")
 
     val bt = mapper(Aary)
-    assert(Stats.aboutEq(bt.collect()(0), bary.collect()(0)), "Linear model applied to input should be the same as training points.")
+    assert(Stats.aboutEq(bt.collect()(0), bary.collect()(0)),
+        "Linear model applied to input should be the same as training points.")
 
   }
 }

@@ -1,161 +1,119 @@
 package pipelines
 
-import org.apache.spark.rdd.RDD
+import java.io.Serializable
 
+import org.apache.spark.rdd.RDD
 
 import scala.reflect.ClassTag
 
-/**
- * Helper object contains fundamental type definition. A node is a unary function.
- */
 object Pipelines {
-  type PipelineNode[Input, Output] = (Input => Output)
-}
-
-/**
- * A pipeline stage is a single stage of a pipeline.
- *
- * @tparam I Input type.
- * @tparam O Output type.
- */
-trait PipelineStage[I, O]
-
-/**
- * A Pipeline consists of at least two stages (even if one is identity.)
- *
- * @param initStage Initial stage.
- * @param nextStage Second Stage.
- * @tparam A Input type.
- * @tparam B Intermediate type.
- * @tparam C Output type.
- * @tparam L Label type.
- */
-class Pipeline[A : ClassTag, B : ClassTag, C : ClassTag, L] private (
-    initStage: PipelineStage[A, B],
-    nextStage: PipelineStage[B, C]) extends SupervisedEstimator[A, C, L] {
 
   /**
-   * Adds a transformer to the end of the pipeline.
-   *
-   * @param stage New transformer.
-   * @tparam D Transformer output type.
-   * @return A new pipeline with the transformer appended.
-   */
-  def addStage[D : ClassTag](stage: Transformer[C, D]): Pipeline[A, C, D, L] = {
-    new Pipeline[A, C, D, L](this, stage)
-  }
+   * 3 main classes:
+   * PipelineNode[A, B] extends A => B
+   * Estimator[A, B] implements fit(A): PipelineNode[A, B]
+   * LabelEstimator[A, B, L] implements fit(A, L): PipelineNode[A, B]
 
-  /**
-   * Adds an unsupervised estimator to the end of the pipeline.
-   * THe supervised estimator will train with the output of the current pipeline.
-   *
-   * @param stage New unsupervised estimator.
-   * @tparam D Unsupervised estimator output type.
-   * @return A new pipeline with the estimator appended.
-   */
-  def addStage[D : ClassTag](stage: UnsupervisedEstimator[C, D]): Pipeline[A, C, D, L] = {
-    new Pipeline[A, C, D, L](this, stage)
-  }
+   * PipelineNode supports any input and output types, like in the original interface.
 
-  /**
-   * Adds a supervised estimator to the end of the pipeline.
-   * The supervised estimator will train with the output of the current pipeline.
-   *
-   * @param stage New supervised estimator.
-   * @tparam D Supervised estimator output type.
-   * @return A new pipeline with the estimator appended.
-   */
-  def addStage[D : ClassTag](stage: SupervisedEstimator[C, D, L]): Pipeline[A, C, D, L] = {
-    new Pipeline[A, C, D, L](this, stage)
-  }
+   * Although nodes & estimators are appropriately contravariant/covariant, RDDs aren't.
+   * If we want that we have to wrap RDD and then have the nodes take the wrapped type as input / output
 
-  /**
-   * Adds a new unsupervised estimator with input data to the end of the pipeline.
-   *
-   * @param stage New unsupervised estimator.
-   * @param data Data to train the unsupervised estimator.
-   * @tparam D Output type of the unsupervised estimator.
-   * @return A new pipeline with the estimator appended.
-   */
-  def addStage[D : ClassTag](stage: UnsupervisedEstimator[C, D], data: RDD[C]): Pipeline[A, C, D, L] = {
-    new Pipeline[A, C, D, L](this, UnsupervisedEstimatorWithData(stage, data))
-  }
+   * There is no "single-item" transform. Similar to above, if we want this we need to make a type that unifies an RDD
+   * and a single item, and have the nodes take that type as input/output
 
-  /**
-   * Adds a new supervised estimator with input data to the end of the pipeline.
-   *
-   * @param stage New supervised estimator.
-   * @param data Data to train the supervised estimator.
-   * @param labels Labels to use when training the supervised estimator.
-   * @tparam D Output type of the new supervised estimator.
-   * @return A new pipeline with the estimator appended.
-   */
-  def addStage[D : ClassTag](
-      stage: SupervisedEstimator[C, D, L],
-      data: RDD[C],
-      labels: RDD[L]): Pipeline[A, C, D, L] = {
-    new Pipeline[A, C, D, L](this, SupervisedEstimatorWithData(stage, data, labels))
-  }
-
-  /**
-   * Fit the current pipeline on input data.
-   *
-   * @param in Input data.
-   * @param labels Input labels.
-   * @return A transformer which can be applied to new data.
-   */
-  override def fit(in: RDD[A], labels: RDD[L]): Transformer[A, C] = {
-    val firstTransformer = initStage match {
-      case estimator: UnsupervisedEstimator[A, B] => estimator.fit(in)
-      case estimator: SupervisedEstimator[A, B, L] => estimator.fit(in, labels)
-      case SupervisedEstimatorWithData(x, data, l) => x.fit(data, l)
-      case UnsupervisedEstimatorWithData(x, data) => x.fit(data)
-      case transformer: Transformer[A, B] => transformer
-      case _ => throw new IllegalArgumentException
-    }
-
-    val secondTransformer = nextStage match {
-      case estimator: UnsupervisedEstimator[B, C] => estimator.fit(firstTransformer.transform(in))
-      case estimator: SupervisedEstimator[B, C, L] => estimator.fit(firstTransformer.transform(in), labels)
-      case SupervisedEstimatorWithData(x, data, l) => x.fit(data, l)
-      case UnsupervisedEstimatorWithData(x, data) => x.fit(data)
-      case transformer: Transformer[B, C] => transformer
-      case _ => throw new IllegalArgumentException
-    }
-
-    new TransformerChain[A, B, C](firstTransformer, secondTransformer)
-  }
-}
-
-/**
- * Companion object with useful constructors.
- */
-object Pipeline {
-  /**
-   * Construct a simple two-stage pipeline.
-   * @param a First stage.
-   * @param b Second stage.
-   * @return A pipeline.
-   */
-  def apply[A : ClassTag, B : ClassTag, C : ClassTag, L](
-      a: PipelineStage[A, B],
-      b: PipelineStage[B, C]) = new Pipeline[A, B, C, L](a, b)
-
-  /**
-   * Construct a one-stage supervised pipeline.
-   * @param a Pipeline stage.
-   * @tparam A Input type.
-   * @tparam B Output type.
-   * @tparam L Label type.
-   * @return A one-stage supervised pipeline.
-   */
-  def apply[A : ClassTag, B : ClassTag, L](a: PipelineStage[A, B]) = new Pipeline[A, A, B, L](null, a)
-
-  /**
-   * Construct an empty pipeline.
    * @tparam A
-   * @tparam L
-   * @return An empty pipeline.
+   * @tparam B
    */
-  def apply[A : ClassTag, L]() = new Pipeline[A, A, A, L](new IdentityTransformer[A], new IdentityTransformer[A])
+  abstract class PipelineNode[-A, +B] extends (A => B) with Serializable {
+    /**
+     * Chains an estimator onto this pipeline node, producing a new estimator that when fit on same input type as
+     * this node, chains this node with the node output by the original estimator.
+     * @param est The estimator to chain onto the pipeline node
+     * @return  The output estimator
+     */
+    def thenEstimator[C : ClassTag](est: Estimator[B, C]): Estimator[A, C] = functionToEstimator((a: A) => this then est.fit(this(a)))
+
+    /**
+     * Chains a Label Estimator onto this pipeline node, producing a new Label Estimator that when fit on same input
+     * type as this node, chains this node with the node output by the original Label Estimator.
+     * @param est The label estimator to chain onto the pipeline node
+     * @return  The output label estimator
+     */
+    def thenLabelEstimator[C : ClassTag, L : ClassTag](est: LabelEstimator[B, C, L]): LabelEstimator[A, C, L] = functionToLabelEstimator((a: A, l: L) => this then est.fit(this(a), l))
+    def then[C : ClassTag](next: PipelineNode[B, C]): PipelineNode[A, C] = andThen(next)
+  }
+
+  abstract class Estimator[-A, +B] extends Serializable {
+    /**
+     * An estimator has a `fit` method which emits a pipeline node.
+     * @param data Input data.
+     * @return A PipelineNode (Transformer) which can be called on new data.
+     */
+    def fit(data: A): PipelineNode[A, B]
+  }
+
+  abstract class LabelEstimator[-I, +O, -L] extends Serializable {
+    /**
+     * A LabelEstimator estimator is an estimator which expects labeled data.
+     * @param data Input data.
+     * @param labels Input labels.
+     * @return A PipelineNode which can be called on new data.
+     */
+    def fit(data: I, labels: L): PipelineNode[I, O]
+  }
+
+  /**
+   * This implicit turns regular functions into PipelineNodes.
+   * @param node A function.
+   * @return A PipelineNode encapsulating the function.
+   */
+  implicit def functionToNode[I, O](node: I => O): PipelineNode[I, O] = new PipelineNode[I, O] {
+    override def apply(v1: I): O = node(v1)
+  }
+
+  /**
+   * This implicit takes a function and returns an estimator. The function must itself return a function.
+   *
+   * @param node An estimator function. It must return a function.
+   * @tparam I Input type of the estimator and the transformer it produces.
+   * @tparam O Output type of the estimator and the transformer it produces.
+   * @return An Estimator which can be applied to new data.
+   */
+  private def functionToEstimator[I, O](node: I => (I => O)): Estimator[I, O] = new Estimator[I, O] {
+    override def fit(v1: I): PipelineNode[I, O] = node.apply(v1)
+  }
+
+  /**
+   * This implicit takes a function which expects labeled data and returns an estimator.
+   * The function must itself return a function.
+   *
+   * @param node An estimator function. It must take labels and data and return a function from data to output.
+   * @tparam I Input type of the labeled estimator and the transformer it produces.
+   * @tparam O Output type of the estimator and the transformer it produces.
+   * @tparam L Label type of the estimator.
+   * @return An Estimator which can be applied to new labeled data.
+   */
+  private def functionToLabelEstimator[I, O, L](node: (I, L) => (I => O)): LabelEstimator[I, O, L] = new LabelEstimator[I, O, L] {
+    override def fit(v1: I, v2: L): PipelineNode[I, O] = node(v1, v2)
+  }
+
+  /**
+   * Thanks to this implicit conversion, if the output of a node is an RDD you can inline a method f
+   * to map on the output RDD using "node.thenMap(f)"
+   */
+  implicit def nodeToRDDOutHelpers[I, O](node: I => RDD[O]): RDDOutputFunctions[I, O] = new RDDOutputFunctions(node)
+  class RDDOutputFunctions[I, O](node: I => RDD[O]) {
+    def thenMap[U : ClassTag](f: O => U): PipelineNode[I, RDD[U]] = node.andThen(_.map(f))
+  }
+
+  /**
+   * Transformers extend PipelineNode[RDD[A], RDD[B]] and exist just to reduce a bit of implementation boilerplate
+   * @tparam Input input type of the transformer
+   * @tparam Output output type of the transformer
+   */
+  abstract class Transformer[Input, Output] extends PipelineNode[RDD[Input], RDD[Output]]
+  def Transformer[I, O : ClassTag](f: I => O): Transformer[I, O] = new Transformer[I, O] {
+    override def apply(v1: RDD[I]): RDD[O] = v1.map(f)
+  }
 }

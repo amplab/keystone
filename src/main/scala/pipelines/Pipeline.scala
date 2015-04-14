@@ -116,4 +116,5 @@ object Pipelines {
   def Transformer[I, O : ClassTag](f: I => O): Transformer[I, O] = new Transformer[I, O] {
     override def apply(v1: RDD[I]): RDD[O] = v1.map(f)
   }
+
 }

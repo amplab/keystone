@@ -33,7 +33,6 @@ case class LinearMapper(x: DenseMatrix[Double])
     })
   }
 }
-
 /**
  * Linear Map Estimator. Solves an OLS problem on data given labels and emits a LinearMapper transformer.
  *

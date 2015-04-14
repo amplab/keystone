@@ -3,7 +3,6 @@ package nodes.learning
 import breeze.linalg._
 import edu.berkeley.cs.amplab.mlmatrix.{NormalEquations, RowPartitionedMatrix}
 import org.apache.spark.rdd.RDD
-
 import pipelines._
 import utils.MatrixUtils
 

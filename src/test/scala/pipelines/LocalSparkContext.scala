@@ -1,9 +1,7 @@
 package pipelines
 
-import org.scalatest.Suite
-import org.scalatest.BeforeAndAfterEach
-
 import org.apache.spark.SparkContext
+import org.scalatest.{BeforeAndAfterEach, Suite}
 
 // TODO: delete this file and use the version from Spark once SPARK-750 is fixed.
 

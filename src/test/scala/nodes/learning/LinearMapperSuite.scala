@@ -1,11 +1,10 @@
 package nodes.learning
 
+import breeze.linalg._
 import edu.berkeley.cs.amplab.mlmatrix.RowPartitionedMatrix
 import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
-import pipelines.{Logging, LocalSparkContext}
-import breeze.linalg._
-import breeze.numerics._
+import pipelines.{LocalSparkContext, Logging}
 import utils.{MatrixUtils, Stats}
 
 class LinearMapperSuite extends FunSuite with LocalSparkContext with Logging {

@@ -2,7 +2,6 @@ package pipelines
 
 import org.apache.spark.rdd.RDD
 
-
 import scala.reflect.ClassTag
 
 /**
@@ -158,4 +157,5 @@ object Pipeline {
    * @return An empty pipeline.
    */
   def apply[A : ClassTag, L]() = new Pipeline[A, A, A, L](new IdentityTransformer[A], new IdentityTransformer[A])
+
 }

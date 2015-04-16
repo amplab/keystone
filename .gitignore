@@ -15,3 +15,6 @@ project/plugins/project/
 
 # Jars
 *.jar
+
+# vim tmps
+.*sw*

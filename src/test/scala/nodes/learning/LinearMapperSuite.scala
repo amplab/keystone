@@ -23,7 +23,7 @@ class LinearMapperSuite extends FunSuite with LocalSparkContext with Logging {
 
     assert(Stats.aboutEq(mapper.x, x.t), "Coefficients from the solve must match the hand-created model.")
 
-    val point = Array(2.0, -3.0, 2.0, 3.0, 5.0)
+    val point = DenseVector(2.0, -3.0, 2.0, 3.0, 5.0)
 
     assert(Stats.aboutEq(mapper(sc.parallelize(Seq(point))).first()(0), 5.0),
         "Linear model applied to a point should be 5.0")

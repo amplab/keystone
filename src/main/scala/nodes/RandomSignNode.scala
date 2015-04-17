@@ -7,6 +7,9 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.SparkContext
 import org.apache.spark.broadcast.Broadcast
 
+/** A node that takes in Array[DataType] and randomly flips 
+  *  the sign of some of the elements */
+
 case class RandomSignNode(val signs: Array[DataType])
     extends PipelineNode[RDD[Array[DataType]], RDD[Array[DataType]]] with Serializable {
   def apply(in: RDD[Array[DataType]]): RDD[Array[DataType]] = {
@@ -16,6 +19,7 @@ case class RandomSignNode(val signs: Array[DataType])
 }
 
 object RandomSignNode {
+  /* Create a random sign node */
   def create(size: Int, random: Random): RandomSignNode = {
     val signs = new Array[DataType](size)
     for (i <- 0 until size) {
@@ -23,7 +27,7 @@ object RandomSignNode {
     }
     RandomSignNode(signs)
   }
-
+  /* Take the pointwise product of two Arrays */
   def hadamardProduct(a: Array[DataType], b: Array[DataType]): Array[DataType] = {
     assert(a.size == b.size, "RandomSignNode: Input dimension %d does not match output dimension %d".format(a.size, b.size))
     val size = a.size

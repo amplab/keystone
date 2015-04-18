@@ -28,7 +28,7 @@ object Stats extends Serializable {
    * @return True if the two numbers are within `thresh` of each other.
    */
   def aboutEq(as: DenseVector[Double], bs: DenseVector[Double]): Boolean = {
-    as.toArray.zip(bs.toArray).map { case (a,b) => math.abs(a-b) }.forall(_ < thresh)
+    abs(as-bs).toArray.forall(_ < thresh)
   }
 
   /**
@@ -41,7 +41,7 @@ object Stats extends Serializable {
   def aboutEq(a: DenseMatrix[Double], b: DenseMatrix[Double]): Boolean = {
     require(a.rows == b.rows && a.cols == b.cols, "Matrices must be the same size.")
 
-    abs(a-b).data.forall(_ < thresh)
+    abs(a-b).toArray.forall(_ < thresh)
   }
 
 }

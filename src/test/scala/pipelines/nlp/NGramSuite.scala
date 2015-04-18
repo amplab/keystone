@@ -1,7 +1,7 @@
-package pipelines
+package pipelines.nlp
 
+import pipelines.LocalSparkContext
 import pipelines.Pipelines._
-import pipelines.nlp.{NGram, NGramsCounts, NGramsFeaturizer}
 
 import org.apache.spark.SparkContext
 

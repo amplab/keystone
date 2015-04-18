@@ -7,18 +7,14 @@ import org.apache.spark.rdd.RDD
 import java.util.{HashMap => JHashMap}
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 /**
- * Common ngram implementation shared by user-facing ones.
+ * An ngram featurizer.
+ *
  * @param orders valid ngram orders, must be consecutive positive integers
- * @param makeNGram function to convert a sequence of string tokens into ngram representation
- * @tparam NGramType type of an ngram; needs to be well-behaved when put in a hash map
  */
-private[pipelines] abstract class NGramsBase[NGramType]
-  (orders: Seq[Int])(makeNGram: Seq[String] => NGramType)
-  extends Transformer[String, (NGramType, Int)] {
+class NGramsFeaturizer(orders: Seq[Int]) extends Transformer[Seq[String], Seq[Seq[String]]] {
 
   private[this] final val minOrder = orders.min
   private[this] final val maxOrder = orders.max
@@ -30,43 +26,34 @@ private[pipelines] abstract class NGramsBase[NGramType]
     case _ =>
   }
 
-  @inline
-  private[this] def recordNGram(buf: ArrayBuffer[String], counts: mutable.Map[NGramType, Int]) = {
-    val ngramId = makeNGram(buf)
-    val currCount = counts.getOrElse(ngramId, 0)
-    counts.put(ngramId, currCount + 1)
-  }
-
-  override def apply(in: RDD[String]): RDD[(NGramType, Int)] = {
+  override def apply(in: RDD[Seq[String]]): RDD[Seq[Seq[String]]] = {
     in.mapPartitions { lines =>
-      val counts = new JHashMap[NGramType, Int]().asScala
-      val buf = new ArrayBuffer[String](orders.max)
+      val ngramsBuf = new ArrayBuffer[Seq[String]]()
+      val ngramBuf = new ArrayBuffer[String](orders.max)
       var j = 0
       var order = 0
-
-      lines.foreach { line =>
+      lines.foreach { tokens =>
         var i = 0
-        val tokens = line.trim.split(" ") // TODO: better tokenization
         while (i + minOrder <= tokens.length) {
-          buf.clear()
+          ngramBuf.clear()
 
           j = i
           while (j < i + minOrder) {
-            buf += tokens(j)
+            ngramBuf += tokens(j)
             j += 1
           }
-          recordNGram(buf, counts)
+          ngramsBuf += ngramBuf.clone()
 
           order = minOrder + 1
           while (order <= maxOrder && i + order <= tokens.length) {
-            buf += tokens(i + order - 1)
-            recordNGram(buf, counts)
+            ngramBuf += tokens(i + order - 1)
+            ngramsBuf += ngramBuf.clone()
             order += 1
           }
           i += 1
         }
       }
-      counts.toIterator
+      Iterator.single(ngramsBuf)
     }
   }
 
@@ -79,7 +66,7 @@ private[pipelines] abstract class NGramsBase[NGramType]
  * Its `hashCode` and `equals` implementations are sane so that it can
  * be used as keys in RDDs or hash tables.
  */
-class NGram(final val words: Array[String]) {
+class NGram(final val words: Array[String]) extends Serializable {
   private[this] final val PRIME = 31
 
   override def hashCode: Int = {
@@ -113,22 +100,33 @@ class NGram(final val words: Array[String]) {
 }
 
 /**
- * A simple n-gram counter that represents each token as a String and each
- * ngram as an [[NGram]] (thin wrapper over Array[String]).  This implementation
- * may not be GC-friendly or space-efficient, but should handle commonly-sized
+ * A simple transformer that represents each ngram to an [[NGram]] and counts
+ * their occurance.  Returns an RDD[(NGram, Int)] that is sorted by frequency
+ * in descending order.
+ *
+ * This implementation may not be space-efficient, but should handle commonly-sized
  * workloads well.
- *
- * Returns an RDD[(NGram, Int)] that is sorted by frequency in descending order.
- *
- * @param orders valid ngram orders, must be consecutive positive integers
  */
-class NGrams(orders: Seq[Int])
-  extends NGramsBase[NGram](orders)(strings => new NGram(strings.toArray)) {
+object NGramsCounts extends Transformer[Seq[Seq[String]], (NGram, Int)] {
 
-  override def apply(in: RDD[String]): RDD[(NGram, Int)] = {
-    super.apply(in)
-      .reduceByKey(_ + _)
-      .sortBy(_._2, ascending = false)
+  override def apply(rdd: RDD[Seq[Seq[String]]]): RDD[(NGram, Int)] = {
+    val ngramCnts = rdd.mapPartitions { lines =>
+      val counts = new JHashMap[NGram, Int]().asScala
+      var i = 0
+      var ngram: NGram = null
+      while (lines.hasNext) {
+        val line = lines.next()
+        i = 0
+        while (i < line.length) {
+          ngram = new NGram(line(i).toArray)
+          val currCount = counts.getOrElse(ngram, 0)
+          counts.put(ngram, currCount + 1)
+          i += 1
+        }
+      }
+      counts.toIterator
+    }
+    ngramCnts.reduceByKey(_ + _).sortBy(_._2, ascending = false)
   }
 
 }

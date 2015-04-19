@@ -9,8 +9,7 @@ import utils.MatrixUtils
 import scala.reflect.ClassTag
 
 case class LinearMapper(x: DenseMatrix[Double])
-  extends Transformer[DenseVector[Double], DenseVector[Double]]
-  with Serializable {
+  extends Transformer[DenseVector[Double], DenseVector[Double]] {
 
   /**
    * Apply a linear model to an input.
@@ -30,7 +29,7 @@ case class LinearMapper(x: DenseMatrix[Double])
   def apply(in: RDD[DenseVector[Double]]): RDD[DenseVector[Double]] = {
     val modelBroadcast = in.context.broadcast(x)
     in.mapPartitions(rows => {
-      val mat = MatrixUtils.arrayToMatrix(rows) * modelBroadcast.value
+      val mat = MatrixUtils.rowsToMatrix(rows) * modelBroadcast.value
       MatrixUtils.matrixToRowArray(mat).iterator
     })
   }
@@ -41,8 +40,7 @@ case class LinearMapper(x: DenseMatrix[Double])
  * @param lambda L2 Regularization parameter
  */
 class LinearMapEstimator(lambda: Option[Double] = None)
-    extends LabelEstimator[RDD[DenseVector[Double]], RDD[DenseVector[Double]], RDD[DenseVector[Double]]]
-    with Serializable {
+    extends LabelEstimator[RDD[DenseVector[Double]], RDD[DenseVector[Double]], RDD[DenseVector[Double]]] {
 
   /**
    * Learns a linear model (OLS) based on training features and training labels.

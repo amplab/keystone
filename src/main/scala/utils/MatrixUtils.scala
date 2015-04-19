@@ -43,13 +43,22 @@ object MatrixUtils extends Serializable {
   }
 
   /**
-   * Converts an array of DenseVector to a matrix where each vector is a row.
+   * Converts a sequence of DenseVector to a matrix where each vector is a row.
    *
-   * @param in Array of DenseVectors (rows)
+   * @param in Sequence of of DenseVectors (rows)
    * @return A row matrix.
    */
-  def arrayToMatrix(in: Iterator[DenseVector[Double]]): DenseMatrix[Double] = {
-    val inArr = in.toArray
+  def rowsToMatrix(in: TraversableOnce[DenseVector[Double]]): DenseMatrix[Double] = {
+    rowsToMatrix(in.toArray)
+  }
+
+  /**
+   * Converts an array of DenseVector to a matrix where each vector is a row.
+   *
+   * @param inArr Array of DenseVectors (rows)
+   * @return A row matrix.
+   */
+  def rowsToMatrix(inArr: Array[DenseVector[Double]]): DenseMatrix[Double] = {
     val nRows = inArr.length
     val nCols = inArr(0).length
     val outArr = new Array[Double](nRows * nCols)

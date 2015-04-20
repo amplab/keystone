@@ -3,7 +3,7 @@ package nodes.learning
 import breeze.linalg._
 import edu.berkeley.cs.amplab.mlmatrix.{NormalEquations, RowPartitionedMatrix}
 import org.apache.spark.rdd.RDD
-import pipelines.Pipelines._
+import pipelines.{LabelEstimator, Transformer}
 import utils.MatrixUtils
 
 import scala.reflect.ClassTag

@@ -46,11 +46,11 @@ object Stats extends Serializable {
     abs(a-b).toArray.forall(_ < thresh)
   }
   /**
-    *  Apply power normalization: z <- sign(z)|z|^{\rho}
-    *  with \rho = \frac{1}{2}
-    *  This a "signed square root"
-    *  @param in  Input DenseVector[Double] RDD
-    */
+   *  Apply power normalization: z <- sign(z)|z|^{\rho}
+   *  with \rho = \frac{1}{2}
+   *  This a "signed square root"
+   *  @param in  Input DenseVector[Double] RDD
+   */
   def signedHellingerMapper(in: RDD[DenseVector[Double]]): RDD[DenseVector[Double]] = {
     in.map(x => {
       x.map(xi => math.signum(xi) * math.sqrt(math.abs(xi)))

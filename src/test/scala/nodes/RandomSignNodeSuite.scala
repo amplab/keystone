@@ -22,10 +22,8 @@ class RandomSignNodeSuite extends FlatSpec with LocalSparkContext with Logging w
   }
 
   "RandomSignNode.create" should "create sane random sign vectors." in {
-    val random = new java.util.Random(0L)
-    val node = RandomSignNode.create(1000, random)
+    val node = RandomSignNode.create(1000)
+    
     node.signs.foreach(elt => assert(elt == -1.0 || elt == 1.0))
-    val theSum = node.signs.sum
-    assert(theSum > -200.0 && theSum < 200)
   }
 }

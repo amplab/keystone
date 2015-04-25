@@ -131,7 +131,7 @@ object LanguageModelPipeline {
 
     val extractUnigrams = SimpleTokenizer then
       new NGramsFeaturizer(1 to 1) then
-      NGramsCounts
+      new NGramsCounts
     val unigramCounts = extractUnigrams(text)
 
     var endTime = System.nanoTime()

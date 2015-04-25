@@ -15,7 +15,8 @@ import scala.reflect.ClassTag
  *
  * @param orders valid ngram orders, must be consecutive positive integers
  */
-class NGramsFeaturizer(orders: Seq[Int]) extends Transformer[Seq[String], Seq[Seq[String]]] {
+class NGramsFeaturizer[@specialized(Int) T: ClassTag](orders: Seq[Int])
+  extends Transformer[Seq[T], Seq[Seq[T]]] {
 
   private[this] final val minOrder = orders.min
   private[this] final val maxOrder = orders.max
@@ -27,10 +28,10 @@ class NGramsFeaturizer(orders: Seq[Int]) extends Transformer[Seq[String], Seq[Se
     case _ =>
   }
 
-  override def apply(in: RDD[Seq[String]]): RDD[Seq[Seq[String]]] = {
+  override def apply(in: RDD[Seq[T]]): RDD[Seq[Seq[T]]] = {
     in.mapPartitions { lines =>
-      val ngramsBuf = new ArrayBuffer[Seq[String]]()
-      val ngramBuf = new ArrayBuffer[String](orders.max)
+      val ngramsBuf = new ArrayBuffer[Seq[T]]()
+      val ngramBuf = new ArrayBuffer[T](orders.max)
       var j = 0
       var order = 0
       lines.foreach { tokens =>
@@ -67,9 +68,7 @@ class NGramsFeaturizer(orders: Seq[Int]) extends Transformer[Seq[String], Seq[Se
  * Its `hashCode` and `equals` implementations are sane so that it can
  * be used as keys in RDDs or hash tables.
  */
-class NGram[@specialized(Int) T: ClassTag](final val words: Array[T])
-  extends Serializable {
-
+class NGram[@specialized(Int) T: ClassTag](final val words: Seq[T]) extends Serializable {
   private[this] final val PRIME = 31
 
   override def hashCode: Int = {
@@ -83,7 +82,7 @@ class NGram[@specialized(Int) T: ClassTag](final val words: Array[T])
   }
 
   override def equals(that: Any): Boolean = that match {
-    case arr: NGram =>
+    case arr: NGram[T] =>
       if (words.length != arr.words.length) {
         false
       } else {
@@ -113,18 +112,20 @@ class NGram[@specialized(Int) T: ClassTag](final val words: Array[T])
  * @param mode "default": aggregated and sorted; "noAdd": just count within partitions.
  */
 class NGramsCounts[T: ClassTag](mode: String = "default")
-  extends Transformer[Seq[Seq[String]], (NGram[T], Int)] {
+  extends Transformer[Seq[Seq[T]], (NGram[T], Int)] {
 
-  override def apply(rdd: RDD[Seq[Seq[String]]]): RDD[(NGram, Int)] = {
+  // Output uses NGram as key type, since aggregation of counts uses a hash map,
+  // and we need the ngram representation to have sane .equals() and .hashCode().
+  override def apply(rdd: RDD[Seq[Seq[T]]]): RDD[(NGram[T], Int)] = {
     val ngramCnts = rdd.mapPartitions { lines =>
-      val counts = new JHashMap[NGram, Int]().asScala
+      val counts = new JHashMap[NGram[T], Int]().asScala
       var i = 0
-      var ngram: NGram = null
+      var ngram: NGram[T] = null
       while (lines.hasNext) {
         val line = lines.next()
         i = 0
         while (i < line.length) {
-          ngram = new NGram[T](line(i).toArray)
+          ngram = new NGram[T](line(i))
           val currCount = counts.getOrElse(ngram, 0)
           counts.put(ngram, currCount + 1)
           i += 1
@@ -132,10 +133,12 @@ class NGramsCounts[T: ClassTag](mode: String = "default")
       }
       counts.toIterator
     }
+
     mode match {
       case "default" => ngramCnts.reduceByKey(_ + _).sortBy(_._2, ascending = false)
       case "noAdd" => ngramCnts
       case _ => throw new IllegalArgumentException(s"`mode` must be `default` or `noAdd`")
     }
-
   }
+
+}

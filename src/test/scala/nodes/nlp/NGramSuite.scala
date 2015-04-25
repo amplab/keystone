@@ -46,13 +46,13 @@ class NGramSuite extends FunSuite with LocalSparkContext {
     def run(orders: Seq[Int]) = {
       val pipeline = tokenizer then
         new NGramsFeaturizer(orders) then
-        NGramsCounts
+        new NGramsCounts
 
       pipeline(rdd).collect().toSet
     }
 
     def liftToNGram(tuples: Set[(Seq[String], Int)]) =
-      tuples.map { case (toks, count) => (new NGram(toks.toArray), count) }
+      tuples.map { case (toks, count) => (new NGram[String](toks), count) }
 
     val unigramCounts = Set((Seq("awesome"), 2),
       (Seq("Pipelines"), 1), (Seq("are"), 1), (Seq("NLP"), 1), (Seq("is"), 1))

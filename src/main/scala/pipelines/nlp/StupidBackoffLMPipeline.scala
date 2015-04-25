@@ -1,40 +1,43 @@
 package pipelines.nlp
 
-import nodes.nlp.{WordFrequencyEncoder, NGramsCounts, NGramsFeaturizer, SimpleTokenizer}
+import nodes.nlp._
 import org.apache.spark.{SparkContext, SparkConf}
 
 object StupidBackoffLMPipeline {
 
   def main(args: Array[String]) {
     if (args.length < 2) {
-      sys.error("usage: <sparkMaster> <trainData>")
+      sys.error("usage: <sparkMaster> <trainData> <numParts>")
     }
     val sparkMaster = args(0)
     val trainData = args(1)
+    val numParts = args(2).toInt
 
     val conf = new SparkConf().setMaster(sparkMaster).setAppName("StupidBackoffLMPipeline")
     val sc = new SparkContext(conf)
 
-    val text = SimpleTokenizer(sc.textFile(trainData))
+    val text = SimpleTokenizer(sc.textFile(trainData, numParts))
 
     /** Vocab generation step */
     val frequencyEncode = WordFrequencyEncoder.fit(text)
+    val unigramCounts = frequencyEncode.unigramCounts
+    val numTokens = frequencyEncode.numTokens
 
     /** NGram (n >= 2) generation step */
-    // Need RDD[(NGram[Long], Int)]
     val makeNGrams = frequencyEncode then
       new NGramsFeaturizer(2 to 5) then
       new NGramsCounts("noAdd")
 
-    val rawNGramCounts = makeNGrams(text)
+    val ngramCounts = makeNGrams(text)
 
-    rawNGramCounts
+    /** Stupid backoff scoring step */
+    val stupidBackoff = new StupidBackoffLM[Int](numTokens, unigramCounts)
+    val languageModel = stupidBackoff(ngramCounts)
+
+    /** Done: save or serve */
+    languageModel
       .collect()
       .foreach(println)
-
-    // TODO: init bigram partition
-
-//    val model = StupidBackoffScores(rawNGramCounts).count()
 
     sc.stop()
   }

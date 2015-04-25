@@ -135,7 +135,8 @@ class NGramsCounts[T: ClassTag](mode: String = "default")
     }
 
     mode match {
-      case "default" => ngramCnts.reduceByKey(_ + _).sortBy(_._2, ascending = false)
+      case "default" => ngramCnts.reduceByKey(_ + _)
+        .sortBy(_._2, ascending = false)
       case "noAdd" => ngramCnts
       case _ => throw new IllegalArgumentException(s"`mode` must be `default` or `noAdd`")
     }

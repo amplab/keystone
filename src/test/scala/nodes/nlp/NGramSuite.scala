@@ -39,4 +39,28 @@ class NGramSuite extends FunSuite with LocalSparkContext {
     assert(run(Seq(6)) === Seq.empty, "returns 6-grams when there aren't any")
   }
 
+  test("NGramsCounts") {
+    sc = new SparkContext("local[2]", "NGramSuite")
+    val rdd = sc.parallelize(Seq("Pipelines are awesome", "NLP is awesome"), 2)
+
+    def run(orders: Seq[Int]) = {
+      val pipeline = tokenizer then
+        new NGramsFeaturizer(orders) then
+        NGramsCounts
+
+      pipeline(rdd).collect().toSet
+    }
+
+    def liftToNGram(tuples: Set[(Seq[String], Int)]) =
+      tuples.map { case (toks, count) => (new NGram(toks.toArray), count) }
+
+    val unigramCounts = Set((Seq("awesome"), 2),
+      (Seq("Pipelines"), 1), (Seq("are"), 1), (Seq("NLP"), 1), (Seq("is"), 1))
+
+    assert(run(Seq(1)) === liftToNGram(unigramCounts),
+      "unigrams incorrectly counted")
+    assert(run(2 to 3).forall(_._2 == 1),
+      "some 2-gram or 3-gram occurs once but is incorrectly counted")
+  }
+
 }

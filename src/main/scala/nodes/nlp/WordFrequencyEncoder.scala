@@ -11,7 +11,7 @@ object WordFrequencyEncoder extends Estimator[RDD[Seq[String]], RDD[Seq[Int]]] {
     new NGramsCounts()
 
   // TODO: alternative approach: collectAsMap once, let driver do the work.
-  def fit(data: RDD[Seq[String]]): StringToIntTransformer = {
+  def fit(data: RDD[Seq[String]]): WordFrequencyTransformer = {
     val unigramCounts = makeUnigrams(data)
 
     val wordIndex = unigramCounts
@@ -27,21 +27,24 @@ object WordFrequencyEncoder extends Estimator[RDD[Seq[String]], RDD[Seq[Int]]] {
       (wordIndexBroadcast.value(unigram.words(0)), count)
     }.collectAsMap()
 
-    new StringToIntTransformer(wordIndexBroadcast, unigrams)
+    new WordFrequencyTransformer(wordIndexBroadcast, unigrams)
   }
 
 }
 
-// TODO: map to -1 for out-of-vocab words?
-class StringToIntTransformer(
+class WordFrequencyTransformer(
     wordIndexBroadcast: Broadcast[scala.collection.Map[String, Int]],
     val unigramCounts: scala.collection.Map[Int, Int])
   extends Transformer[Seq[String], Seq[Int]] {
 
+  final val OOV_INDEX = -1
   lazy val numTokens = unigramCounts.values.sum
 
   def apply(in: RDD[Seq[String]]): RDD[Seq[Int]] = {
-    in.map(ngram => ngram.map(wordIndexBroadcast.value(_)))
+    in.mapPartitions { case part =>
+      val index = wordIndexBroadcast.value
+      part.map(ngram => ngram.map(index.getOrElse(_, OOV_INDEX)))
+    }
   }
 
 }

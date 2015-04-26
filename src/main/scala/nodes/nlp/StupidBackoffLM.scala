@@ -1,6 +1,5 @@
 package nodes.nlp
 
-import pipelines.nlp.{NGramIndexerImpl, BackoffIndexer}
 import pipelines.Transformer
 
 import org.apache.spark.Partitioner
@@ -61,27 +60,25 @@ class StupidBackoffLM[@specialized(Int) T: ClassTag](
        accum: Double,
        ngramId: indexer.NgramType,
        ngramFreq: Int,
-       counts: mutable.Map[indexer.NgramType, Int],
-       totalTokens: Int,
-       unigrams: scala.collection.Map[indexer.WordType, Int],
+       ngramCounts: mutable.Map[indexer.NgramType, Int],
        alpha: Double = 0.4): Double = {
     // TODO: this can be an arg, since it's mono. decreasing across recursive calls.
     val ngramOrder = indexer.ngramOrder(ngramId)
     if (ngramOrder == 1) {
-      accum * ngramFreq / totalTokens
+      accum * ngramFreq / numTokens
     } else {
       if (ngramFreq != 0) {
         val context = indexer.removeCurrentWord(ngramId)
         val contextFreq =
-          if (ngramOrder != 2) counts.getOrElse(context, 0)
-          else unigrams.getOrElse(indexer.unpack(context, 0), 0)
+          if (ngramOrder != 2) ngramCounts.getOrElse(context, 0)
+          else unigramCounts.getOrElse(indexer.unpack(context, 0), 0)
         accum * ngramFreq / contextFreq
-      } else {
+      } else { // This is only reached for out-of-corpus ngrams
         val backoffed = indexer.removeFarthestWord(ngramId)
         val freq =
-          if (ngramOrder != 2) counts.getOrElse(backoffed, 0)
-          else unigrams.getOrElse(indexer.unpack(backoffed, 0), 0)
-        stupidBackoffLocally(alpha * accum, backoffed, freq, counts, totalTokens, unigrams)
+          if (ngramOrder != 2) ngramCounts.getOrElse(backoffed, 0)
+          else unigramCounts.getOrElse(indexer.unpack(backoffed, 0), 0)
+        stupidBackoffLocally(alpha * accum, backoffed, freq, ngramCounts)
       }
     }
   }
@@ -98,9 +95,11 @@ class StupidBackoffLM[@specialized(Int) T: ClassTag](
         part.foreach { case (ngram, count) => ngramCountsMap.put(ngram, count) }
 
         ngramCountsMap.iterator.map { case (ngram, ngramFreq) =>
-          val score = stupidBackoffLocally(
-            1.0, ngram, ngramFreq, ngramCountsMap, numTokens, unigramCounts)
-          require(score >= 0.0 && score <= 1.0, f"score = $score%.4f not in [0,1], ngram = $ngram")
+          val score = stupidBackoffLocally(1.0, ngram, ngramFreq, ngramCountsMap)
+          require(score >= 0.0 && score <= 1.0,
+            f"""score = $score%.4f not in [0,1], ngram = $ngram
+               |unigramCounts: ${unigramCounts.toSeq.mkString(",")}
+             """.stripMargin)
           (ngram, score)
         }
       }, preservesPartitioning =  true)

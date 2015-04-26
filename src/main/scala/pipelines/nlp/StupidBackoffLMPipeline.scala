@@ -21,7 +21,6 @@ object StupidBackoffLMPipeline {
     /** Vocab generation step */
     val frequencyEncode = WordFrequencyEncoder.fit(text)
     val unigramCounts = frequencyEncode.unigramCounts
-    val numTokens = frequencyEncode.numTokens
 
     /** NGram (n >= 2) generation step */
     val makeNGrams = frequencyEncode then
@@ -31,7 +30,7 @@ object StupidBackoffLMPipeline {
     val ngramCounts = makeNGrams(text)
 
     /** Stupid backoff scoring step */
-    val stupidBackoff = new StupidBackoffLM[Int](numTokens, unigramCounts)
+    val stupidBackoff = new StupidBackoffLM[Int](unigramCounts)
     val languageModel = stupidBackoff(ngramCounts)
 
     /** Done: save or serve */

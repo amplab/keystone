@@ -38,7 +38,6 @@ class WordFrequencyTransformer(
   extends Transformer[Seq[String], Seq[Int]] {
 
   final val OOV_INDEX = -1
-  lazy val numTokens = unigramCounts.values.sum
 
   def apply(in: RDD[Seq[String]]): RDD[Seq[Int]] = {
     in.mapPartitions { case part =>

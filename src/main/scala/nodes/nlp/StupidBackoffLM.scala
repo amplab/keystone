@@ -50,15 +50,12 @@ class InitialBigramPartitioner[WordType: ClassTag](
 }
 
 class StupidBackoffLM[@specialized(Int) T: ClassTag](
-    val numTokens: Int,
     val unigramCounts: scala.collection.Map[T, Int])
   extends Transformer[(NGram[T], Int), (NGram[T], Double)] {
 
   private[this] val indexer = new NGramIndexerImpl[T]
 
-//  val totalTokensAccumulator = sc.accumulator(0, "Total tokens in training data")
-//  unigramCounts.foreach { case (_, cnt) => totalTokensAccumulator += cnt }
-//  val totalTokens = totalTokensAccumulator.value
+  lazy val numTokens = unigramCounts.values.sum
 
   @tailrec private[this] def stupidBackoffLocally(
        accum: Double,

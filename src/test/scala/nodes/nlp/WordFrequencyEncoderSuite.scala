@@ -17,8 +17,6 @@ class WordFrequencyEncoderSuite extends FunSuite with LocalSparkContext {
 
     assert(encoder(rdd).collect().sameElements(Seq(Seq(0, 1), Seq(0, 0, 2, 1))),
       "frequency-encoded result incorrect")
-    assert(encoder.numTokens === 6,
-      "fitted value numTokens incorrect")
     assert(encoder.unigramCounts === Map(0 -> 3, 1 -> 2, 2 -> 1),
       "fitted value unigramCounts incorrect")
 

@@ -63,4 +63,43 @@ class NGramSuite extends FunSuite with LocalSparkContext {
       "some 2-gram or 3-gram occurs once but is incorrectly counted")
   }
 
+  test("NGramsCounts (noAdd)") {
+    implicit val ngramOrdering = new Ordering[NGram[String]] {
+      def compare(a: NGram[String], b: NGram[String]): Int = {
+        if (a.words.length != b.words.length) -1
+        else if (a.words.length > b.words.length) 1
+        else {
+          a.words.zip(b.words).foreach { case (x, y) =>
+            if (x.compare(y) < 0) return -1
+            else if (x.compare(y) > 0) return 1
+          }
+          0
+        }
+      }
+    }
+
+    sc = new SparkContext("local[2]", "NGramSuite")
+    val rdd = sc.parallelize(Seq("Pipelines are awesome", "NLP is awesome"), 2)
+
+    def run(orders: Seq[Int]) = {
+      val pipeline = tokenizer then
+        new NGramsFeaturizer(orders) then
+        new NGramsCounts("noAdd")
+
+      pipeline(rdd).collect().toSeq.sortBy(_._1)
+    }
+
+    def liftToNGram(tuples: Seq[(Seq[String], Int)]) =
+      tuples.map { case (toks, count) => (new NGram[String](toks), count) }
+        .sortBy(_._1)
+
+    val unigramCounts = Seq((Seq("awesome"), 1), (Seq("awesome"), 1),
+      (Seq("Pipelines"), 1), (Seq("are"), 1), (Seq("NLP"), 1), (Seq("is"), 1))
+
+    assert(run(Seq(1)) === liftToNGram(unigramCounts),
+      "unigrams incorrectly counted")
+    assert(run(2 to 3).forall(_._2 == 1),
+      "some 2-gram or 3-gram occurs once but is incorrectly counted")
+  }
+
 }

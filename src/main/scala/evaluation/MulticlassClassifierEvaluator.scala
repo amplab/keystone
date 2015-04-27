@@ -11,7 +11,7 @@ case class MulticlassClassifierEvaluation(confusionMatrix: DenseMatrix[Double]) 
   require(confusionMatrix.rows == confusionMatrix.cols, "Confusion matrix must be square")
 
   private val numClasses = confusionMatrix.rows
-  private val classEvals = {
+  val classEval = {
     val total = sum(confusionMatrix)
     val actualsSums = sum(confusionMatrix(*, ::))
     val predictedSums = sum(confusionMatrix(::, *)).t(::, 0)
@@ -22,11 +22,11 @@ case class MulticlassClassifierEvaluation(confusionMatrix: DenseMatrix[Double]) 
       val tn = total - actualsSums(clss) - fp
       val fn = total - tp - fp - tn
       BinaryClassifierEvaluation(tp, fp, tn, fn)
-    })
+    }).toArray
   }
 
-  private def classAvg(f: BinaryClassifierEvaluation => Double): Double = classEvals.map(f).sum / numClasses
-  private def micro(f: BinaryClassifierEvaluation => Double): Double = f(classEvals.reduce(_ merge _))
+  private def classAvg(f: BinaryClassifierEvaluation => Double): Double = classEval.map(f).sum / numClasses
+  private def micro(f: BinaryClassifierEvaluation => Double): Double = f(classEval.reduce(_ merge _))
 
   def accuracy: Double = classAvg(_.accuracy)
   def macroPrecision: Double = classAvg(_.precision)
@@ -37,7 +37,7 @@ case class MulticlassClassifierEvaluation(confusionMatrix: DenseMatrix[Double]) 
   def microFScore(beta: Double = 1.0): Double = micro(_.fScore(beta))
 
   /**
-   * TODO FIXMEUP
+   * TODO:  FIX UP DOC
    * Returns pretty-printed confusion matrix string:
    * predicted classes are in columns, true labels in rows
    * Styled after Mahout's pprinting

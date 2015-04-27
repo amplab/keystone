@@ -11,7 +11,6 @@ case class BinaryClassifierEvaluation(tp: Double, fp: Double, tn: Double, fn: Do
   def recall: Double = tp / (tp + fn)
   def precision: Double = tp / (tp + fp)
   def specificity: Double = tn / (fp + tn)
-  def auc: Double = 0.5 * ((tp / (tp + fn)) + (tn / (tn + fp)))
 
   def fScore(beta: Double = 1.0): Double = {
     val num = (1.0 + beta * beta) * tp

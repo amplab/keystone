@@ -5,7 +5,7 @@ import org.apache.spark.rdd.RDD
 import pipelines.{Estimator, Transformer}
 
 /**
- * A transformer which given a feature space, maps extracted sparse features of the form (name, value) into a vector
+ * A transformer which given a feature space, maps sparse features of the form (identifier, value) into a vector
  */
 class SparseFeatureVectorizer(featureSpace: Map[Any, Int]) extends Transformer[Seq[(Any, Double)], SparseVector[Double]] {
   private def transformVector(in: Seq[(Any, Double)], featureSpaceMap: Map[Any, Int]): SparseVector[Double] = {
@@ -25,7 +25,7 @@ class SparseFeatureVectorizer(featureSpace: Map[Any, Int]) extends Transformer[S
  * A simple feature selector that chooses all features produced by a sparse feature extractor,
  * and produces a transformer which builds a sparse vector out of all the features it sees in the corpus
  */
-object SparseFeatureVectorizer extends Estimator[RDD[Seq[(Any, Double)]], RDD[SparseVector[Double]]] {
+object AllSparseFeatures extends Estimator[RDD[Seq[(Any, Double)]], RDD[SparseVector[Double]]] {
   override def fit(data: RDD[Seq[(Any, Double)]]): SparseFeatureVectorizer = {
     val featureSpace = data.flatMap(_.map(_._1)).distinct()
         .zipWithIndex().collect().map(x => (x._1, x._2.toInt)).toMap
@@ -34,8 +34,8 @@ object SparseFeatureVectorizer extends Estimator[RDD[Seq[(Any, Double)]], RDD[Sp
 }
 
 /**
- * A simple feature selector that keeps most frequent features produced by a sparse feature extractor,
- * and produces a transformer which builds a sparse vector out of all the features it keeps
+ * A feature selector that keeps the most frequently observed sparse features,
+ * and produces a transformer which builds a sparse vector out of these
  *
  * @param numFeatures The number of features to keep
  */

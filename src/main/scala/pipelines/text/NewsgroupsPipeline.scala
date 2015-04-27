@@ -4,7 +4,7 @@ import breeze.linalg.{Vector, argmax}
 import evaluation.MulticlassClassifierEvaluator
 import loaders.NewsgroupsDataLoader
 import nodes.learning.NaiveBayesEstimator
-import nodes.misc.CommonSparseFeatures
+import nodes.misc.{TermFrequency, CommonSparseFeatures}
 import nodes.nlp._
 import org.apache.spark.SparkContext
 import org.slf4j.LoggerFactory

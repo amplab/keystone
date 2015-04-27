@@ -55,7 +55,7 @@ class NaiveBayesModel(
  * An estimator which learns a multinomial naive bayes model from training data and outputs a node that applies the model
  * @param lambda The lambda parameter to use for the various naive bayes models
  */
-case class NaiveBayesEstimator(numClasses: Int, lambda: Float = 1.0f)  extends LabelEstimator[RDD[Vector[Double]], RDD[DenseVector[Double]], RDD[Int]] {
+case class NaiveBayesEstimator(numClasses: Int, lambda: Double = 1.0)  extends LabelEstimator[RDD[Vector[Double]], RDD[DenseVector[Double]], RDD[Int]] {
   override def fit(in: RDD[Vector[Double]], labels: RDD[Int]): NaiveBayesModel = {
     val labeledPoints = labels.zip(in).map(x => LabeledPoint(x._1, breezeVectorToMLlib(x._2)))
     val model = NaiveBayes.train(labeledPoints, lambda)

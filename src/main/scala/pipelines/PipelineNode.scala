@@ -70,5 +70,6 @@ object PipelineNode extends Serializable {
   implicit def nodeToRDDOutHelpers[I, O](node: PipelineNode[I, RDD[O]]): RDDOutputFunctions[I, O] = new RDDOutputFunctions(node)
   class RDDOutputFunctions[I, O](node: PipelineNode[I, RDD[O]]) {
     def thenMap[U : ClassTag](f: O => U): PipelineNode[I, RDD[U]] = node.then(Transformer(f))
+    def to[U >: O : ClassTag]: PipelineNode[I, RDD[U]] = node.then(Transformer(x => x: U))
   }
 }

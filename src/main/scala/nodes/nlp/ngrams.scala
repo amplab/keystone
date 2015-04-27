@@ -25,11 +25,11 @@ class NGramsFeaturizer(orders: Seq[Int]) extends Transformer[Seq[String], Seq[Se
 
   override def apply(in: RDD[Seq[String]]): RDD[Seq[Seq[String]]] = {
     in.mapPartitions { lines =>
-      val ngramsBuf = new ArrayBuffer[Seq[String]]()
       val ngramBuf = new ArrayBuffer[String](orders.max)
       var j = 0
       var order = 0
-      lines.foreach { tokens =>
+      lines.map { tokens =>
+        val ngramsBuf = new ArrayBuffer[Seq[String]]()
         var i = 0
         while (i + minOrder <= tokens.length) {
           ngramBuf.clear()
@@ -49,8 +49,8 @@ class NGramsFeaturizer(orders: Seq[Int]) extends Transformer[Seq[String], Seq[Se
           }
           i += 1
         }
+        ngramsBuf
       }
-      Iterator.single(ngramsBuf)
     }
   }
 

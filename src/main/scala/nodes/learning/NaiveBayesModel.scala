@@ -9,14 +9,14 @@ import pipelines.Transformer
 import utils.MLlibUtils.breezeVectorToMLlib
 
 /**
- * Model for Naive Bayes Classifiers.
+ * A Multinomial Naive Bayes model that transforms feature vectors to vectors containing
+ * the log posterior probabilities of the different classes
  *
- * @param labels list of labels, ranging from 0 to (C - 1) inclusive
+ * @param labels list of class labels, ranging from 0 to (C - 1) inclusive
  * @param pi log of class priors, whose dimension is C, number of labels
  * @param theta log of class conditional probabilities, whose dimension is C-by-D,
  *              where D is number of features
  */
-
 class NaiveBayesModel(
     val labels: Array[Int],
     val pi: Array[Double],
@@ -39,6 +39,13 @@ class NaiveBayesModel(
     }
   }
 
+  /**
+   * Transforms feature vectors to vectors containing the log(posterior probabilities) of the different classes
+   * according to this naive bayes model.
+   *
+   * @param in The input RDD of features
+   * @return Log-posterior probabilites of the classes for the input features
+   */
   override def apply(in: RDD[Vector[Double]]): RDD[DenseVector[Double]] = {
     val brzPiBroadcast = in.context.broadcast(brzPi)
     val brzThetaBroadcast = in.context.broadcast(brzTheta)
@@ -52,8 +59,11 @@ class NaiveBayesModel(
 }
 
 /**
- * An estimator which learns a multinomial naive bayes model from training data and outputs a node that applies the model
- * @param lambda The lambda parameter to use for the various naive bayes models
+ * A LabelEstimator which learns a multinomial naive bayes model from training data.
+ * Outputs a Transformer that maps features to vectors containing the log-posterior-probabilities
+ * of the various classes according to the learned model.
+ *
+ * @param lambda The lambda parameter to use for the naive bayes model
  */
 case class NaiveBayesEstimator(numClasses: Int, lambda: Double = 1.0)  extends LabelEstimator[RDD[Vector[Double]], RDD[DenseVector[Double]], RDD[Int]] {
   override def fit(in: RDD[Vector[Double]], labels: RDD[Int]): NaiveBayesModel = {

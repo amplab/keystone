@@ -4,14 +4,19 @@ import breeze.linalg.{*, sum, DenseMatrix}
 import org.apache.spark.rdd.RDD
 
 /**
- * TODO: WRITEME
- * @param confusionMatrix Confusion Matrix for the classifier, where the predicted classes are in columns
+ * Contains the confusion matrix for a multiclass classifier,
+ * and provides common metrics such as micro & macro precision & recall
+ *
+ * Similar to MLlib's [[org.apache.spark.mllib.evaluation.MulticlassMetrics]],
+ * but only does one pass over the data to calculate everything
+ *
+ * @param confusionMatrix  rows are the true labels, cols are the predicted labels
  */
-case class MulticlassClassifierEvaluation(confusionMatrix: DenseMatrix[Double]) {
+case class MulticlassMetrics(confusionMatrix: DenseMatrix[Double]) {
   require(confusionMatrix.rows == confusionMatrix.cols, "Confusion matrix must be square")
 
   private val numClasses = confusionMatrix.rows
-  val classEval = {
+  val classMetrics = {
     val total = sum(confusionMatrix)
     val actualsSums = sum(confusionMatrix(*, ::))
     val predictedSums = sum(confusionMatrix(::, *)).t(::, 0)
@@ -21,12 +26,12 @@ case class MulticlassClassifierEvaluation(confusionMatrix: DenseMatrix[Double]) 
       val fp = predictedSums(clss) - tp
       val tn = total - actualsSums(clss) - fp
       val fn = total - tp - fp - tn
-      BinaryClassifierEvaluation(tp, fp, tn, fn)
+      BinaryClassificationMetrics(tp, fp, tn, fn)
     }).toArray
   }
 
-  private def classAvg(f: BinaryClassifierEvaluation => Double): Double = classEval.map(f).sum / numClasses
-  private def micro(f: BinaryClassifierEvaluation => Double): Double = f(classEval.reduce(_ merge _))
+  private def classAvg(f: BinaryClassificationMetrics => Double): Double = classMetrics.map(f).sum / numClasses
+  private def micro(f: BinaryClassificationMetrics => Double): Double = f(classMetrics.reduce(_ merge _))
 
   def accuracy: Double = classAvg(_.accuracy)
   def macroPrecision: Double = classAvg(_.precision)
@@ -36,11 +41,12 @@ case class MulticlassClassifierEvaluation(confusionMatrix: DenseMatrix[Double]) 
   def microRecall: Double = micro(_.recall)
   def microFScore(beta: Double = 1.0): Double = micro(_.fScore(beta))
 
+
   /**
-   * TODO:  FIX UP DOC
-   * Returns pretty-printed confusion matrix string:
-   * predicted classes are in columns, true labels in rows
-   * Styled after Mahout's pprinting
+   * Pretty-prints the confusion matrix in a style similar to Mahout.
+   * Predicted labels are in columns. True labels in rows
+   *
+   * @param classes  An array containing the class names, where the indices are the class labels
    */
   def pprintConfusionMatrix(classes: Array[String]): String = {
     val out = new DenseMatrix[Any](numClasses + 3, numClasses + 1)
@@ -63,7 +69,7 @@ case class MulticlassClassifierEvaluation(confusionMatrix: DenseMatrix[Double]) 
 
   /**
    * Encodes an Int in base 26 (using chars 'a' - 'z')
-   * Used to make the column headers in the pretty-printed confusion matrix
+   * Used to make the column headers in the pretty-printed confusion matrix (Styled after Mahout)
    * @param i the Int to encode
    * @return The base 26 encoded Int as a String
    */
@@ -84,18 +90,27 @@ case class MulticlassClassifierEvaluation(confusionMatrix: DenseMatrix[Double]) 
 }
 
 object MulticlassClassifierEvaluator {
-  def apply(predictions: RDD[Int], actuals: RDD[Int], numClasses: Int): MulticlassClassifierEvaluation = {
-    MulticlassClassifierEvaluation(confusionMatrix(predictions, actuals, numClasses))
+  /**
+   * Builds the confusion matrix for a multiclass classifier,
+   * and provides common metrics such as micro & macro precision & recall
+   *
+   * Similar to MLlib's [[org.apache.spark.mllib.evaluation.MulticlassMetrics]],
+   * but only does one pass over the data to calculate everything
+   *
+   * @param predictions  An RDD of predicted class labels. Must range from 0 until numClasses
+   * @param actuals  An RDD of the true class labels. Must range from 0 until numClasses
+   * @param numClasses  The number of classes being classified among
+   * @return  Common multiclass classifier metrics for this data
+   */
+  def apply(predictions: RDD[Int], actuals: RDD[Int], numClasses: Int): MulticlassMetrics = {
+    MulticlassMetrics(confusionMatrix(predictions, actuals, numClasses))
   }
 
   /**
-   * TODO: Fixmeup
-   * Builds a confusion matrix:
-   * predicted classes are in columns, true labels in the rows
-   * they are ordered by class label ascending,
-   * as in "labels"
+   * Builds a confusion matrix from the predictions & true labels & # of classes.
+   * columns represent predicted labels, rows represent true labels
    */
-  def confusionMatrix(predictions: RDD[Int], actuals: RDD[Int], numClasses: Int): DenseMatrix[Double] = {
+  private def confusionMatrix(predictions: RDD[Int], actuals: RDD[Int], numClasses: Int): DenseMatrix[Double] = {
     def incrementCount(x: DenseMatrix[Double], n: (Int, Int)): DenseMatrix[Double] = {
       val predicted = n._1
       val actual = n._2

@@ -18,10 +18,8 @@ case class LabeledData[Label : ClassTag, Datum : ClassTag](labeledData: RDD[(Lab
 /** A case class containing loaded 20 Newsgroups train & test data */
 case class NewsgroupsData(classes: Array[String], train: LabeledData[Int, String], test: LabeledData[Int, String])
 
-/**
- * FIXME: ADD DESCRIPTION AHHH!!! AND LINK TO WHERE THE DATA CAN BE DOWNLOADED
- */
 object NewsgroupsDataLoader {
+  /** The 20 Newsgroups class labels (and directory names) **/
   val classes = Array(
     "comp.graphics",
     "comp.os.ms-windows.misc",
@@ -45,6 +43,18 @@ object NewsgroupsDataLoader {
     "soc.religion.christian"
   )
 
+  /**
+   * Loads the 20 newsgroups dataset.
+   * Designed to load data from 20news-bydate.tar.gz from http://qwone.com/~jason/20Newsgroups/
+   *
+   * The expected directory structure for the train and test dirs is:
+   * train_or_test_dir/class_label/docs_as_separate_plaintext_files
+   *
+   * @param sc  SparkContext to use
+   * @param trainDir  Directory of the training data
+   * @param testDir  Directory of the test data
+   * @return  A NewsgroupsData object containing the loaded train & test data as RDDs
+   */
   def apply(sc: SparkContext, trainDir: String, testDir: String): NewsgroupsData = {
     val trainData: RDD[(Int, String)] = new UnionRDD(sc, classes.zipWithIndex.map{ case (className, index) => {
       sc.wholeTextFiles(s"$trainDir/$className").map(index -> _._2)

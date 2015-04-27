@@ -4,9 +4,7 @@ import breeze.linalg.SparseVector
 import org.apache.spark.rdd.RDD
 import pipelines.{Estimator, Transformer}
 
-/**
- * A transformer which given a feature space, maps sparse features of the form (identifier, value) into a vector
- */
+/** A transformer which given a feature space, maps features of the form (feature id, value) into a sparse vector */
 class SparseFeatureVectorizer(featureSpace: Map[Any, Int]) extends Transformer[Seq[(Any, Double)], SparseVector[Double]] {
   private def transformVector(in: Seq[(Any, Double)], featureSpaceMap: Map[Any, Int]): SparseVector[Double] = {
     val features = in.map(f => (featureSpaceMap.get(f._1), f._2))
@@ -22,8 +20,8 @@ class SparseFeatureVectorizer(featureSpace: Map[Any, Int]) extends Transformer[S
 }
 
 /**
- * A simple feature selector that chooses all features produced by a sparse feature extractor,
- * and produces a transformer which builds a sparse vector out of all the features it sees in the corpus
+ * An Estimator that chooses all sparse features observed when training,
+ * and produces a transformer which builds a sparse vector out of them
  */
 object AllSparseFeatures extends Estimator[RDD[Seq[(Any, Double)]], RDD[SparseVector[Double]]] {
   override def fit(data: RDD[Seq[(Any, Double)]]): SparseFeatureVectorizer = {
@@ -34,8 +32,8 @@ object AllSparseFeatures extends Estimator[RDD[Seq[(Any, Double)]], RDD[SparseVe
 }
 
 /**
- * A feature selector that keeps the most frequently observed sparse features,
- * and produces a transformer which builds a sparse vector out of these
+ * An Estimator that chooses the most frequently observed sparse features when training,
+ * and produces a transformer which builds a sparse vector out of them
  *
  * @param numFeatures The number of features to keep
  */

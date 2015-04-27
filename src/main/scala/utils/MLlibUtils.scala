@@ -7,6 +7,7 @@ import breeze.linalg.{SparseVector, DenseMatrix, DenseVector}
  */
 object MLlibUtils {
 
+  /** Convert an MLlib vector to a Breeze dense vector */
   def mllibVectorToDenseBreeze(vector: org.apache.spark.mllib.linalg.Vector): DenseVector[Double] = {
     vector match {
       case dense: org.apache.spark.mllib.linalg.DenseVector => new DenseVector[Double](dense.values)
@@ -14,6 +15,7 @@ object MLlibUtils {
     }
   }
 
+  /** Convert an MLlib matrix to a Breeze dense matrix */
   def mllibMatrixToDenseBreeze(matrix: org.apache.spark.mllib.linalg.Matrix): DenseMatrix[Double] = {
     matrix match {
       case dense: org.apache.spark.mllib.linalg.DenseMatrix => {
@@ -29,6 +31,7 @@ object MLlibUtils {
     }
   }
 
+  /** Convert a Breeze vector to an MLlib vector, maintaining underlying data structure (sparse vs dense) */
   def breezeVectorToMLlib(breezeVector: breeze.linalg.Vector[Double]): org.apache.spark.mllib.linalg.Vector = {
     breezeVector match {
       case v: DenseVector[Double] =>

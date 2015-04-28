@@ -23,8 +23,11 @@ test("randMatrixGaussian"){
   // What other tests would make sense here?
   assert(m.rows == 1000) 
   assert(m.cols == 1000)
-  assert(aboutEq(mean(m),0))
-  assert(aboutEq(variance(m),1))
+  val oldThresh = Stats.thresh
+  Stats.thresh = 10e-3
+  assert(Stats.aboutEq(mean(m),0))
+  assert(Stats.aboutEq(variance(m),1))
+  Stats.thresh = oldThresh
 }
 
 test("randMatrixCauchy"){
@@ -32,7 +35,10 @@ test("randMatrixCauchy"){
   // What other tests would make sense here?
   assert(m.rows == 1000) 
   assert(m.cols == 1000)
-  assert(aboutEq(median(m),0))
+  val oldThresh = Stats.thresh
+  Stats.thresh = 10e-3
+  assert(Stats.aboutEq(median(m),0))
+  Stats.thresh = oldThresh
 }
 
 }

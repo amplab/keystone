@@ -3,7 +3,7 @@ package nodes
 import pipelines._
 import breeze.linalg._
 import java.util.Random
-import pipelines.Pipelines.Transformer
+import pipelines.Transformer
 import org.apache.spark.rdd.RDD
 import org.apache.spark.SparkContext
 import org.apache.spark.broadcast.Broadcast

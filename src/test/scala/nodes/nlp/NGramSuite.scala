@@ -8,15 +8,12 @@ import org.scalatest.FunSuite
 
 class NGramSuite extends FunSuite with LocalSparkContext {
 
-  val tokenizer = Transformer { x: String => x.split(" ").toSeq }
-
   test("NGramsFeaturizer") {
     sc = new SparkContext("local[2]", "NGramSuite")
     val rdd = sc.parallelize(Seq("Pipelines are awesome", "NLP is awesome"), 2)
 
     def run(orders: Seq[Int]) = {
-      val pipeline = tokenizer then
-        new NGramsFeaturizer(orders)
+      val pipeline = SimpleTokenizer then NGramsFeaturizer(orders)
 
       pipeline(rdd)
         .mapPartitions(_.flatten) // for comparison
@@ -44,9 +41,9 @@ class NGramSuite extends FunSuite with LocalSparkContext {
     val rdd = sc.parallelize(Seq("Pipelines are awesome", "NLP is awesome"), 2)
 
     def run(orders: Seq[Int]) = {
-      val pipeline = tokenizer then
-        new NGramsFeaturizer(orders) then
-        new NGramsCounts
+      val pipeline = SimpleTokenizer then
+        NGramsFeaturizer(orders) then
+        NGramsCounts()
 
       pipeline(rdd).collect().toSet
     }
@@ -82,9 +79,9 @@ class NGramSuite extends FunSuite with LocalSparkContext {
     val rdd = sc.parallelize(Seq("Pipelines are awesome", "NLP is awesome"), 2)
 
     def run(orders: Seq[Int]) = {
-      val pipeline = tokenizer then
-        new NGramsFeaturizer(orders) then
-        new NGramsCounts("noAdd")
+      val pipeline = SimpleTokenizer then
+        NGramsFeaturizer(orders) then
+        NGramsCounts("noAdd")
 
       pipeline(rdd).collect().toSeq.sortBy(_._1)
     }

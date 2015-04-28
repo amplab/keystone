@@ -15,7 +15,7 @@ import scala.reflect.ClassTag
  *
  * @param orders valid ngram orders, must be consecutive positive integers
  */
-class NGramsFeaturizer[@specialized(Int) T: ClassTag](orders: Seq[Int])
+case class NGramsFeaturizer[@specialized(Int) T: ClassTag](orders: Seq[Int])
   extends Transformer[Seq[T], Seq[Seq[T]]] {
 
   private[this] final val minOrder = orders.min
@@ -111,7 +111,7 @@ class NGram[@specialized(Int) T: ClassTag](final val words: Seq[T]) extends Seri
  *
  * @param mode "default": aggregated and sorted; "noAdd": just count within partitions.
  */
-class NGramsCounts[T: ClassTag](mode: String = "default")
+case class NGramsCounts[T: ClassTag](mode: String = "default")
   extends Transformer[Seq[Seq[T]], (NGram[T], Int)] {
 
   // Output uses NGram as key type, since aggregation of counts uses a hash map,

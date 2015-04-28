@@ -17,8 +17,8 @@ class StupidBackoffSuite extends FunSuite with LocalSparkContext {
     "Summer is coming really soon")
 
   def featurizer(orders: Seq[Int], mode: String = "default") = SimpleTokenizer then
-    new NGramsFeaturizer[String](orders) then
-    new NGramsCounts[String](mode)
+    NGramsFeaturizer[String](orders) then
+    NGramsCounts[String](mode)
 
   def requireNGramColocation[T, V](
       ngrams: RDD[(NGram[T], V)],
@@ -49,7 +49,7 @@ class StupidBackoffSuite extends FunSuite with LocalSparkContext {
       .collectAsMap()
       .map { case (key, value) => key.words(0) -> value }
 
-    val stupidBackoff = new StupidBackoffEstimator[String](unigrams).fit(ngrams)
+    val stupidBackoff = StupidBackoffEstimator[String](unigrams).fit(ngrams)
     requireNGramColocation(stupidBackoff.scoresRDD, new NGramIndexerImpl[String])
   }
 
@@ -60,7 +60,7 @@ class StupidBackoffSuite extends FunSuite with LocalSparkContext {
     val unigrams = featurizer(1 to 1)(corpus)
       .collectAsMap()
       .map { case (key, value) => key.words(0) -> value }
-    val lm = new StupidBackoffEstimator[String](unigrams).fit(ngrams)
+    val lm = StupidBackoffEstimator[String](unigrams).fit(ngrams)
 
     assert(lm.score(new NGram(Seq("is", "coming"))) === 2.0 / 2.0)
     assert(lm.score(new NGram(Seq("is", "coming", "really"))) === 1.0 / 2.0)

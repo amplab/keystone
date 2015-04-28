@@ -25,13 +25,13 @@ object StupidBackoffLMPipeline {
 
     /** NGram (n >= 2) generation step */
     val makeNGrams = frequencyEncode then
-      new NGramsFeaturizer(2 to 5) then
-      new NGramsCounts("noAdd")
+      NGramsFeaturizer(2 to 5) then
+      NGramsCounts("noAdd")
 
     val ngramCounts = makeNGrams(text)
 
     /** Stupid backoff scoring step */
-    val stupidBackoff = new StupidBackoffEstimator[Int](unigramCounts)
+    val stupidBackoff = StupidBackoffEstimator[Int](unigramCounts)
     val languageModel = stupidBackoff.fit(ngramCounts)
 
     /** Done: save or serve */

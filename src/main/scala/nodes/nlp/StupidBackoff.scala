@@ -112,7 +112,7 @@ class StupidBackoffModel[@specialized(Int) T: ClassTag](
 
 }
 
-class StupidBackoffEstimator[@specialized(Int) T: ClassTag](
+case class StupidBackoffEstimator[@specialized(Int) T: ClassTag](
     unigramCounts: collection.Map[T, Int],
     alpha: Double = 0.4)
   extends Estimator[RDD[(NGram[T], Int)], RDD[(NGram[T], Double)]] {

@@ -23,8 +23,8 @@ test("randMatrixGaussian"){
   // What other tests would make sense here?
   assert(m.rows == 1000) 
   assert(m.cols == 1000)
-  assert(mean(m) < 10e-2)
-  assert(variance(m) - 1 < 10e-3)
+  assert(aboutEq(mean(m),0))
+  assert(aboutEq(variance(m),1))
 }
 
 test("randMatrixCauchy"){
@@ -32,7 +32,7 @@ test("randMatrixCauchy"){
   // What other tests would make sense here?
   assert(m.rows == 1000) 
   assert(m.cols == 1000)
-  assert(median(m) < 10e-3)
+  assert(aboutEq(median(m),0))
 }
 
 }

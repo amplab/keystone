@@ -2,19 +2,15 @@ package nodes.nlp
 
 import scala.reflect.ClassTag
 
-trait NGramIndexer[T, U] extends Serializable {
-
-  type WordType = T
-  type NgramType = U
-
+trait NGramIndexer[WordType, NGramType] extends Serializable {
   val minNgramOrder: Int
   val maxNgramOrder: Int
 
   /**
-   * Packs a sequence of word IDs of type U into a single U.  The current word
-   * is `ngram.last`, and the words before are the context.
+   * Packs a sequence of words of type WordType into a single NGramType.  The
+   * current word is `ngram.last`, and the words before are the context.
    */
-  def pack(ngram: Seq[WordType]): NgramType
+  def pack(ngram: Seq[WordType]): NGramType
 }
 
 /**
@@ -23,23 +19,23 @@ trait NGramIndexer[T, U] extends Serializable {
  *
  * Such indexers are useful for LMs that require backoff contexts (e.g. Stupid Backoff, KN).
  */
-trait BackoffIndexer[T, U] extends NGramIndexer[T, U] {
+trait BackoffIndexer[WordType, NGramType] extends NGramIndexer[WordType, NGramType] {
 
   /**
-   * Unpacks the `pos` word out of the packed ngram of type U.  Position 0
+   * Unpacks the `pos` word out of the packed ngram of type NGramType.  Position 0
    * indicates the farthest context (if unigram, the current word), and position
    * MAX_ORDER-1 represents the current word.
    *
    * Useful for getting words at special positions (e.g. first two in context).
    */
-  def unpack(ngram: NgramType, pos: Int): WordType
+  def unpack(ngram: NGramType, pos: Int): WordType
 
-  def removeFarthestWord(ngram: NgramType): NgramType
+  def removeFarthestWord(ngram: NGramType): NGramType
 
-  def removeCurrentWord(ngram: NgramType): NgramType
+  def removeCurrentWord(ngram: NGramType): NGramType
 
   /** Returns an order in [minNgramOrder, maxNgramOrder] if valid; otherwise errors out. */
-  def ngramOrder(ngram: NgramType): Int
+  def ngramOrder(ngram: NGramType): Int
 
 }
 

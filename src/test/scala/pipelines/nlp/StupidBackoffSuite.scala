@@ -41,7 +41,7 @@ class StupidBackoffSuite extends FunSuite with LocalSparkContext {
     }.count()
   }
 
-  test("end to end InitialBigramPartitioner") {
+  test("end-to-end InitialBigramPartitioner") {
     sc = new SparkContext("local[4]", "StupidBackoffSuite")
     val corpus = sc.parallelize(data, 3)
     val ngrams = featurizer(2 to 5, "noAdd")(corpus)
@@ -49,8 +49,26 @@ class StupidBackoffSuite extends FunSuite with LocalSparkContext {
       .collectAsMap()
       .map { case (key, value) => key.words(0) -> value }
 
-    val stupidBackoff = new StupidBackoffLM[String](unigrams)
-    requireNGramColocation(stupidBackoff(ngrams), new NGramIndexerImpl[String])
+    val stupidBackoff = new StupidBackoffEstimator[String](unigrams).fit(ngrams)
+    requireNGramColocation(stupidBackoff.scoresRDD, new NGramIndexerImpl[String])
+  }
+
+  test("Stupid Backoff calculates correct scores") {
+    sc = new SparkContext("local[4]", "StupidBackoffSuite")
+    val corpus = sc.parallelize(data, 3)
+    val ngrams = featurizer(2 to 5, "noAdd")(corpus)
+    val unigrams = featurizer(1 to 1)(corpus)
+      .collectAsMap()
+      .map { case (key, value) => key.words(0) -> value }
+    val lm = new StupidBackoffEstimator[String](unigrams).fit(ngrams)
+
+    assert(lm.score(new NGram(Seq("is", "coming"))) === 2.0 / 2.0)
+    assert(lm.score(new NGram(Seq("is", "coming", "really"))) === 1.0 / 2.0)
+
+    assert(lm.score(new NGram(Seq("is", "unseen-coming"))) === 0,
+      "not equal to expected: bacoffed once & curr word unseen, so should be zero")
+    assert(lm.score(new NGram(Seq("is-unseen", "coming"))) === lm.alpha * 3.0 / lm.numTokens,
+      "not equal to expected: backoffed once, should be alpha * currWordCount / numTokens")
   }
 
 }

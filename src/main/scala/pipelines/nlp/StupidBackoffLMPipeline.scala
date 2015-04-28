@@ -1,6 +1,7 @@
 package pipelines.nlp
 
 import nodes.nlp._
+
 import org.apache.spark.{SparkContext, SparkConf}
 
 object StupidBackoffLMPipeline {
@@ -30,13 +31,18 @@ object StupidBackoffLMPipeline {
     val ngramCounts = makeNGrams(text)
 
     /** Stupid backoff scoring step */
-    val stupidBackoff = new StupidBackoffLM[Int](unigramCounts)
-    val languageModel = stupidBackoff(ngramCounts)
+    val stupidBackoff = new StupidBackoffEstimator[Int](unigramCounts)
+    val languageModel = stupidBackoff.fit(ngramCounts)
 
     /** Done: save or serve */
-    languageModel
-      .collect()
-      .foreach(println)
+    languageModel.scoresRDD.cache()
+    println(
+      s"""|number of tokens: ${languageModel.numTokens}
+          |size of vocabulary: ${languageModel.unigramCounts.size}
+          |number of ngrams: ${languageModel.scoresRDD.count()}
+          |""".stripMargin)
+    println("trained scores of 100 ngrams in the corpus:")
+    languageModel.scoresRDD.take(100).foreach(println)
 
     sc.stop()
   }

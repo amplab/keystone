@@ -30,7 +30,8 @@ case class BinaryClassificationMetrics(tp: Double, fp: Double, tn: Double, fn: D
    *
    * "Measures the effectiveness of retrieval with respect to a user
    * who attaches beta times as much importance to recall as precision"
-   *
+   * http://en.wikipedia.org/wiki/F1_score
+   * 
    * @param beta Defaults to 1 (so returns the f1-score)
    */
   def fScore(beta: Double = 1.0): Double = {

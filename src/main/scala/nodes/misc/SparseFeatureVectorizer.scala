@@ -2,6 +2,7 @@ package nodes.misc
 
 import breeze.linalg.SparseVector
 import org.apache.spark.rdd.RDD
+import org.apache.spark.rdd.RDD._
 import pipelines.{Estimator, Transformer}
 
 /** A transformer which given a feature space, maps features of the form (feature id, value) into a sparse vector */
@@ -38,8 +39,15 @@ object AllSparseFeatures extends Estimator[RDD[Seq[(Any, Double)]], RDD[SparseVe
  * @param numFeatures The number of features to keep
  */
 case class CommonSparseFeatures(numFeatures: Int) extends Estimator[RDD[Seq[(Any, Double)]], RDD[SparseVector[Double]]] {
+  // Ordering that compares (feature, frequency) pairs according to their frequencies
+  val ordering = new Ordering[(Any, Int)] {
+    override def compare(x: (Any, Int), y: (Any, Int)): Int = x._2.compare(y._2)
+  }
+
   override def fit(data: RDD[Seq[(Any, Double)]]): SparseFeatureVectorizer = {
-    val featureSpace = data.flatMap(_.map(_._1)).countByValue().toSeq.sortBy(-_._2).take(numFeatures).map(_._1).zipWithIndex.toMap
+    val featureFrequencies = data.flatMap(identity).mapValues(_ => 1).reduceByKey(_+_)
+    val mostCommonFeatures = featureFrequencies.top(numFeatures)(ordering).map(_._1)
+    val featureSpace = mostCommonFeatures.zipWithIndex.toMap
     new SparseFeatureVectorizer(featureSpace)
   }
 }

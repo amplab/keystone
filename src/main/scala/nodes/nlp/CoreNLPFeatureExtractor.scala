@@ -6,8 +6,14 @@ import org.apache.spark.rdd.RDD
 import pipelines.Transformer
 
 /**
- * TODO: Fill out
- * CoreNLP: tokenizes, lemmatizes, extracts entities (replacing token w/ the type of entity), takes NGRAMS
+ * Transformer that uses CoreNLP to (in order):
+ * - Tokenize document
+ * - Lemmatize tokens
+ * - Replace entities w/ their type (e.g. "Jon" => "NAME", "Paris" => "PLACE")
+ * - Return n-grams for the above (respecting sentence boundaries)
+ * Note: Much slower than just using [[Tokenizer]] followed by [[NGramsFeaturizer]]
+ *
+ * @param orders  The size of the n-grams to output
  */
 case class CoreNLPFeatureExtractor(orders: Seq[Int]) extends Transformer[String, Seq[String]] {
   object CoreNLPContainer {

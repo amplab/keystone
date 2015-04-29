@@ -2,6 +2,7 @@ package evaluation
 
 import breeze.linalg.{*, sum, DenseMatrix}
 import org.apache.spark.rdd.RDD
+import pipelines.text.NewsgroupsPipeline._
 
 /**
  * Contains the confusion matrix for a multiclass classifier,
@@ -33,10 +34,11 @@ case class MulticlassMetrics(confusionMatrix: DenseMatrix[Double]) {
   private def classAvg(f: BinaryClassificationMetrics => Double): Double = classMetrics.map(f).sum / numClasses
   private def micro(f: BinaryClassificationMetrics => Double): Double = f(classMetrics.reduce(_ merge _))
 
-  def accuracy: Double = classAvg(_.accuracy)
+  def macroaccuracy: Double = classAvg(_.accuracy)
   def macroPrecision: Double = classAvg(_.precision)
   def macroRecall: Double = classAvg(_.recall)
   def macroFScore(beta: Double = 1.0): Double = classAvg(_.fScore(beta))
+  def microaccuracy: Double = micro(_.accuracy)
   def microPrecision: Double = micro(_.precision)
   def microRecall: Double = micro(_.recall)
   def microFScore(beta: Double = 1.0): Double = micro(_.fScore(beta))
@@ -47,6 +49,7 @@ case class MulticlassMetrics(confusionMatrix: DenseMatrix[Double]) {
    * Predicted labels are in columns. True labels in rows
    *
    * @param classes  An array containing the class names, where the indices are the class labels
+   * @return  the pretty-printed string
    */
   def pprintConfusionMatrix(classes: Array[String]): String = {
     val out = new DenseMatrix[Any](numClasses + 3, numClasses + 1)
@@ -66,6 +69,21 @@ case class MulticlassMetrics(confusionMatrix: DenseMatrix[Double]) {
     out.toString(Int.MaxValue, Int.MaxValue)
   }
 
+  /**
+   * Pretty-prints a summary of how the multiclass classifier did (including the confusion matrix)
+   *
+   * @param classes  An array containing the class names, where the indices are the class labels
+   * @return  the pretty-printed string
+   */
+  def summary(classes: Array[String]): String = {
+    pprintConfusionMatrix(classes) +
+    "\nMacro Precision: " + macroPrecision +
+    "\nMacro Recall: " + macroRecall +
+    "\nMacro F1: " + macroFScore() +
+    "\nMicro Precision: " + microPrecision +
+    "\nMicro Recall: " + microRecall +
+    "\nMicro F1: " + microFScore()
+  }
 
   /**
    * Encodes an Int in base 26 (using chars 'a' - 'z')
@@ -103,14 +121,14 @@ object MulticlassClassifierEvaluator {
    * @return  Common multiclass classifier metrics for this data
    */
   def apply(predictions: RDD[Int], actuals: RDD[Int], numClasses: Int): MulticlassMetrics = {
-    MulticlassMetrics(confusionMatrix(predictions, actuals, numClasses))
+    MulticlassMetrics(calculateConfusionMatrix(predictions, actuals, numClasses))
   }
 
   /**
    * Builds a confusion matrix from the predictions & true labels & # of classes.
    * columns represent predicted labels, rows represent true labels
    */
-  private def confusionMatrix(predictions: RDD[Int], actuals: RDD[Int], numClasses: Int): DenseMatrix[Double] = {
+  private def calculateConfusionMatrix(predictions: RDD[Int], actuals: RDD[Int], numClasses: Int): DenseMatrix[Double] = {
     def incrementCount(x: DenseMatrix[Double], n: (Int, Int)): DenseMatrix[Double] = {
       val predicted = n._1
       val actual = n._2

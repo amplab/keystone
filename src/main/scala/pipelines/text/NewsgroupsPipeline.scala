@@ -7,10 +7,9 @@ import nodes.learning.NaiveBayesEstimator
 import nodes.misc.{TermFrequency, CommonSparseFeatures}
 import nodes.nlp._
 import org.apache.spark.SparkContext
-import org.slf4j.LoggerFactory
-import utils.MatrixUtils
+import pipelines.Logging
 
-object NewsgroupsPipeline {
+object NewsgroupsPipeline extends Logging {
 
   def main(args : Array[String]) {
     if (args.length < 4) {
@@ -25,15 +24,12 @@ object NewsgroupsPipeline {
 
     // Set up all the contexts
     val sc = new SparkContext(sparkMaster, "NewsgroupsPipeline", sparkHome, SparkContext.jarOfObject(this).toSeq)
-    
-    val sqlContext = new org.apache.spark.sql.SQLContext(sc)
-    val logger = LoggerFactory.getLogger(NewsgroupsPipeline.getClass)
 
     val newsgroupsData = NewsgroupsDataLoader(sc, trainingDir, testingDir)
     val numClasses = newsgroupsData.classes.length
 
     // Build the classifier estimator
-    logger.info("Training classifier")
+    logInfo("Training classifier")
     val predictor = Trim.then(LowerCase())
         .then(Tokenizer()).then(new NGramsFeaturizer(1 to 2)).to[Seq[Any]].then(TermFrequency(x => 1))
         .thenEstimator(CommonSparseFeatures(100000)).fit(newsgroupsData.train.data).to[Vector[Double]]
@@ -41,20 +37,13 @@ object NewsgroupsPipeline {
         .fit(newsgroupsData.train.data, newsgroupsData.train.labels).thenMap(x => argmax(x))
 
     // Evaluate the classifier
-    logger.info("Evaluating classifier")
+    logInfo("Evaluating classifier")
     val testLabels = newsgroupsData.test.labels
     val testResults = predictor(newsgroupsData.test.data)
     val eval = MulticlassClassifierEvaluator(testResults, testLabels, numClasses)
     sc.stop()
 
-    //MatrixUtils.pprint(confusionMatrix, newsgroupsData.classes, newsgroupsData.classes)
-    logger.info("\n" + eval.pprintConfusionMatrix(newsgroupsData.classes))
-    logger.info("Macro Precision: " + eval.macroPrecision)
-    logger.info("Macro Recall: " + eval.macroRecall)
-    logger.info("Macro F1: " + eval.macroFScore())
-    logger.info("Micro Precision: " + eval.microPrecision)
-    logger.info("Micro Recall: " + eval.microRecall)
-    logger.info("Micro F1: " + eval.microFScore())
+    logInfo("\n" + eval.summary(newsgroupsData.classes))
   }
 
 }

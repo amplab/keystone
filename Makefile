@@ -5,6 +5,11 @@ ENCEVALDIR=$(TMPDIR)/enceval
 VLFEATURL = "http://www.vlfeat.org/download/vlfeat-0.9.20-bin.tar.gz"
 ENCEVALURL = "http://www.robots.ox.ac.uk/~vgg/software/enceval_toolkit/downloads/enceval-toolkit-1.1.tar.gz"
 
+SCALA_VERSION = 2.10
+PROJECT = keystone
+PROJECT_VERSION = 0.1
+TARGET_JAR = target/scala-$(SCALA_VERSION)/$(PROJECT)-assembly-$(PROJECT_VERSION).jar
+
 CC = g++
 CFLAGS = -O2
 
@@ -18,7 +23,7 @@ VLARCH ?= $($(shell echo "$(UNAME)" | tr \  _)_ARCH)
 VLFEATOBJ = $(VLFEATDIR)/vlfeat-0.9.20/bin/$(VLARCH)/objs
 
 #Set dynamic lib extension for architecture
-Darwin_x86_64_EXT := jnilib
+Darwin_x86_64_EXT := dylib
 Linux_x86_64_EXT := so
 
 SOEXT ?= $($(shell echo "$(UNAME)" | tr \  _)_EXT)
@@ -42,7 +47,13 @@ EVDEPS = $(patsubst %,$(ENCEVALDIR)/%,$(_EVDEPS))
 
 VLDEPS = $(shell find $(VLFEATOBJ) -type f -name '*.o')
 
-all: $(LDIR)/libImageEncoders.$(SOEXT)
+all: $(LDIR)/libImageFeatures.$(SOEXT)
+
+$(TARGET_JAR):
+	sbt/sbt assembly
+
+$(SRCDIR)/ImageFeatures.h: $(TARGET_JAR)
+	CLASSPATH=$^ javah -o $@ nodes.utils.external.ImageFeatures
 
 $(VLFEATDIR):
 	mkdir -p $(VLFEATDIR)
@@ -55,19 +66,22 @@ $(ENCEVALDIR):
 	cd $(ENCEVALDIR) && tar zxvf enceval.tgz
 
 vlfeat: $(VLFEATDIR)
-	make -C $(VLFEATDIR)/vlfeat-0.9.20 ARCH=$(VLARCH) bin-all
+	ARCH=$(VLARCH) make -C $(VLFEATDIR)/vlfeat-0.9.20 bin-all
 
 $(ENCEVALDIR)/%.o: $(ENCEVALDIR)/lib/gmm-fisher/%.cxx
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-$(ODIR)/%.o: $(SRCDIR)/%.cxx $(ENCEVALDIR) $(VLFEATDIR)
+$(ODIR):
+	mkdir $@
+
+$(ODIR)/%.o: $(SRCDIR)/%.cxx $(ENCEVALDIR) $(VLFEATDIR) $(ODIR)
 	$(CC) -I$(ENCEVALDIR)/lib/gmm-fisher -I$(VLFEATDIR)/vlfeat-0.9.20 -I$(JAVA_HOME)/include/ -I$(JAVA_HOME)/include/$(JAVAEXT) -c -o $@ $< $(CFLAGS)
 
-$(LDIR)/libImageEncoders.$(SOEXT): $(OBJ) $(EVDEPS) vlfeat
+$(LDIR)/libImageFeatures.$(SOEXT): $(OBJ) $(EVDEPS) vlfeat
 	$(CC) -dynamiclib -o $@ $(OBJ) $(EVDEPS) $(VLDEPS) $(CFLAGS)
 
 .PHONY: clean vlfeat
 
 clean:
-	rm -f $(LDIR)/libImageEncoder.$(SOEXT)
+	rm -f $(LDIR)/libImageFeatures.$(SOEXT)
 	rm -rf $(VLFEATDIR) $(ENCEVALDIR) $(ODIR)

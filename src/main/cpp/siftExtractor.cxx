@@ -21,7 +21,7 @@
 #include <iostream>
 #include <fstream>
 	 
-#include "siftExtractor.h"
+#include "ImageFeatures.h"
 	 
 const int dims = 128;
 
@@ -199,7 +199,7 @@ DescSet* getMultiScaleDSIFTs_f(
 	return retValSet;
 }
 
-JNIEXPORT jshortArray JNICALL Java_extLibrary_SIFTExtractor_getSIFTs (
+JNIEXPORT jshortArray JNICALL Java_nodes_utils_external_ImageFeatures_getSIFTs (
 	JNIEnv* env, 
 	jobject obj, 
 	jint width,

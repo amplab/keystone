@@ -16,9 +16,9 @@
 #include <fisher.h>	 
 	 
 #include "fisher_handle.h"
-#include "siftExtractor.h"
+#include "ImageFeatures.h"
 
-JNIEXPORT jfloatArray JNICALL Java_extLibrary_SIFTExtractor_calcAndGetFVs(
+JNIEXPORT jfloatArray JNICALL Java_nodes_utils_external_ImageFeatures_calcAndGetFVs (
 	JNIEnv* env, 
 	jobject obj,
 	jfloatArray means,
@@ -141,7 +141,7 @@ JNIEXPORT jfloatArray JNICALL Java_extLibrary_SIFTExtractor_calcAndGetFVs(
 }
 
 
-JNIEXPORT jfloatArray JNICALL Java_extLibrary_SIFTExtractor_computeGMM(
+JNIEXPORT jfloatArray JNICALL Java_nodes_utils_external_ImageFeatures_computeGMM (
 	JNIEnv * env, 
 	jobject obj, 
 	jint n_gauss, 

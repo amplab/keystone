@@ -22,7 +22,7 @@ object TestUtils {
    * @param pathInTestResources Input path.
    * @return Resource URI.
    */
-  def getTestResourceURI(pathInTestResources: String) = {
-    getClass.getClassLoader.getResource(pathInTestResources).toURI
+  def getTestResourceFileName(pathInTestResources: String): String = {
+    getClass.getClassLoader.getResource(pathInTestResources).getFile
   }
 }

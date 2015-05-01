@@ -1,8 +1,5 @@
 package nodes.utils.external
 
-/**
- * Created by gylfi on 10/13/14.
- */
 class ImageFeatures extends Serializable {
   System.loadLibrary("ImageFeatures") //This will load libImageEncoders.{so,dylib} from the library path.
 
@@ -45,7 +42,4 @@ class ImageFeatures extends Serializable {
   @native
   def calcAndGetFVs(means: Array[Float], dims: Int, numClusters: Int, covariances: Array[Float],
                     priors: Array[Float], dSiftDescriptors: Array[Float]) : Array[Float]
-
-
-
 }

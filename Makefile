@@ -52,7 +52,7 @@ all: $(LDIR)/libImageFeatures.$(SOEXT)
 $(TARGET_JAR):
 	sbt/sbt assembly
 
-$(SRCDIR)/ImageFeatures.h: $(TARGET_JAR)
+$(SRCDIR)/ImageFeatures.h: $(TARGET_JAR) src/main/scala/utils/external/ImageFeatures.scala
 	CLASSPATH=$^ javah -o $@ nodes.utils.external.ImageFeatures
 
 $(VLFEATDIR):
@@ -66,7 +66,7 @@ $(ENCEVALDIR):
 	cd $(ENCEVALDIR) && tar zxvf enceval.tgz
 
 vlfeat: $(VLFEATDIR)
-	ARCH=$(VLARCH) make -C $(VLFEATDIR)/vlfeat-0.9.20 bin-all
+	make -C $(VLFEATDIR)/vlfeat-0.9.20 ARCH=$(VLARCH) MEX= bin-all
 
 $(ENCEVALDIR)/%.o: $(ENCEVALDIR)/lib/gmm-fisher/%.cxx
 	$(CC) -c -o $@ $< $(CFLAGS)

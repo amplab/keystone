@@ -1,7 +1,7 @@
 package nodes.learning
 
 import breeze.linalg._
-import nodes.utils.external.ImageFeatures
+import utils.external.ImageFeatures
 import org.apache.spark.rdd.RDD
 import pipelines._
 import utils.MatrixUtils
@@ -71,9 +71,9 @@ class GaussianMixtureModelEstimator(k: Int) extends Estimator[RDD[DenseVector[Do
     val coefSize = k*nDim
 
     // Each array region is expected to be centroid-major.
-    val means = new DenseMatrix(nDim, k, res.slice(0, meanSize).map(_.toDouble))
-    val vars = new DenseMatrix(nDim, k, res.slice(meanSize, meanSize+varSize).map(_.toDouble))
-    val coefs = new DenseVector(res.slice(meanSize+varSize, meanSize+varSize+coefSize).map(_.toDouble))
+    val means = convert(new DenseMatrix(nDim, k, res.slice(0, meanSize)), Double)
+    val vars = convert(new DenseMatrix(nDim, k, res.slice(meanSize, meanSize+varSize)), Double)
+    val coefs = convert(new DenseVector(res.slice(meanSize+varSize, meanSize+varSize+coefSize)), Double)
 
     new GaussianMixtureModel(means, vars, coefs)
   }
@@ -84,7 +84,7 @@ object GaussianMixtureModel {
 
     val means = MatrixUtils.loadCSVFile(meanFile)
     val variances = MatrixUtils.loadCSVFile(varsFile)
-    val weights = DenseVector(MatrixUtils.loadCSVFile(weightsFile).data)
+    val weights = MatrixUtils.loadCSVFile(weightsFile).toDenseVector
 
     new GaussianMixtureModel(means, variances, weights)
   }

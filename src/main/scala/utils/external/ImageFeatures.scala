@@ -1,4 +1,4 @@
-package nodes.utils.external
+package utils.external
 
 class ImageFeatures extends Serializable {
   System.loadLibrary("ImageFeatures") //This will load libImageEncoders.{so,dylib} from the library path.

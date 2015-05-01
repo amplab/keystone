@@ -1,4 +1,4 @@
-package nodes.utils.external
+package utils.external
 
 import breeze.linalg._
 import breeze.numerics._

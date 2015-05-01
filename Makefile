@@ -1,6 +1,13 @@
+ifndef JAVA_HOME
+$(error JAVA_HOME must be set.)
+endif
 
-VLFEATDIR=$(TMPDIR)/vlfeat
-ENCEVALDIR=$(TMPDIR)/enceval
+ifndef TMPDIR
+TMPDIR := /tmp/
+endif
+
+VLFEATDIR = $(TMPDIR)/vlfeat
+ENCEVALDIR = $(TMPDIR)/enceval
 
 VLFEATURL = "http://www.vlfeat.org/download/vlfeat-0.9.20-bin.tar.gz"
 ENCEVALURL = "http://www.robots.ox.ac.uk/~vgg/software/enceval_toolkit/downloads/enceval-toolkit-1.1.tar.gz"
@@ -11,18 +18,25 @@ PROJECT_VERSION = 0.1
 TARGET_JAR = target/scala-$(SCALA_VERSION)/$(PROJECT)-assembly-$(PROJECT_VERSION).jar
 
 CC = g++
-CFLAGS = -O2
 
-#Auto-detect architecture
+# Auto-detect architecture
+UNAME := $(shell uname -sm)
+
+Darwin_x86_64_CFLAGS := -O2
+Linux_x86_64_CFLAGS := -fPIC -fopenmp -shared
+
+CFLAGS ?= $($(shell echo "$(UNAME)" | tr \  _)_CFLAGS)
+
+# Set arch for VLFeat
+
 Darwin_x86_64_ARCH := maci64
 Linux_x86_64_ARCH := glnxa64
 
-UNAME := $(shell uname -sm)
 VLARCH ?= $($(shell echo "$(UNAME)" | tr \  _)_ARCH)
 
 VLFEATOBJ = $(VLFEATDIR)/vlfeat-0.9.20/bin/$(VLARCH)/objs
 
-#Set dynamic lib extension for architecture
+# Set dynamic lib extension for architecture
 Darwin_x86_64_EXT := dylib
 Linux_x86_64_EXT := so
 
@@ -53,7 +67,7 @@ $(TARGET_JAR):
 	sbt/sbt assembly
 
 $(SRCDIR)/ImageFeatures.h: $(TARGET_JAR) src/main/scala/utils/external/ImageFeatures.scala
-	CLASSPATH=$^ javah -o $@ nodes.utils.external.ImageFeatures
+	CLASSPATH=$< javah -o $@ utils.external.ImageFeatures
 
 $(VLFEATDIR):
 	mkdir -p $(VLFEATDIR)

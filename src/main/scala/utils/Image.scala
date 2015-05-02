@@ -378,7 +378,7 @@ object ImageUtils extends Logging {
   }
 
 
-  def toGrayScale(in: Image) = {
+  def toGrayScale(in: Image): Image = {
     //From the Matlab docs for rgb2gray:
     //rgb2gray converts RGB values to grayscale values by forming a weighted sum of the R, G, and B components:
     //0.2989 * R + 0.5870 * G + 0.1140 * B

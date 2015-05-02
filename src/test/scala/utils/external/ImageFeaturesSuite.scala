@@ -1,12 +1,10 @@
 package utils.external
 
 import breeze.linalg._
-import breeze.numerics._
 import nodes.learning.GaussianMixtureModel
 import org.scalatest.FunSuite
 import pipelines.Logging
-import utils.TestUtils._
-import utils.{Stats, MatrixUtils, ImageUtils, TestUtils}
+import utils.{ImageUtils, MatrixUtils, Stats, TestUtils}
 
 class ImageFeaturesSuite extends FunSuite with Logging {
   test("Load an Image and compute SIFT Features") {

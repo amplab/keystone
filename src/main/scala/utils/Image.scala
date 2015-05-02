@@ -1,7 +1,7 @@
 package utils
 
 import java.awt.image.{BufferedImage, DataBufferByte}
-import java.io.{InputStream, File, FileInputStream}
+import java.io.InputStream
 import javax.imageio.ImageIO
 
 import pipelines._
@@ -19,15 +19,16 @@ import pipelines._
 trait Image {
   val metadata: ImageMetadata
 
-  /** Get the pixel value at (x, y, channelIdx).  Channels are indexed as
-    * follows:
-    *   - If the image is RGB, 0 => blue, 1 => green, 2 => red.
-    *   - If the image is RGB+alpha, 0 => blue, 1=> green, 2 => red, and
-    *     3 => alpha.
-    *   - Other channel schemes are unsupported; the only reason this matters
-    *     is that input converters (e.g. from BufferedImage to Image) need to
-    *     handle channels consistently.
-    */
+  /**
+   * Get the pixel value at (x, y, channelIdx).  Channels are indexed as
+   * follows:
+   *   - If the image is RGB, 0 => blue, 1 => green, 2 => red.
+   *   - If the image is RGB+alpha, 0 => blue, 1=> green, 2 => red, and
+   *     3 => alpha.
+   *   - Other channel schemes are unsupported; the only reason this matters
+   *     is that input converters (e.g. from BufferedImage to Image) need to
+   *     handle channels consistently.
+   */
   def get(x: Int, y: Int, channelIdx: Int): Double
 
   /**
@@ -35,13 +36,14 @@ trait Image {
    */
   def put(x: Int, y: Int, channelIdx: Int, newVal: Double)
 
-  /** Returns a flat version of the image, represented as a single array.
-    * It is indexed as follows: The pixel value for (x, y, channelIdx)
-    * is at channelIdx + x*numChannels + y*numChannels*xDim.
-    *
-    * This implementation works for arbitrary image formats but it is
-    * inefficient.
-    */
+  /**
+   * Returns a flat version of the image, represented as a single array.
+   * It is indexed as follows: The pixel value for (x, y, channelIdx)
+   * is at channelIdx + x*numChannels + y*numChannels*xDim.
+   *
+   * This implementation works for arbitrary image formats but it is
+   * inefficient.
+   */
   def toVector: Array[Double] = {
     val flat = new Array[Double](this.flatSize)
     var y = 0
@@ -251,7 +253,7 @@ case class RowColumnMajorByteArrayVectorizedImage(
  *
  * @vectorizedImage is indexed as follows: The pixel value for (x, y, channelIdx)
  *   is at y + x.metadata.yDim + channelIdx*metadata.yDim*metadata.xDim
- *   */
+ */
 case class RowColumnMajorArrayVectorizedImage(
                                                vectorizedImage: Array[Double],
                                                override val metadata: ImageMetadata) extends VectorizedImage {
@@ -279,9 +281,10 @@ case class RowColumnMajorArrayVectorizedImage(
   // override def toVector = vectorizedImage
 }
 
-/** Helper trait for implementing Images that wrap vectorized representations
-  * of images.
-  */
+/**
+ * Helper trait for implementing Images that wrap vectorized representations
+ * of images.
+ */
 trait VectorizedImage extends Image {
   def imageToVectorCoords(x: Int, y: Int, channelIdx: Int): Int
 

@@ -1,10 +1,10 @@
 package nodes.learning
 
 import breeze.linalg._
-import utils.external.ImageFeatures
 import org.apache.spark.rdd.RDD
 import pipelines._
 import utils.MatrixUtils
+import utils.external.ImageFeatures
 
 
 /**

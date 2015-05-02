@@ -1,10 +1,9 @@
 package nodes.images.external
 
-import utils.external.ImageFeatures
 import breeze.linalg._
 import nodes.images.FisherVectorInterface
 import org.apache.spark.rdd.RDD
-import org.apache.spark.SparkContext
+import utils.external.ImageFeatures
 
 /**
  * Implements a wrapper for the `enceval` Fisher Vector implementation.

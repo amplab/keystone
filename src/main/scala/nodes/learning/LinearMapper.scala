@@ -6,8 +6,6 @@ import org.apache.spark.rdd.RDD
 import pipelines.{LabelEstimator, Transformer}
 import utils.MatrixUtils
 
-import scala.reflect.ClassTag
-
 case class LinearMapper(x: DenseMatrix[Double])
   extends Transformer[DenseVector[Double], DenseVector[Double]] {
 

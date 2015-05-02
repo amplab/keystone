@@ -1,12 +1,10 @@
 package nodes.images.external
 
 import breeze.linalg._
-import pipelines.{Logging, Transformer}
-
-import utils.external.ImageFeatures
-import utils.Image
 import nodes.images.SIFTExtractorInterface
 import org.apache.spark.rdd.RDD
+import utils.Image
+import utils.external.ImageFeatures
 
 /**
  * Extracts SIFT Descriptors at dense intervals at multiple scales using the vlfeat C library.

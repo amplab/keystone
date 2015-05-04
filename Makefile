@@ -53,7 +53,7 @@ SRCDIR := src/main/cpp
 ODIR = $(TMPDIR)/obj
 LDIR = lib
 
-_OBJ = siftExtractor.o fisherExtractor.o
+_OBJ = VLFeat.o EncEval.o
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
 _EVDEPS = gmm.o fisher.o stat.o simd_math.o
@@ -66,8 +66,11 @@ all: $(LDIR)/libImageFeatures.$(SOEXT)
 $(TARGET_JAR):
 	sbt/sbt assembly
 
-$(SRCDIR)/ImageFeatures.h: $(TARGET_JAR) src/main/scala/utils/external/ImageFeatures.scala
-	CLASSPATH=$< javah -o $@ utils.external.ImageFeatures
+$(SRCDIR)/EncEval.h: $(TARGET_JAR) src/main/scala/utils/external/EncEval.scala
+	CLASSPATH=$< javah -o $@ utils.external.EncEval
+
+$(SRCDIR)/VLFeat.h: $(TARGET_JAR) src/main/scala/utils/external/VLFeat.scala
+	CLASSPATH=$< javah -o $@ utils.external.VLFeat
 
 $(VLFEATDIR):
 	mkdir -p $(VLFEATDIR)
@@ -88,10 +91,10 @@ $(ENCEVALDIR)/%.o: $(ENCEVALDIR)/lib/gmm-fisher/%.cxx
 $(ODIR):
 	mkdir $@
 
-$(ODIR)/%.o: $(SRCDIR)/%.cxx $(ENCEVALDIR) $(VLFEATDIR) $(ODIR)
+$(ODIR)/%.o: $(SRCDIR)/%.cxx $(ENCEVALDIR) $(VLFEATDIR) $(ODIR) $(SRCDIR)/%.h
 	$(CC) -I$(ENCEVALDIR)/lib/gmm-fisher -I$(VLFEATDIR)/vlfeat-0.9.20 -I$(JAVA_HOME)/include/ -I$(JAVA_HOME)/include/$(JAVAEXT) -c -o $@ $< $(CFLAGS)
 
-$(LDIR)/libImageFeatures.$(SOEXT): $(OBJ) $(EVDEPS) vlfeat
+$(LDIR)/libImageFeatures.$(SOEXT): $(EVDEPS) vlfeat $(OBJ) 
 	$(CC) -dynamiclib -o $@ $(OBJ) $(EVDEPS) $(VLDEPS) $(CFLAGS)
 
 .PHONY: clean vlfeat

@@ -4,7 +4,7 @@ import breeze.linalg._
 import org.apache.spark.rdd.RDD
 import pipelines._
 import utils.MatrixUtils
-import utils.external.ImageFeatures
+import utils.external.EncEval
 
 
 /**
@@ -59,7 +59,7 @@ class GaussianMixtureModelEstimator(k: Int) extends Estimator[RDD[DenseVector[Do
    * @return A Gaussian Mixture Model.
    */
   def fit(samples: Array[DenseVector[Double]]): GaussianMixtureModel = {
-    val extLib = new ImageFeatures
+    val extLib = new EncEval
     val nDim = samples(0).length
 
     //Flatten this thing out.

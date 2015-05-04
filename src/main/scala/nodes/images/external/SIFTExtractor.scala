@@ -4,7 +4,7 @@ import breeze.linalg._
 import nodes.images.SIFTExtractorInterface
 import org.apache.spark.rdd.RDD
 import utils.Image
-import utils.external.ImageFeatures
+import utils.external.VLFeat
 
 /**
  * Extracts SIFT Descriptors at dense intervals at multiple scales using the vlfeat C library.
@@ -19,7 +19,7 @@ class SIFTExtractor(val stepSize: Int = 3, val binSize: Int = 4, val scales: Int
   val descriptorSize = 128
 
   private def sift(ins: Iterator[Image]): Iterator[DenseMatrix[Float]] = {
-    val extLib = new ImageFeatures
+    val extLib = new VLFeat
 
     ins.map(in => {
       val rawDescDataShort = extLib.getSIFTs(in.metadata.xDim, in.metadata.yDim,

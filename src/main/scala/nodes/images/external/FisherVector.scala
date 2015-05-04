@@ -3,7 +3,7 @@ package nodes.images.external
 import breeze.linalg._
 import nodes.images.FisherVectorInterface
 import org.apache.spark.rdd.RDD
-import utils.external.ImageFeatures
+import utils.external.EncEval
 
 /**
  * Implements a wrapper for the `enceval` Fisher Vector implementation.
@@ -12,7 +12,7 @@ import utils.external.ImageFeatures
  * @param centroid_variances GMM Variances.
  * @param centroid_priors GMM Priors.
  */
-class FisherFeaturizer(
+class FisherVector(
     @transient centroid_means: DenseMatrix[Double],
     @transient centroid_variances: DenseMatrix[Double],
     @transient centroid_priors: Array[Double])
@@ -28,7 +28,7 @@ class FisherFeaturizer(
       vars: Array[Float],
       wts: Array[Float]): Iterator[DenseMatrix[Double]] = {
 
-    val extLib = new ImageFeatures
+    val extLib = new EncEval
 
     ins.map(in => {
       val fisherVector = extLib.calcAndGetFVs(means, numDims, numCentroids,

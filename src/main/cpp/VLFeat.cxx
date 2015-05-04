@@ -21,7 +21,7 @@
 #include <iostream>
 #include <fstream>
    
-#include "ImageFeatures.h"
+#include "VLFeat.h"
    
 const int dims = 128;
 
@@ -199,7 +199,7 @@ DescSet* getMultiScaleDSIFTs_f(
   return retValSet;
 }
 
-JNIEXPORT jshortArray JNICALL Java_utils_external_ImageFeatures_getSIFTs (
+JNIEXPORT jshortArray JNICALL Java_utils_external_VLFeat_getSIFTs (
     JNIEnv* env, 
     jobject obj, 
     jint width,

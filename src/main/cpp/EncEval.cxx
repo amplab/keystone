@@ -15,10 +15,9 @@
 #include <gmm.h>
 #include <fisher.h>   
    
-#include "fisher_handle.h"
-#include "ImageFeatures.h"
+#include "EncEval.h"
 
-JNIEXPORT jfloatArray JNICALL Java_utils_external_ImageFeatures_calcAndGetFVs (
+JNIEXPORT jfloatArray JNICALL Java_utils_external_EncEval_calcAndGetFVs (
   	JNIEnv* env, 
   	jobject obj,
   	jfloatArray means,
@@ -75,7 +74,7 @@ JNIEXPORT jfloatArray JNICALL Java_utils_external_ImageFeatures_calcAndGetFVs (
   // What is the role of this fhisher_handle.. can we perhaps keep it between calls.. (save time)?
   printf("make handle \n");
   fflush(stdout);
-  fisher_handle<float> fisher_encoder(gmmproc,fisher_encoder_params);
+  fisher<float> fisher_encoder(fisher_encoder_params);
   // initialise encoder with a GMM model (vocabulary)
   printf(".. and set gmm model to handle \n");
   fflush(stdout);
@@ -121,7 +120,7 @@ JNIEXPORT jfloatArray JNICALL Java_utils_external_ImageFeatures_calcAndGetFVs (
 }
 
 
-JNIEXPORT jfloatArray JNICALL Java_utils_external_ImageFeatures_computeGMM (
+JNIEXPORT jfloatArray JNICALL Java_utils_external_EncEval_computeGMM (
   	JNIEnv * env, 
   	jobject obj, 
   	jint n_gauss, 

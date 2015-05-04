@@ -44,7 +44,7 @@ trait Image {
    * This implementation works for arbitrary image formats but it is
    * inefficient.
    */
-  def toVector: Array[Double] = {
+  def toArray: Array[Double] = {
     val flat = new Array[Double](this.flatSize)
     var y = 0
     while (y < this.metadata.yDim) {
@@ -64,9 +64,9 @@ trait Image {
     flat
   }
 
-  def getSingleChannelAsIntArray() : Array[Int] = {
+  def getSingleChannelAsIntArray(): Array[Int] = {
     if (this.metadata.numChannels > 1) {
-      return null;
+      throw new RuntimeException("Cannot call getSingleChannelAsIntArray on an image with more than one channel.")
     }
     var index = 0;
     var flat = new Array[Int](this.metadata.xDim*this.metadata.yDim)
@@ -85,9 +85,9 @@ trait Image {
     flat
   }
 
-  def getSingleChannelAsFloatArray() : Array[Float] = {
+  def getSingleChannelAsFloatArray(): Array[Float] = {
     if (this.metadata.numChannels > 1) {
-      return null;
+      throw new RuntimeException("Cannot call getSingleChannelAsFloatArray on an image with more than one channel.")
     }
     var index = 0;
     var flat = new Array[Float](this.metadata.xDim*this.metadata.yDim)
@@ -159,7 +159,7 @@ case class ArrayVectorizedImage(
     vectorizedImage(vectorIdx) = newVal
   }
 
-  override def toVector = vectorizedImage
+  override def toArray = vectorizedImage
 }
 
 /**
@@ -174,10 +174,6 @@ case class InverseIndexedArrayVectorizedImage(
   }
 
   override def getInVector(vectorIdx: Int) = vectorizedImage(vectorIdx)
-
-  /*override def toVector = {
-
-  }*/
 
   override def putInVector(vectorIdx: Int, newVal: Double) = {
     vectorizedImage(vectorIdx) = newVal
@@ -224,11 +220,7 @@ case class RowColumnMajorByteArrayVectorizedImage(
                 vectorizedImage: Array[Byte],
                 override val metadata: ImageMetadata) extends VectorizedImage {
   override def imageToVectorCoords(x: Int, y: Int, channelIdx: Int): Int = {
-    val cidx = channelIdx/* match { //Todo: Temporary fix to make channel indexes match nick's code.
-      case 0 => 2
-      case 2 => 0
-      case n => n
-    }*/
+    val cidx = channelIdx
     y + x*metadata.yDim + cidx*metadata.yDim*metadata.xDim
   }
 
@@ -258,11 +250,7 @@ case class RowColumnMajorArrayVectorizedImage(
                                                vectorizedImage: Array[Double],
                                                override val metadata: ImageMetadata) extends VectorizedImage {
   override def imageToVectorCoords(x: Int, y: Int, channelIdx: Int): Int = {
-    val cidx = channelIdx/* match { //Todo: Temporary fix to make channel indexes match nick's code.
-      case 0 => 2
-      case 2 => 0
-      case n => n
-    }*/
+    val cidx = channelIdx
     y + x*metadata.yDim + cidx*metadata.yDim*metadata.xDim
   }
 
@@ -298,118 +286,5 @@ trait VectorizedImage extends Image {
 
   override def put(x: Int, y: Int, channelIdx: Int, newVal: Double) = {
     putInVector(imageToVectorCoords(x, y, channelIdx), newVal)
-  }
-}
-
-object ImageConversions {
-  /**
-   * Copied in small part from Mota's code here:
-   *   http://stackoverflow.com/a/9470843
-   */
-  def bufferedImageToWrapper(image: BufferedImage): Image = {
-    val pixels = image.getRaster().getDataBuffer().asInstanceOf[DataBufferByte].getData()
-    val xDim = image.getHeight()
-    val yDim = image.getWidth()
-    val hasAlphaChannel = image.getAlphaRaster() != null
-    val numChannels = image.getType() match {
-      case BufferedImage.TYPE_3BYTE_BGR => 3
-      case BufferedImage.TYPE_4BYTE_ABGR => 4
-      case BufferedImage.TYPE_4BYTE_ABGR_PRE => 4
-      case BufferedImage.TYPE_BYTE_GRAY => 1
-      case _ => throw new RuntimeException("Unexpected Image Type " + image.getType())
-    }
-    val metadata = ImageMetadata(xDim, yDim, numChannels)
-    ByteArrayVectorizedImage(pixels, metadata)
-  }
-
-  def grayScaleImageToWrapper(image: BufferedImage): Image = {
-    val pixels = image.getRaster().getDataBuffer().asInstanceOf[DataBufferByte].getData()
-    val xDim = image.getHeight()
-    val yDim = image.getWidth()
-    val numChannels = 3
-    val metadata = ImageMetadata(xDim, yDim, numChannels)
-
-    // Concatenate the grayscale image thrice to get three channels.
-    // TODO(shivaram): Is this the right thing to do ?
-    val allPixels = pixels.flatMap(p => Seq(p, p, p))
-    ByteArrayVectorizedImage(allPixels, metadata)
-  }
-
-}
-
-
-object ImageUtils extends Logging {
-
-  /**
-   * Load image from file.
-   * @param fileBytes Bytes of an input file.
-   * @return
-   */
-  def loadImage(fileBytes: InputStream): Option[Image] = {
-    classOf[ImageIO].synchronized {
-      try {
-        val img = ImageIO.read(fileBytes)
-        if (img != null) {
-          if (img.getHeight() < 36 || img.getWidth() < 36) {
-            logWarning(s"Ignoring SMALL IMAGE ${img.getHeight}x${img.getWidth()}")
-            None
-          } else {
-            if (img.getType() == BufferedImage.TYPE_3BYTE_BGR) {
-              val imgW = ImageConversions.bufferedImageToWrapper(img)
-              Some(imgW)
-            } else if (img.getType() == BufferedImage.TYPE_BYTE_GRAY) {
-              val imgW = ImageConversions.grayScaleImageToWrapper(img)
-              Some(imgW)
-            } else {
-              logWarning(s"Ignoring image, not RGB or Grayscale of type ${img.getType}")
-              None
-            }
-          }
-        } else {
-          logWarning(s"Failed to parse image, (result was null)")
-          None
-        }
-      } catch {
-        case e: Exception =>
-          logWarning(s"Failed to parse image: due to ${e.getMessage}")
-          None
-      }
-    }
-  }
-
-
-  def toGrayScale(in: Image): Image = {
-    //From the Matlab docs for rgb2gray:
-    //rgb2gray converts RGB values to grayscale values by forming a weighted sum of the R, G, and B components:
-    //0.2989 * R + 0.5870 * G + 0.1140 * B
-
-    val numChannels = in.metadata.numChannels
-    val out = new ArrayVectorizedImage(new Array(in.metadata.xDim * in.metadata.yDim),
-      ImageMetadata(in.metadata.xDim, in.metadata.yDim, 1))
-    var i = 0
-    while (i < in.metadata.xDim) {
-      var j = 0
-      while (j < in.metadata.yDim) {
-        var sumSq = 0.0
-        var k = 0
-        if (numChannels == 3) {
-          //Assume data is in RGB order. Todo - we should check the metadata for this.
-          val px = 0.2989 * in.get(i, j, 2) + 0.5870 * in.get(i, j, 1) + 0.1140 * in.get(i, j, 0)
-          //val px = 0.2989 * in.get(i, j, 0) + 0.5870 * in.get(i, j, 1) + 0.1140 * in.get(i, j, 2)
-          out.put(i, j, 0, px)
-        }
-        else {
-          while (k < numChannels) {
-            sumSq = sumSq + (in.get(i, j, k) * in.get(i, j, k))
-            k = k + 1
-          }
-          val px = math.sqrt(sumSq/numChannels)
-          out.put(i, j, 0, px)
-        }
-        j = j + 1
-      }
-      i = i + 1
-    }
-    out
   }
 }

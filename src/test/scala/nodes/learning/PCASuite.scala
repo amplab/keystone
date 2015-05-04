@@ -39,7 +39,7 @@ class PCATransformerSuite extends FunSuite with LocalSparkContext with Logging {
     assert(outOne(2)(1) == 160.0f, "(0,0) of Matrix one should be 160")
 
 
-    //Validate matTwo's PCA transform
+    // Validate matTwo's PCA transform
     val outTwo = out.slice(matOneHeight, out.length).toArray
 
     (0 until matTwoHeight).foreach(x => {
@@ -55,25 +55,28 @@ class PCATransformerSuite extends FunSuite with LocalSparkContext with Logging {
     val matCols = 10
     val dimRed = 5
 
-    //Generate a random matrix.
+    // Generate a random Gaussian matrix.
     val gau = new Gaussian(0.0, 1.0)
-    val randMatrix = new DenseMatrix(matRows, matCols, (0 until matRows*matCols).toArray.map(_.toDouble)) +
-      new DenseMatrix(matRows, matCols, gau.sample(matRows*matCols).toArray)
+    val randMatrix = new DenseMatrix(matRows, matCols, gau.sample(matRows*matCols).toArray)
 
+    // Parallelize and estimate the PCA.
     val data = sc.parallelize(MatrixUtils.matrixToRowArray(randMatrix).map(x => convert(x, Float)))
-
     val pca = new PCAEstimator(dimRed).fit(data)
 
-    val pcacov = cov(convert(pca.pcaMat, Double))
+    // Apply PCA to the input data.
+    val redData = pca(data)
+    val redMat = MatrixUtils.rowsToMatrix(redData.collect.map(x => convert(x, Double)))
 
+    // Compute its covariance.
+    val redCov = cov(redMat)
+    log.info(s"Covar$redCov")
+
+    // The covariance of the dimensionality reduced matrix should be diagonal.
     for (
       x <- 0 until dimRed;
       y <- 0 until dimRed if x != y
     ) {
-      assert(Stats.aboutEq(pcacov(x,y), 0.0, 1e-4), s"PCA Matrix should be 0 off-diaganol. $x,$y = ${pcacov(x,y)}")
+      assert(Stats.aboutEq(redCov(x,y), 0.0, 1e-6), s"PCA Matrix should be 0 off-diagonal. $x,$y = ${redCov(x,y)}")
     }
-
-
-
   }
 }

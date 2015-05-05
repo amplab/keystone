@@ -25,16 +25,6 @@ class PCATransformer(val pcaMat: DenseMatrix[Float]) extends Transformer[DenseVe
     val pcaMatb = in.context.broadcast(pcaMat)
     in.map(x => PCATransformer.reducePoint(x, pcaMatb.value))
   }
-
-  /**
-   * Apply dimensionality reduction to an RDD of matrices.
-   * @param in
-   * @return
-   */
-  def reduceMatrix(in: RDD[DenseMatrix[Float]]): RDD[DenseMatrix[Float]] = {
-    val pcaMatb = in.context.broadcast(pcaMat)
-    in.map(x => PCATransformer.reduceMatrix(x, pcaMatb.value))
-  }
 }
 
 object PCATransformer extends Serializable {
@@ -47,16 +37,6 @@ object PCATransformer extends Serializable {
    */
   def reducePoint(x: DenseVector[Float], mat: DenseMatrix[Float]): DenseVector[Float] = {
     (x.t * mat).t
-  }
-
-  /**
-   * Applies dimensionality reduction to a point.
-   * @param x Input point.
-   * @param mat Dimensionality reduction matrix.
-   * @return Dimensionality reduced point.
-   */
-  def reduceMatrix(x: DenseMatrix[Float], mat: DenseMatrix[Float]): DenseMatrix[Float] = {
-    (x.t * mat)
   }
 }
 

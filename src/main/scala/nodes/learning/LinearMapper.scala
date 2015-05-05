@@ -14,7 +14,7 @@ case class LinearMapper(x: DenseMatrix[Double])
    * @param in Input.
    * @return Output.
    */
-  def transform(in: DenseVector[Double]): DenseVector[Double] = {
+  def apply(in: DenseVector[Double]): DenseVector[Double] = {
     x.t * in
   }
 
@@ -38,7 +38,7 @@ case class LinearMapper(x: DenseMatrix[Double])
  * @param lambda L2 Regularization parameter
  */
 class LinearMapEstimator(lambda: Option[Double] = None)
-    extends LabelEstimator[RDD[DenseVector[Double]], RDD[DenseVector[Double]], RDD[DenseVector[Double]]] {
+    extends LabelEstimator[DenseVector[Double], DenseVector[Double], DenseVector[Double]] {
 
   /**
    * Learns a linear model (OLS) based on training features and training labels.

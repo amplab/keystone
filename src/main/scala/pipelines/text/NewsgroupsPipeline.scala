@@ -34,7 +34,7 @@ object NewsgroupsPipeline extends Logging {
         .then(Tokenizer()).then(new NGramsFeaturizer(1 to 2)).to[Seq[Any]].then(TermFrequency(x => 1))
         .thenEstimator(CommonSparseFeatures(100000)).fit(newsgroupsData.train.data).to[Vector[Double]]
         .thenLabelEstimator(NaiveBayesEstimator(numClasses))
-        .fit(newsgroupsData.train.data, newsgroupsData.train.labels).thenMap(x => argmax(x))
+        .fit(newsgroupsData.train.data, newsgroupsData.train.labels).then(x => argmax(x))
 
     // Evaluate the classifier
     logInfo("Evaluating classifier")

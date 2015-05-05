@@ -11,7 +11,8 @@ import pipelines.Transformer
  *            Defaults to matching all punctuation and whitespace
  */
 case class Tokenizer(sep: String = "[\\p{Punct}\\s]+") extends Transformer[String, Seq[String]] {
- override def apply(in: RDD[String]): RDD[Seq[String]] = in.map(_.split(sep))
+  override def apply(in: RDD[String]): RDD[Seq[String]] = in.map(_.split(sep))
+  override def apply(in: String): Seq[String] = in.split(sep)
 }
 
 /**
@@ -19,6 +20,7 @@ case class Tokenizer(sep: String = "[\\p{Punct}\\s]+") extends Transformer[Strin
  */
 object Trim extends Transformer[String, String] {
   override def apply(in: RDD[String]): RDD[String] = in.map(_.trim)
+  override def apply(in: String): String = in.trim
 }
 
 /**
@@ -27,4 +29,5 @@ object Trim extends Transformer[String, String] {
  */
 case class LowerCase(locale: Locale = Locale.getDefault) extends Transformer[String, String] {
   override def apply(in: RDD[String]): RDD[String] = in.map(_.toLowerCase(locale))
+  override def apply(in: String): String = in.toLowerCase(locale)
 }

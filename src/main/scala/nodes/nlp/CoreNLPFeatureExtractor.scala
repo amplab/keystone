@@ -24,6 +24,10 @@ case class CoreNLPFeatureExtractor(orders: Seq[Int]) extends Transformer[String,
     in.map(x => getNgrams(x, CoreNLPContainer.proc))
   }
 
+  override def apply(in: String): Seq[String] = {
+    getNgrams(in, CoreNLPContainer.proc)
+  }
+
   def getNgrams(f : String, proc : Processor): Seq[String] = {
     val doc = proc.mkDocument(f)
     proc.tagPartsOfSpeech(doc)

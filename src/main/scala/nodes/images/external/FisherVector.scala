@@ -47,4 +47,17 @@ class FisherVector(
 
     in.mapPartitions(x => fv(x, means.value, vars.value, wts.value))
   }
+
+  override def apply(in: DenseMatrix[Double]): DenseMatrix[Double] = {
+    val means = convert(centroid_means, Float).toArray
+    val vars = convert(centroid_variances, Float).toArray
+    val wts = centroid_priors.map(_.toFloat)
+
+    val extLib = new EncEval
+
+    val fisherVector = extLib.calcAndGetFVs(means, numDims, numCentroids,
+      vars, wts, in.toArray.map(_.toFloat))
+
+    convert(new DenseMatrix(numDims, numCentroids*2, fisherVector), Double)
+  }
 }

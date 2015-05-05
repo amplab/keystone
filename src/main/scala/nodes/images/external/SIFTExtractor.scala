@@ -37,4 +37,19 @@ class SIFTExtractor(val stepSize: Int = 3, val binSize: Int = 4, val scales: Int
    * @return The output for the given input
    */
   def apply(in: RDD[Image]): RDD[DenseMatrix[Float]] = in.mapPartitions(sift)
+
+  /**
+   * Extract SIFTs from an image.
+   * @param in The input to pass into this pipeline node
+   * @return The output for the given input
+   */
+  def apply(in: Image): DenseMatrix[Float] = {
+    val extLib = new VLFeat
+    val rawDescDataShort = extLib.getSIFTs(in.metadata.xDim, in.metadata.yDim,
+      stepSize, binSize, scales, in.getSingleChannelAsFloatArray())
+    val numCols = rawDescDataShort.length/descriptorSize
+    val rawDescData = rawDescDataShort.map(s => s.toFloat)
+    val mat = new DenseMatrix(descriptorSize, numCols, rawDescData)
+    mat
+  }
 }

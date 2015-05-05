@@ -25,6 +25,16 @@ class PCATransformer(val pcaMat: DenseMatrix[Float]) extends Transformer[DenseVe
     val pcaMatb = in.context.broadcast(pcaMat)
     in.map(x => PCATransformer.reducePoint(x, pcaMatb.value))
   }
+
+  /**
+   * Apply dimensionality reduction to a point.
+   *
+   * @param in A point.
+   * @return Dimensionality reduced output.
+   */
+  override def apply(in: DenseVector[Float]): DenseVector[Float] = {
+    PCATransformer.reducePoint(in, pcaMat)
+  }
 }
 
 object PCATransformer extends Serializable {
@@ -46,7 +56,7 @@ object PCATransformer extends Serializable {
  *
  * @param dims Dimensions to reduce input dataset to.
  */
-class PCAEstimator(dims: Int) extends Estimator[RDD[DenseVector[Float]], RDD[DenseVector[Float]]] with Logging {
+class PCAEstimator(dims: Int) extends Estimator[DenseVector[Float], DenseVector[Float]] with Logging {
 
   /**
    * Adapted from the "PCA2" matlab code given in appendix B of this paper:

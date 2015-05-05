@@ -28,11 +28,17 @@ class GaussianMixtureModel(
 
   /**
    * For now this is unimplemented. It should return the soft assignment to each cluster.
-   * @param in A Vector
-   * @return The soft assignments of the vector according to the mixture model.
+   * @param in An RDD of Vectors
+   * @return The soft assignments for each vector according to the mixture model.
    */
   def apply(in: RDD[DenseVector[Double]]): RDD[DenseVector[Double]] = ???
 
+  /**
+   * For now this is unimplemented. It should return the soft assignment to each cluster.
+   * @param in A Vector
+   * @return The soft assignments of the vector according to the mixture model.
+   */
+  override def apply(in: DenseVector[Double]): DenseVector[Double] = ???
 }
 
 
@@ -41,7 +47,7 @@ class GaussianMixtureModel(
  *
  * @param k Number of centers to estimate.
  */
-class GaussianMixtureModelEstimator(k: Int) extends Estimator[RDD[DenseVector[Double]], RDD[DenseVector[Double]]] {
+class GaussianMixtureModelEstimator(k: Int) extends Estimator[DenseVector[Double], DenseVector[Double]] {
 
   /**
    * Currently this model works on items that fit in local memory.

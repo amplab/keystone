@@ -1,7 +1,7 @@
 package utils.external
 
 class EncEval extends Serializable {
-  System.loadLibrary("ImageFeatures") //This will load libImageEncoders.{so,dylib} from the library path.
+  System.loadLibrary("ImageFeatures") // This will load libImageEncoders.{so,dylib} from the library path.
 
   /**
    * Compute a mixture of Gaussians given a set of sample points.

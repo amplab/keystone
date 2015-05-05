@@ -193,65 +193,6 @@ case class ByteArrayVectorizedImage(
 }
 
 /**
- * Wraps a double array.
- *
- * @vectorizedImage is indexed as follows: The pixel value for (x, y, channelIdx)
- *   is at y + x.metadata.yDim + channelIdx*metadata.yDim*metadata.xDim
- *   */
-case class RowColumnMajorByteArrayVectorizedImage(
-                vectorizedImage: Array[Byte],
-                override val metadata: ImageMetadata) extends VectorizedImage {
-  override def imageToVectorCoords(x: Int, y: Int, channelIdx: Int): Int = {
-    val cidx = channelIdx
-    y + x*metadata.yDim + cidx*metadata.yDim*metadata.xDim
-  }
-
-  // FIXME: This is correct but inefficient - every time we access the image we
-  // use several method calls (which are hopefully inlined) and a conversion
-  // from byte to double (which hopefully at least does not involve any
-  // boxing).
-  override def getInVector(vectorIdx: Int) = {
-    val signedValue = vectorizedImage(vectorIdx)
-    if (signedValue < 0) {
-      signedValue + 256
-    } else {
-      signedValue
-    }
-  }
-
-  override def putInVector(vectorIdx: Int, newVal: Double) = ???
-}
-
-/**
- * Wraps a byte array, where a byte is a color channel value.
- *
- * @vectorizedImage is indexed as follows: The pixel value for (x, y, channelIdx)
- *   is at y + x.metadata.yDim + channelIdx*metadata.yDim*metadata.xDim
- */
-case class RowColumnMajorArrayVectorizedImage(
-                                               vectorizedImage: Array[Double],
-                                               override val metadata: ImageMetadata) extends VectorizedImage {
-  override def imageToVectorCoords(x: Int, y: Int, channelIdx: Int): Int = {
-    val cidx = channelIdx
-    y + x*metadata.yDim + cidx*metadata.yDim*metadata.xDim
-  }
-
-  // FIXME: This is correct but inefficient - every time we access the image we
-  // use several method calls (which are hopefully inlined) and a conversion
-  // from byte to double (which hopefully at least does not involve any
-  // boxing).
-  override def getInVector(vectorIdx: Int) = {
-    vectorizedImage(vectorIdx)
-  }
-
-  override def putInVector(vectorIdx: Int, newVal: Double) = {
-    vectorizedImage(vectorIdx) = newVal
-  }
-
-  // override def toVector = vectorizedImage
-}
-
-/**
  * Helper trait for implementing Images that wrap vectorized representations
  * of images.
  */

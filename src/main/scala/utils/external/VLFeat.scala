@@ -1,7 +1,7 @@
 package utils.external
 
 class VLFeat extends Serializable {
-  System.loadLibrary("ImageFeatures") //This will load libImageEncoders.{so,dylib} from the library path.
+  System.loadLibrary("ImageFeatures") // This will load libImageEncoders.{so,dylib} from the library path.
 
   /**
    * Gets SIFT Descriptors at Multiple Scales emulating the `vl_phow` MATLAB routine.

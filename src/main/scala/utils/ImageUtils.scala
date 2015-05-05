@@ -45,11 +45,17 @@ object ImageUtils extends Logging {
     }
   }
 
-
+  /**
+   * Converts an input image to Grayscale according to the NTSC standard weights for RGB images and using sqrt sum of
+   * squares for images with other numbers of channels.
+   *
+   * @param in Input image.
+   * @return Grayscaled image.
+   */
   def toGrayScale(in: Image): Image = {
-    //From the Matlab docs for rgb2gray:
-    //rgb2gray converts RGB values to grayscale values by forming a weighted sum of the R, G, and B components:
-    //0.2989 * R + 0.5870 * G + 0.1140 * B
+    // From the Matlab docs for rgb2gray:
+    // rgb2gray converts RGB values to grayscale values by forming a weighted sum of the R, G, and B components:
+    // 0.2989 * R + 0.5870 * G + 0.1140 * B
 
     val numChannels = in.metadata.numChannels
     val out = new ArrayVectorizedImage(new Array(in.metadata.xDim * in.metadata.yDim),
@@ -61,9 +67,8 @@ object ImageUtils extends Logging {
         var sumSq = 0.0
         var k = 0
         if (numChannels == 3) {
-          //Assume data is in RGB order. Todo - we should check the metadata for this.
+          // Assume data is in BGR order. Todo - we should check the metadata for this.
           val px = 0.2989 * in.get(i, j, 2) + 0.5870 * in.get(i, j, 1) + 0.1140 * in.get(i, j, 0)
-          //val px = 0.2989 * in.get(i, j, 0) + 0.5870 * in.get(i, j, 1) + 0.1140 * in.get(i, j, 2)
           out.put(i, j, 0, px)
         }
         else {

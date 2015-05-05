@@ -62,7 +62,7 @@ class GaussianMixtureModelEstimator(k: Int) extends Estimator[RDD[DenseVector[Do
     val extLib = new EncEval
     val nDim = samples(0).length
 
-    //Flatten this thing out.
+    // Flatten this thing out.
     val sampleFloats = samples.map(_.toArray.map(_.toFloat))
     val res = extLib.computeGMM(k, nDim, sampleFloats.flatten)
 

@@ -11,7 +11,7 @@ class LinearMapperSuite extends FunSuite with LocalSparkContext with Logging {
   test("Solve and apply a linear system") {
     sc = new SparkContext("local", "test")
 
-    //Create the data.
+    // Create the data.
     val A = RowPartitionedMatrix.createRandom(sc, 128, 5, 4, cache=true)
     val x = DenseVector(5.0, 4.0, 3.0, 2.0, -1.0).toDenseMatrix
     val b = A.mapPartitions(part => part * x.t)

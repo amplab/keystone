@@ -7,7 +7,7 @@ import pipelines.LocalSparkContext
 class TermFrequencySuite extends FunSuite with LocalSparkContext {
   test("term frequency of simple strings") {
     sc = new SparkContext("local", "test")
-    val in = Seq(Seq("b", "a", "c", "b", "b", "a", "b"))
+    val in = Seq(Seq[Any]("b", "a", "c", "b", "b", "a", "b"))
     val out = TermFrequency().apply(sc.parallelize(in)).first().toMap
     assert(out === Map("a" -> 2, "b" -> 4, "c" -> 1))
   }
@@ -21,7 +21,7 @@ class TermFrequencySuite extends FunSuite with LocalSparkContext {
 
   test("log term frequency") {
     sc = new SparkContext("local", "test")
-    val in = Seq(Seq("b", "a", "c", "b", "b", "a", "b"))
+    val in = Seq(Seq[Any]("b", "a", "c", "b", "b", "a", "b"))
     val out = TermFrequency(x => math.log(x + 1)).apply(sc.parallelize(in)).first().toMap
     assert(out === Map("a" -> math.log(3), "b" -> math.log(5), "c" -> math.log(2)))
   }

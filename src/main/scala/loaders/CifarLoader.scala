@@ -1,39 +1,36 @@
 package nodes
 
-import pipelines._
+import utils.{RowColumnMajorByteArrayVectorizedImage, ImageMetadata, LabeledImage}
+import pipelines.Transformer
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import java.util.zip.GZIPInputStream
 import java.io.{BufferedInputStream, FileInputStream}
 
+
 /**
- * Loads images from the CIFAR-10 dataset.
+ * Loads images from the CIFAR-10 Dataset.
  */
+object CifarLoader {
+  //We hardcode this because these are properties of the CIFAR-10 dataset.
+  val nrow = 32
+  val ncol = 32
+  val nchan = 3
 
-class CifarLoader
-    extends PipelineNode[(SparkContext, String), RDD[LabeledImage]]
-    with Serializable {
+  val labelSize = 1
 
-  def apply(in: (SparkContext, String)): RDD[LabeledImage] = {
-    val sc = in._1
-    val path = in._2
+  def cifar10ToBufferedImage(cifar: Array[Byte]): RowColumnMajorByteArrayVectorizedImage = {
+    val rowlen = ncol*nchan
+    val byteLen = nrow*rowlen
 
-    val images = CifarLoader.loadLabeledImages(path)
+    //Allocate some space for the rows.
+    assert(cifar.length == byteLen, "CIFAR-10 Images MUST be 32x32x3.")
 
-    sc.parallelize(images)
+    RowColumnMajorByteArrayVectorizedImage(cifar, ImageMetadata(nrow, ncol, nchan))
   }
 
-}
-
-object CifarLoader {
   def loadLabeledImages(path: String): Seq[LabeledImage] = {
-    //We hardcode this because these are properties of the CIFAR-10 dataset.
-    val nrow = 32
-    val ncol = 32
-    val nchan = 3
-    val labelSize = 1
-
     val imgCount = labelSize + nrow*ncol*nchan
 
     val imageBytes = Array.fill[Byte](imgCount)(0x00)
@@ -49,5 +46,11 @@ object CifarLoader {
       out = out :+ li
     }
     out
+  }
+
+  def apply(sc: SparkContext, path: String): RDD[LabeledImage] = {
+    val images = CifarLoader.loadLabeledImages(path)
+
+    sc.parallelize(images)
   }
 }

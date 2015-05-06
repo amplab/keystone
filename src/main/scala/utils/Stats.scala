@@ -9,6 +9,7 @@ import java.io.{FileWriter, File}
 import java.util.{Random => JRandom}
 import javax.imageio.ImageIO
 
+import nodes.stats.TopKClassifier
 import org.apache.commons.io.FileUtils
 import org.apache.commons.math3.random.{RandomGenerator}
 import org.apache.spark.rdd.RDD
@@ -103,5 +104,41 @@ object Stats extends Serializable {
     */
   def randMatrixCauchy(rows: Int, cols: Int, r: RandBasis = Rand): DenseMatrix[Double] = {
     tan(math.Pi*(DenseMatrix.rand(rows, cols, r.uniform) - 0.5))
+  }
+
+  /**
+   * Computes top-k classification error based on a distribution of predictions.
+   *
+   * @param predictions Distribution of predictions.
+   * @param actuals Distribution of actuals.
+   * @param k How many classes to include.
+   * @return The error percent.
+   */
+  def classificationError(predictions: RDD[DenseVector[Double]], actuals: RDD[DenseVector[Double]], k: Int = 1) = {
+    val counts = predictions.count
+    Stats.getErrPercent((TopKClassifier(k))(predictions), (TopKClassifier(k))(actuals), counts)
+  }
+
+  /**
+   * Computes error percent based on array of predicted labels and array of actual labels.
+   *
+   * @param predicted The predicted labels.
+   * @param actual The actual labels.
+   * @param num Total number of examples.
+   * @return Error percent.
+   */
+  def getErrPercent(predicted: RDD[Array[Int]], actual: RDD[Array[Int]], num: Long): Double = {
+    val totalErr = predicted.zip(actual).map({ case (topKLabels, actualLabel) =>
+      // TODO: this only works for examples that have a single label.
+      // Things that have multiple labels require an intersection?
+      if (topKLabels.contains(actualLabel(0))) {
+        0.0
+      } else {
+        1.0
+      }
+    }).reduce(_ + _)
+
+    val errPercent = totalErr / num.toDouble * 100.0
+    errPercent
   }
 }

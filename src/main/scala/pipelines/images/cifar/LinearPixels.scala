@@ -1,5 +1,6 @@
 package pipelines.images.cifar
 
+import breeze.linalg.DenseVector
 import nodes.CifarLoader
 import nodes.images.{ImageVectorizer, LabelExtractor, ImageExtractor, GrayScaler}
 import nodes.learning.{LinearMapEstimator, LinearMapper}
@@ -20,7 +21,7 @@ object LinearPixels extends Logging {
 
     // A featurizer maps input images into vectors. For this pipeline, we'll also convert the image to grayscale.
     val featurizer = ImageExtractor then GrayScaler then ImageVectorizer
-    val labelExtractor = LabelExtractor then ClassLabelIndicatorsFromIntLabels(numClasses) then new Cacher
+    val labelExtractor = LabelExtractor then ClassLabelIndicatorsFromIntLabels(numClasses) then new Cacher[DenseVector[Double]]
 
     // Our training features are the featurizer applied to our training data.
     val trainFeatures = featurizer(trainData)
@@ -31,7 +32,7 @@ object LinearPixels extends Logging {
 
     // The final prediction pipeline is the composition of our featurizer and our model.
     // Since we end up using the results of the prediction twice, we'll add a caching node.
-    val predictionPipeline = featurizer then model then new Cacher
+    val predictionPipeline = featurizer then model then new Cacher[DenseVector[Double]]
 
     // Calculate training error.
     val trainError = Stats.classificationError(predictionPipeline(trainData), trainLabels)
@@ -58,7 +59,7 @@ object LinearPixels extends Logging {
     val conf = new SparkConf().setAppName(appName)
     val opts = parser.parse(args, Config())
 
-    val sc = new SparkContext(conf)
+    val sc = new SparkContext("local[2]", appName, conf) // TODO: Make this just `new SparkContext(conf)` once scripts are figured out.
     run(sc, opts.get.trainFile, opts.get.testFile)
 
     sc.stop()

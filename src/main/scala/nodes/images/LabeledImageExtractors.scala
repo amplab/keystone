@@ -8,16 +8,12 @@ import utils.{Image, LabeledImage}
  * Extracts a label from a labeled image.
  */
 case object LabelExtractor extends Transformer[LabeledImage, Int] {
-  override def apply(in: RDD[LabeledImage]): RDD[Int] = {
-    in.map(_.label)
-  }
+  def apply(in: LabeledImage): Int = in.label
 }
 
 /**
  * Extracts an image from a labeled image.
  */
 case object ImageExtractor extends Transformer[LabeledImage, Image] {
-  override def apply(in: RDD[LabeledImage]): RDD[Image] = {
-    in.map(_.image)
-  }
+  def apply(in: LabeledImage): Image = in.image
 }

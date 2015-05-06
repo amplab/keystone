@@ -16,20 +16,10 @@ import pipelines.Transformer
  * @param orders  The size of the n-grams to output
  */
 case class CoreNLPFeatureExtractor(orders: Seq[Int]) extends Transformer[String, Seq[String]] {
-  object CoreNLPContainer {
-    @transient lazy val proc = new FastNLPProcessor()
-  }
-
-  override def apply(in: RDD[String]): RDD[Seq[String]] = {
-    in.map(x => getNgrams(x, CoreNLPContainer.proc))
-  }
+  @transient lazy val proc = new FastNLPProcessor()
 
   override def apply(in: String): Seq[String] = {
-    getNgrams(in, CoreNLPContainer.proc)
-  }
-
-  def getNgrams(f : String, proc : Processor): Seq[String] = {
-    val doc = proc.mkDocument(f)
+    val doc = proc.mkDocument(in)
     proc.tagPartsOfSpeech(doc)
     proc.lemmatize(doc)
     proc.recognizeNamedEntities(doc)

@@ -13,13 +13,13 @@ import scala.reflect.ClassTag
  * @tparam A input item type the transformer takes
  * @tparam B output item type the transformer produces
  */
-abstract class Transformer[A, B] extends Serializable {
+abstract class Transformer[A, B : ClassTag] extends Serializable {
   /**
    * Apply this Transformer to an RDD of input items
    * @param in The bulk RDD input to pass into this transformer
    * @return The bulk RDD output for the given input
    */
-  def apply(in: RDD[A]): RDD[B]
+  def apply(in: RDD[A]): RDD[B] = in.map(apply)
 
   /**
    * Apply this Transformer to a single input item
@@ -30,7 +30,7 @@ abstract class Transformer[A, B] extends Serializable {
 
   /**
    * Chains an estimator onto this Transformer, producing a new estimator that when fit on same input type as
-   * this node, chains this node with the node output by the original estimator.
+   * this transformer, chains this transformer with the transformer output by the original estimator.
    * @param est The estimator to chain onto the Transformer
    * @return  The output estimator
    */
@@ -38,7 +38,7 @@ abstract class Transformer[A, B] extends Serializable {
 
   /**
    * Chains a Label Estimator onto this Transformer, producing a new Label Estimator that when fit on same input
-   * type as this node, chains this node with the node output by the original Label Estimator.
+   * type as this transformer, chains this transformer with the transformer output by the original Label Estimator.
    * @param est The label estimator to chain onto the Transformer
    * @return  The output label estimator
    */
@@ -49,7 +49,14 @@ abstract class Transformer[A, B] extends Serializable {
    * @param next The Transformer to attach to the end of this one
    * @return The output Transformer
    */
-  def then[C : ClassTag](next: Transformer[B, C]): Transformer[A, C] = Transformer.chain(this, next)
+  def then[C : ClassTag](next: Transformer[B, C]): Transformer[A, C] = {
+    val first = this
+    val second = next
+    new Transformer[A, C] {
+      override def apply(in: RDD[A]): RDD[C] = second(first(in))
+      override def apply(in: A): C = second(first(in))
+    }
+  }
 
   /**
    * Chains a method, producing a new Transformer that applies the method to each
@@ -78,16 +85,5 @@ object Transformer {
   def apply[I, O : ClassTag](f: I => O): Transformer[I, O] = new Transformer[I, O] {
     override def apply(in: RDD[I]): RDD[O] = in.map(f)
     override def apply(in: I): O = f(in)
-  }
-
-  /**
-   * Chains two Transformers together, producing a new Transformer that applies both in sequence
-   * @param first The first node to apply
-   * @param second The second node to apply
-   * @return The output Transformer
-   */
-  def chain[A, B, C](first: Transformer[A, B], second: Transformer[B, C]) = new Transformer[A, C] {
-    override def apply(in: RDD[A]): RDD[C] = second(first(in))
-    override def apply(in: A): C = second(first(in))
   }
 }

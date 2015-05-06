@@ -14,11 +14,6 @@ class SparseFeatureVectorizer(featureSpace: Map[Any, Int]) extends Transformer[S
     SparseVector(featureSpaceMap.size)(features:_*)
   }
 
-  override def apply(in: RDD[Seq[(Any, Double)]]): RDD[SparseVector[Double]] = {
-    val featureSpaceBroadcast = in.sparkContext.broadcast(featureSpace)
-    in.map(transformVector(_, featureSpaceBroadcast.value))
-  }
-
   override def apply(in: Seq[(Any, Double)]): SparseVector[Double] = {
     transformVector(in, featureSpace)
   }

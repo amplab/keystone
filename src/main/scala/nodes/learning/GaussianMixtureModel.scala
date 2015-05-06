@@ -6,7 +6,6 @@ import pipelines._
 import utils.MatrixUtils
 import utils.external.EncEval
 
-
 /**
  * A Mixture of Gaussians, usually computed via some clustering process.
  *
@@ -25,13 +24,6 @@ class GaussianMixtureModel(
 
   require(means.rows == variances.rows && means.cols == variances.cols, "GMM means and variances must be the same size.")
   require(weights.length == k, "Every GMM center must have a weight.")
-
-  /**
-   * For now this is unimplemented. It should return the soft assignment to each cluster.
-   * @param in An RDD of Vectors
-   * @return The soft assignments for each vector according to the mixture model.
-   */
-  def apply(in: RDD[DenseVector[Double]]): RDD[DenseVector[Double]] = ???
 
   /**
    * For now this is unimplemented. It should return the soft assignment to each cluster.

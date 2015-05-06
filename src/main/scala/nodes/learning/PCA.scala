@@ -16,17 +16,6 @@ import pipelines._
 class PCATransformer(val pcaMat: DenseMatrix[Float]) extends Transformer[DenseVector[Float], DenseVector[Float]] {
 
   /**
-   * Apply dimensionality reduction to an RDD of points.
-   *
-   * @param in A collection of points.
-   * @return Dimensionality reduced output.
-   */
-  def apply(in: RDD[DenseVector[Float]]): RDD[DenseVector[Float]] = {
-    val pcaMatb = in.context.broadcast(pcaMat)
-    in.map(x => PCATransformer.reducePoint(x, pcaMatb.value))
-  }
-
-  /**
    * Apply dimensionality reduction to a point.
    *
    * @param in A point.

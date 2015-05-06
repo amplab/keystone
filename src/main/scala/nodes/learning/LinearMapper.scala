@@ -24,7 +24,7 @@ case class LinearMapper(x: DenseMatrix[Double])
    * @param in Collection of A's.
    * @return Collection of B's.
    */
-  def apply(in: RDD[DenseVector[Double]]): RDD[DenseVector[Double]] = {
+  override def apply(in: RDD[DenseVector[Double]]): RDD[DenseVector[Double]] = {
     val modelBroadcast = in.context.broadcast(x)
     in.mapPartitions(rows => {
       val mat = MatrixUtils.rowsToMatrix(rows) * modelBroadcast.value

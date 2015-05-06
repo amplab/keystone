@@ -40,24 +40,6 @@ class NaiveBayesModel(
   }
 
   /**
-   * Transforms feature vectors to vectors containing the log(posterior probabilities) of the different classes
-   * according to this naive bayes model.
-   *
-   * @param in The input RDD of features
-   * @return Log-posterior probabilites of the classes for the input features
-   */
-  override def apply(in: RDD[Vector[Double]]): RDD[DenseVector[Double]] = {
-    val brzPiBroadcast = in.context.broadcast(brzPi)
-    val brzThetaBroadcast = in.context.broadcast(brzTheta)
-
-    in.mapPartitions { iter =>
-      val pi = brzPiBroadcast.value
-      val theta = brzThetaBroadcast.value
-      iter.map(x => pi + theta * x)
-    }
-  }
-
-  /**
    * Transforms a feature vector to a vector containing the log(posterior probabilities) of the different classes
    * according to this naive bayes model.
 

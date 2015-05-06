@@ -17,5 +17,5 @@ import pipelines.Transformer
  * @param fun the weighting scheme to apply to the frequencies (defaults to identity)
  */
 case class TermFrequency(fun: Double => Double = identity) extends Transformer[Seq[Any], Seq[(Any, Double)]] {
-  override def apply(in: RDD[Seq[Any]]): RDD[Seq[(Any, Double)]] = in.map(_.groupBy(identity).mapValues(x => fun(x.size)).toSeq)
+  override def apply(in: Seq[Any]): Seq[(Any, Double)] = in.groupBy(identity).mapValues(x => fun(x.size)).toSeq
 }

@@ -6,7 +6,6 @@ import pipelines._
 import utils.MatrixUtils
 import utils.external.EncEval
 
-
 /**
  * A Mixture of Gaussians, usually computed via some clustering process.
  *
@@ -31,8 +30,7 @@ class GaussianMixtureModel(
    * @param in A Vector
    * @return The soft assignments of the vector according to the mixture model.
    */
-  def apply(in: RDD[DenseVector[Double]]): RDD[DenseVector[Double]] = ???
-
+  override def apply(in: DenseVector[Double]): DenseVector[Double] = ???
 }
 
 
@@ -41,7 +39,7 @@ class GaussianMixtureModel(
  *
  * @param k Number of centers to estimate.
  */
-class GaussianMixtureModelEstimator(k: Int) extends Estimator[RDD[DenseVector[Double]], RDD[DenseVector[Double]]] {
+class GaussianMixtureModelEstimator(k: Int) extends Estimator[DenseVector[Double], DenseVector[Double]] {
 
   /**
    * Currently this model works on items that fit in local memory.

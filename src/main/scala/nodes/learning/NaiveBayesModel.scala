@@ -40,21 +40,14 @@ class NaiveBayesModel(
   }
 
   /**
-   * Transforms feature vectors to vectors containing the log(posterior probabilities) of the different classes
+   * Transforms a feature vector to a vector containing the log(posterior probabilities) of the different classes
    * according to this naive bayes model.
-   *
-   * @param in The input RDD of features
+
+   * @param in The input feature vector
    * @return Log-posterior probabilites of the classes for the input features
    */
-  override def apply(in: RDD[Vector[Double]]): RDD[DenseVector[Double]] = {
-    val brzPiBroadcast = in.context.broadcast(brzPi)
-    val brzThetaBroadcast = in.context.broadcast(brzTheta)
-
-    in.mapPartitions { iter =>
-      val pi = brzPiBroadcast.value
-      val theta = brzThetaBroadcast.value
-      iter.map(x => pi + theta * x)
-    }
+  override def apply(in: Vector[Double]): DenseVector[Double] = {
+    brzPi + brzTheta * in
   }
 }
 
@@ -65,7 +58,7 @@ class NaiveBayesModel(
  *
  * @param lambda The lambda parameter to use for the naive bayes model
  */
-case class NaiveBayesEstimator(numClasses: Int, lambda: Double = 1.0)  extends LabelEstimator[RDD[Vector[Double]], RDD[DenseVector[Double]], RDD[Int]] {
+case class NaiveBayesEstimator(numClasses: Int, lambda: Double = 1.0)  extends LabelEstimator[Vector[Double], DenseVector[Double], Int] {
   override def fit(in: RDD[Vector[Double]], labels: RDD[Int]): NaiveBayesModel = {
     val labeledPoints = labels.zip(in).map(x => LabeledPoint(x._1, breezeVectorToMLlib(x._2)))
     val model = NaiveBayes.train(labeledPoints, lambda)

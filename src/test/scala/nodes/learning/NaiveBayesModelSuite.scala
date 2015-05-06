@@ -1,6 +1,6 @@
 package nodes.learning
 
-import breeze.linalg.{DenseVector, argmax}
+import breeze.linalg.{DenseVector, Vector, argmax}
 import breeze.stats.distributions.Multinomial
 import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
@@ -109,7 +109,7 @@ class NaiveBayesModelSuite extends FunSuite with LocalSparkContext {
 
     val validationData = NaiveBayesModelSuite.generateNaiveBayesInput(
       pi, theta, nPoints, 17, "Multinomial")
-    val validationRDD = sc.parallelize(validationData, 2)
+    val validationRDD = sc.parallelize[(Int, Vector[Double])](validationData, 2)
 
     // Test prediction on RDD.
     validatePrediction(model.apply(validationRDD.map(_._2)).map(x => argmax(x)).collect(), validationData)

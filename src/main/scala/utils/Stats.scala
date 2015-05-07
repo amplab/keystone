@@ -141,4 +141,17 @@ object Stats extends Serializable {
     val errPercent = totalErr / num.toDouble * 100.0
     errPercent
   }
+
+  def normalizeRows(mat: DenseMatrix[Double], alpha: Double = 1.0): DenseMatrix[Double] = {
+    // FIXME: This currently must convert the matrices to double due to breeze implicits
+    // TODO: Could optimize, use way fewer copies
+    val rowMeans: DenseVector[Double] = mean(mat(*, ::)).map(x => if (x.isNaN) 0 else x)
+    val variances: DenseVector[Double] = sum((mat(::, *) - rowMeans) :^= 2.0, Axis._1) :/= (mat.cols.toDouble - 1.0)
+    val sds: DenseVector[Double] = sqrt(variances + alpha.toDouble).map(x => if (x.isNaN) math.sqrt(alpha) else x)
+
+    val out = mat(::, *) - rowMeans
+    out(::, *) /= sds
+
+    out
+  }
 }

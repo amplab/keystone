@@ -3,21 +3,23 @@ package pipelines.images.cifar
 import breeze.linalg.DenseVector
 import nodes.CifarLoader
 import nodes.images.{ImageVectorizer, LabelExtractor, ImageExtractor, GrayScaler}
-import nodes.learning.{LinearMapEstimator, LinearMapper}
+import nodes.learning.LinearMapEstimator
 import nodes.util.{ClassLabelIndicatorsFromIntLabels, Cacher}
 import org.apache.spark.{SparkContext, SparkConf}
 import pipelines.Logging
 import utils.Stats
 import scopt.OptionParser
 
+
 object LinearPixels extends Logging {
   val appName = "LinearPixels"
+  case class LinearPixelsConfig(trainLocation: String = "", testLocation: String = "")
 
-  def run(sc: SparkContext, trainFile: String, testFile: String) = {
+  def run(sc: SparkContext, config: LinearPixelsConfig) = {
     val numClasses = 10
 
     // Load and cache the training data.
-    val trainData = CifarLoader(sc, trainFile).cache
+    val trainData = CifarLoader(sc, config.trainLocation).cache
 
     // A featurizer maps input images into vectors. For this pipeline, we'll also convert the image to grayscale.
     val featurizer = ImageExtractor then GrayScaler then ImageVectorizer
@@ -38,30 +40,36 @@ object LinearPixels extends Logging {
     val trainError = Stats.classificationError(predictionPipeline(trainData), trainLabels)
 
     // Do testing.
-    val testData = CifarLoader(sc, testFile)
+    val testData = CifarLoader(sc, config.testLocation)
     val testLabels = labelExtractor(testData)
 
     val testError = Stats.classificationError(predictionPipeline(testData), testLabels)
 
     logInfo(s"Training error is: $trainError, Test error is: $testError")
+
+    predictionPipeline
   }
 
-  // This is needed to support command line parsing.
-  case class Config(trainFile: String = "", testFile: String = "")
-
-  val parser = new OptionParser[Config](appName) {
+  def parse(args: Array[String]): LinearPixelsConfig = new OptionParser[LinearPixelsConfig](appName) {
     head(appName, "0.1")
-    opt[String]('T', "trainFile") required() action { (x,c) => c.copy(trainFile=x) }
-    opt[String]('t', "testFile") required() action { (x,c) => c.copy(testFile=x) }
-  }
+    opt[String]("trainLocation") required() action { (x,c) => c.copy(trainLocation=x) }
+    opt[String]("testLocation") required() action { (x,c) => c.copy(testLocation=x) }
+  }.parse(args, LinearPixelsConfig()).get
 
+  /**
+   * The actual driver receives its configuration parameters from spark-submit usually.
+   * @param args
+   */
   def main(args: Array[String]) = {
     val conf = new SparkConf().setAppName(appName)
-    val opts = parser.parse(args, Config())
+    conf.setIfMissing("spark.master", "local[2]") // This is a fallback if things aren't set via spark submit.
 
-    val sc = new SparkContext("local[2]", appName, conf) // TODO: Make this just `new SparkContext(conf)` once scripts are figured out.
-    run(sc, opts.get.trainFile, opts.get.testFile)
+    val sc = new SparkContext(conf)
+
+    val appConfig = parse(args)
+    run(sc, appConfig)
 
     sc.stop()
   }
+
 }

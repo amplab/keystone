@@ -65,71 +65,27 @@ class BlockLinearMapper(val xs: Seq[DenseMatrix[Double]])
   }
 }
 
-class MultiLambdaBlockLinearMapper(val xs: Seq[Seq[DenseMatrix[Double]]], val lambdaStrings: Array[String])
-    extends Serializable {
-
-  def applyAndEvaluate(ins: TraversableOnce[RDD[DenseVector[Double]]], evaluator: (RDD[DenseVector[Double]], String) => Unit) {
-    val res = ins.toIterator.zip(xs.iterator).map {
-      case (in, xl) => {
-        xl.map(x => {
-          val modelBroadcast = in.context.broadcast(x)
-          in.mapPartitions(rows => {
-            if (!rows.isEmpty) {
-              Iterator(MatrixUtils.rowsToMatrix(rows) * modelBroadcast.value)
-            } else {
-              Iterator.empty
-            }
-          })
-        })
-      }
-    }
-
-    var prev: Option[Seq[RDD[DenseMatrix[Double]]]] = None
-    for (nexts <- res) {
-      val sums = prev match {
-        case Some(prevVals) => prevVals.zip(nexts).map {
-          case (prevVal, next) => prevVal.zip(next).map(c => c._1 + c._2).cache()
-        }
-        case None => nexts.map(_.cache())
-      }
-
-      sums.zip(lambdaStrings).foreach {
-        case (sum, lambda) => evaluator.apply(sum.flatMap(MatrixUtils.matrixToRowArray), lambda)
-      }
-
-      prev.map(_.map(_.unpersist()))
-      prev = Some(sums)
-    }
-    prev.map(_.map(_.unpersist()))
-  }
-}
-
 object BlockLinearMapper extends Serializable {
 
   def trainWithL2(
-                     trainingFeatures: Seq[RDD[DenseVector[Double]]],
-                     trainingLabels: RDD[DenseVector[Double]],
-                     lambda: Double,
-                     numIter: Int)
+    trainingFeatures: Seq[RDD[DenseVector[Double]]],
+    trainingLabels: RDD[DenseVector[Double]],
+    lambda: Double,
+    numIter: Int)
   : BlockLinearMapper = {
-    trainWithManyL2(trainingFeatures, trainingLabels, Array(lambda), numIter)(0)
-  }
-
-  def trainWithManyL2(
-                         trainingFeatures: Seq[RDD[DenseVector[Double]]],
-                         trainingLabels: RDD[DenseVector[Double]],
-                         lambdas: Array[Double],
-                         numIter: Int)
-  : Seq[BlockLinearMapper] = {
-
     // Find out numRows, numCols once
     val b = RowPartitionedMatrix.fromArray(trainingLabels.map(_.toArray)).cache()
     val numRows = Some(b.numRows())
     val numCols = Some(trainingFeatures.head.first().length.toLong)
 
-    val A = trainingFeatures.map(x => new RowPartitionedMatrix(x.mapPartitions(rows => Iterator.single(MatrixUtils.rowsToMatrix(rows))).map(RowPartition), numRows, numCols))
-    val models = new BlockCoordinateDescent().solveLeastSquaresWithL2(A, b, lambdas, numIter, new NormalEquations()).transpose
-    val blockLinearMappers = models.map(x => new BlockLinearMapper(x))
-    blockLinearMappers
+    val A = trainingFeatures.map(rdd => {
+      new RowPartitionedMatrix(rdd.mapPartitions { rows =>
+        Iterator.single(MatrixUtils.rowsToMatrix(rows))
+      }.map(RowPartition), numRows, numCols)
+    })
+
+    val bcd = new BlockCoordinateDescent()
+    val models = bcd.solveLeastSquaresWithL2(A, b, Array(lambda), numIter, new NormalEquations()).transpose
+    new BlockLinearMapper(models.head)
   }
 }

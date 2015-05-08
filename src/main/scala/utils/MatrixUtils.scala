@@ -3,9 +3,8 @@ package utils
 import java.io.File
 
 import breeze.linalg._
-import pipelines._
-
-import scala.reflect.ClassTag
+import breeze.numerics._
+import scala.util.Random
 
 
 /**
@@ -74,6 +73,18 @@ object MatrixUtils extends Serializable {
     }
     val outMat = new DenseMatrix[Double](nRows, nCols, outArr)
     outMat
+  }
+
+  /**
+   * Draw samples rows from a matrix.
+   *
+   * @param in Input matrix.
+   * @param numSamples Number of samples to draw.
+   * @return A matrix constructed from a sample of the rows.
+   */
+  def sampleRows(in: DenseMatrix[Double], numSamples: Int): DenseMatrix[Double] = {
+    val rows = Random.shuffle(0 to (in.rows-1)).take(numSamples).sorted
+    (in(rows,::)).toDenseMatrix
   }
 
 }

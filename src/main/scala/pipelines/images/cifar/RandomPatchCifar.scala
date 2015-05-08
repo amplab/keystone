@@ -1,9 +1,10 @@
 package pipelines
 
-import breeze.linalg.DenseVector
+import breeze.linalg._
+import breeze.numerics._
 import nodes.images._
 import nodes.learning.LinearMapEstimator
-import nodes.math.InterceptAdder
+import nodes.misc.StandardScaler
 import nodes.util.nodes.Sampler
 import nodes.util.{Cacher, ClassLabelIndicatorsFromIntLabels}
 import org.apache.spark.{SparkConf, SparkContext}
@@ -34,21 +35,23 @@ object RandomPatchCifar extends Serializable {
 
     val x = new Windower(conf.patchSteps, conf.patchSize)
 
-    val windower = new Windower(conf.patchSteps, conf.patchSize)
-      .andThen(ImageVectorizer)
+    val patchExtractor = new Windower(conf.patchSteps, conf.patchSize)
+      .andThen(ImageVectorizer.apply)
       .andThen(new Sampler(whitenerSize))
 
-    val (filters, whitener) = {
-        val baseFilters = patchExtractor(windower(trainImages).flatMap(identity))
+    val (filters, whitener): (DenseMatrix[Double], ZCAWhitener) = {
+        val baseFilters = patchExtractor(trainImages)
         val baseFilterMat = Stats.normalizeRows(MatrixUtils.rowsToMatrix(baseFilters), 10.0)
-        val whitener = new ZCAWhitener(baseFilterMat)
+        val whitener = new ZCAWhitenerEstimator().fitSingle(baseFilterMat)
 
         //Normalize them.
-        val sampleFilters = new MatrixType(Random.shuffle(baseFilterMat.toArray2.toList).toArray.slice(0, numFilters))
-        val unnormFilters = whitener(sampleFilters)
-        val twoNorms = MatrixFunctions.pow(MatrixFunctions.pow(unnormFilters, 2.0).rowSums, 0.5)
 
-        (((unnormFilters divColumnVector (twoNorms.addi(1e-10))) mmul (whitener.whitener.transpose)).toArray2, whitener)
+        val sampleFilters = MatrixUtils.sampleRows(baseFilterMat, conf.numFilters)
+        val unnormFilters = whitener(sampleFilters)
+        val unnormSq = pow(unnormFilters, 2.0)
+        val twoNorms = sqrt(sum(unnormSq(*, ::)))
+
+        ((unnormFilters(::, *) / (twoNorms + 1e-10)) * whitener.whitener.t, whitener)
     }
 
 
@@ -57,8 +60,7 @@ object RandomPatchCifar extends Serializable {
         .then(new Pooler(conf.poolStride, conf.poolSize, identity, _.sum))
         .then(ImageVectorizer)
         .then(new Cacher[DenseVector[Double]])
-        .thenEstimator(new FeatureNormalize).fit(trainData)
-        .then(InterceptAdder)
+        .thenEstimator(new StandardScaler).fit(trainImages)
         .then(new Cacher[DenseVector[Double]])
 
     val labelExtractor = LabelExtractor then ClassLabelIndicatorsFromIntLabels(numClasses) then new Cacher[DenseVector[Double]]
@@ -69,13 +71,14 @@ object RandomPatchCifar extends Serializable {
 
     val model = LinearMapEstimator(conf.lambda).fit(trainFeatures, trainLabels)
 
-    val predictionPipeline = featurizer then model then new CachingNode[DenseVector[Double]]
+    val predictionPipeline = featurizer then model then new Cacher[DenseVector[Double]]
 
     //Calculate training error.
     val trainError = Stats.classificationError(predictionPipeline(trainImages), trainLabels)
 
     //Do testing.
     val testData = dataLoader(sc, conf.testLocation)
+    val testImages = ImageExtractor(testData)
     val testLabels = labelExtractor(testData)
 
     val testError = Stats.classificationError(predictionPipeline(testImages), testLabels)

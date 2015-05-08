@@ -9,7 +9,7 @@ import java.io.{FileWriter, File}
 import java.util.{Random => JRandom}
 import javax.imageio.ImageIO
 
-import nodes.stats.TopKClassifier
+import nodes.misc.TopKClassifier
 import org.apache.commons.io.FileUtils
 import org.apache.commons.math3.random.{RandomGenerator}
 import org.apache.spark.rdd.RDD

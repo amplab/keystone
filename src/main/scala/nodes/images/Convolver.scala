@@ -133,7 +133,7 @@ object Convolver {
     val res = whitener match {
       case None => patchMatN
       //case Some(whiteness) => whiteness(patchMat)
-      case Some(whiteness) => patchMatN(*, ::) - whiteness.m
+      case Some(whiteness) => patchMatN(*, ::) - whiteness.means
     }
 
     res

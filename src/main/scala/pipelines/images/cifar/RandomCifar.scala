@@ -4,7 +4,7 @@ import breeze.linalg.DenseVector
 import nodes.CifarLoader
 import nodes.images._
 import nodes.learning.LinearMapEstimator
-import nodes.math.InterceptAdder
+import nodes.misc.StandardScaler
 import nodes.util.{Cacher, ClassLabelIndicatorsFromIntLabels}
 import org.apache.spark.{SparkConf, SparkContext}
 import pipelines._
@@ -40,8 +40,7 @@ object RandomCifar extends Serializable {
         .then(new Pooler(conf.poolStride, conf.poolSize, identity, _.sum))
         .then(ImageVectorizer)
         .then(new Cacher[DenseVector[Double]])
-        .thenEstimator(new FeatureNormalize).fit(trainImages)
-        .then(InterceptAdder)
+        .thenEstimator(new StandardScaler).fit(trainImages)
         .then(new Cacher[DenseVector[Double]])
 
     val labelExtractor = LabelExtractor then ClassLabelIndicatorsFromIntLabels(numClasses) then new Cacher[DenseVector[Double]]

@@ -1,15 +1,10 @@
 package nodes.images
 
 import breeze.linalg._
-import pipelines._
-
-import org.apache.spark.rdd.RDD
-import utils._
-import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.SparkContext
-import scala.Some
-import utils.ImageMetadata
-import utils.ArrayVectorizedImage
+import org.apache.spark.rdd.RDD
+import pipelines._
+import utils.{ArrayVectorizedImage, ImageMetadata, _}
 
 /**
  * Convolves images with a bank of convolution filters. Convolution filters must be square.
@@ -22,7 +17,7 @@ import utils.ArrayVectorizedImage
  */
 class Convolver(
     sc: SparkContext,
-    @transient filters: DenseMatrix[Double],
+    filters: DenseMatrix[Double],
     imgWidth: Int,
     imgHeight: Int,
     imgChannels: Int,
@@ -69,7 +64,7 @@ object Convolver {
     val res = new ArrayVectorizedImage(new Array[Double](resWidth*resHeight*convolutions.cols),
       ImageMetadata(resWidth, resHeight, convolutions.cols))
 
-    //Now pack the convolved features into the result.
+    // Now pack the convolved features into the result.
     var x, y, chan = 0
     while (x < resWidth) {
       y = 0
@@ -86,6 +81,7 @@ object Convolver {
 
     res
   }
+
   /**
    * This function takes an image and generates a matrix of all of its patches. Patches are expected to have indexes
    * of the form: c + x*numChannels + y*numChannels*xDim
@@ -132,22 +128,22 @@ object Convolver {
 
     val res = whitener match {
       case None => patchMatN
-      //case Some(whiteness) => whiteness(patchMat)
       case Some(whiteness) => patchMatN(*, ::) - whiteness.means
     }
 
     res
   }
 
-  def convolvePartitions(imgs: Iterator[Image],
-                         resWidth: Int,
-                         resHeight: Int,
-                         imgChannels: Int,
-                         convSize: Int,
-                         normalizePatches: Boolean,
-                         whitener: Option[ZCAWhitener],
-                         convolutions: DenseMatrix[Double],
-                         varConstant: Double): Iterator[Image] = {
+  def convolvePartitions(
+      imgs: Iterator[Image],
+      resWidth: Int,
+      resHeight: Int,
+      imgChannels: Int,
+      convSize: Int,
+      normalizePatches: Boolean,
+      whitener: Option[ZCAWhitener],
+      convolutions: DenseMatrix[Double],
+      varConstant: Double): Iterator[Image] = {
 
     var patchMat = new DenseMatrix[Double](resWidth*resHeight, convSize*convSize*imgChannels)
     imgs.map(convolve(_, patchMat, resWidth, resHeight, imgChannels, convSize, normalizePatches,

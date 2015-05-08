@@ -2,20 +2,15 @@ package pipelines
 
 import breeze.linalg._
 import breeze.numerics._
+import nodes._
 import nodes.images._
 import nodes.learning.LinearMapEstimator
 import nodes.misc.StandardScaler
 import nodes.util.nodes.Sampler
 import nodes.util.{Cacher, ClassLabelIndicatorsFromIntLabels}
 import org.apache.spark.{SparkConf, SparkContext}
-import nodes._
-import org.apache.spark.rdd.RDD
-import org.jblas.{MatrixFunctions, FloatMatrix}
-import pipelines._
 import scopt.OptionParser
 import utils.{MatrixUtils, Stats}
-
-import scala.util.Random
 
 
 object RandomPatchCifar extends Serializable {

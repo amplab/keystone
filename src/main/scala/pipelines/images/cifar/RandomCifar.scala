@@ -7,7 +7,6 @@ import nodes.learning.LinearMapEstimator
 import nodes.misc.StandardScaler
 import nodes.util.{Cacher, ClassLabelIndicatorsFromIntLabels}
 import org.apache.spark.{SparkConf, SparkContext}
-import pipelines._
 import scopt.OptionParser
 import utils.Stats
 

@@ -1,22 +1,13 @@
 package utils
 
+import java.util.{Random => JRandom}
+
 import breeze.linalg._
 import breeze.numerics._
 import breeze.stats._
 import breeze.stats.distributions._
-
-import java.io.{FileWriter, File}
-import java.util.{Random => JRandom}
-import javax.imageio.ImageIO
-
 import nodes.misc.TopKClassifier
-import org.apache.commons.io.FileUtils
-import org.apache.commons.math3.random.{RandomGenerator}
 import org.apache.spark.rdd.RDD
-
-import pipelines._
-
-import scala.reflect.ClassTag
 
 object Stats extends Serializable {
   /**

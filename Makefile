@@ -85,7 +85,7 @@ $(ENCEVALDIR):
 vlfeat: $(VLFEATDIR)
 	make -C $(VLFEATDIR)/vlfeat-0.9.20 ARCH=$(VLARCH) MEX= bin-all
 
-$(ENCEVALDIR)/%.o: $(ENCEVALDIR)/lib/gmm-fisher/%.cxx
+$(ENCEVALDIR)/%.o: $(ENCEVALDIR)/lib/gmm-fisher/%.cxx $(ENCEVALDIR)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
 $(ODIR):

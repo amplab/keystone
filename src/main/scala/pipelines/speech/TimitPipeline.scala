@@ -1,6 +1,5 @@
 package pipelines.speech
 
-import breeze.linalg.DenseMatrix
 import breeze.stats.distributions.{RandBasis, ThreadLocalRandomGenerator}
 import evaluation.MulticlassClassifierEvaluator
 import loaders.CsvDataLoader
@@ -10,7 +9,6 @@ import org.apache.commons.math3.random.MersenneTwister
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkContext}
 import pipelines._
-import utils.MatrixUtils
 
 import scala.collection.mutable
 
@@ -59,7 +57,7 @@ object TimitPipeline extends Logging {
     // Set the constants
     val seed = 123L
     val random = new java.util.Random(seed)
-    val randomSignSource: RandBasis = new RandBasis(new ThreadLocalRandomGenerator(new MersenneTwister(random.nextLong())))
+    val randomSignSource = new RandBasis(new ThreadLocalRandomGenerator(new MersenneTwister(random.nextLong())))
 
     val numCosineFeatures = 4096
     val numCosineBatches = numCosines
@@ -115,8 +113,6 @@ object TimitPipeline extends Logging {
       println("TEST Error is " + (100d - 100d * evaluator.microAccuracy) + "%")
     })
 
-    TimitUtils.saveTimitModelAndSVD(blockLinearMapper.xs, modelFileName)
-
     System.exit(0)
   }
 }
@@ -160,28 +156,6 @@ object TimitUtils {
     }
     val indicatorExtractor = ClassLabelIndicators(numClasses)
     indicatorExtractor.apply(labelsRDD)
-  }
-
-  def saveTimitModelAndSVD(
-      models: Seq[DenseMatrix[Double]],
-      modelFileName: Option[String]) = {
-
-    modelFileName.foreach { mf =>
-      // Save out the model for the first lambda to a file
-      // Convert it to doubles before saving
-      val fullModel = models.reduceLeft {
-        (a: DenseMatrix[Double], b: DenseMatrix[Double]) => DenseMatrix.vertcat(a, b)
-      }
-
-      println("Dimensions of full model: " + fullModel.rows + "x" + fullModel.cols)
-
-      MatrixUtils.writeCSVFile(mf, fullModel)
-
-      // Compute Singular values of model
-      val singularValues = breeze.linalg.svd(fullModel).S
-      // print singular values
-      println("Singular values of model\n " + singularValues.data.mkString("\n"))
-    }
   }
 }
 

@@ -22,21 +22,7 @@ class CosineRandomFeatures(
 
   override def apply(in: RDD[DenseVector[Double]]): RDD[DenseVector[Double]] = {
     in.mapPartitions { part =>
-      val arr = part.toArray
-      val numRows = arr.length
-      val numCols = arr(0).length
-      val matData = new Array[Double](numRows * numCols)
-      var i = 0
-      while (i < arr.length) {
-        val row = arr(i)
-        var j = 0
-        while (j < numCols) {
-          matData(i + numRows * j) = row(j)
-          j = j + 1
-        }
-        i = i + 1
-      }
-      val data = new DenseMatrix[Double](numRows, numCols, matData)
+      val data = MatrixUtils.rowsToMatrix(part)
       val features: DenseMatrix[Double] = data * W.t
       features(*,::) :+= b
       cos.inPlace(features)

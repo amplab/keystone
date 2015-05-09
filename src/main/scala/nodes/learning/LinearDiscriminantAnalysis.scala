@@ -10,7 +10,7 @@ import utils.MatrixUtils
  * An Estimator that fits Linear Discriminant Analysis (currently not calculated in a distributed fashion),
  * and returns a transformer that projects into the new space
  *
- * Algorithm from: http://sebastianraschka.com/Articles/2014_python_lda.html#introduction
+ * Solves multi-class LDA via Eigenvector decomposition
  *
  * @param numDimensions number of output dimensions to project to
  */
@@ -19,14 +19,25 @@ class LinearDiscriminantAnalysis(numDimensions: Int) extends LabelEstimator[Dens
    * Currently this method works only on data that fits in local memory.
    * Hard limit of up to ~4B bytes of feature data due to max Java array length
    *
-   * @param data Size.
-   * @param labels Input labels.
+   * Solves multi-class LDA via Eigenvector decomposition
+   *
+   * "multi-class Linear Discriminant Analysis" or "Multiple Discriminant Analysis" by
+   * C. R. Rao in 1948 (The utilization of multiple measurements in problems of biological classification)
+   * http://www.jstor.org/discover/10.2307/2983775?uid=3739560&uid=2&uid=4&uid=3739256&sid=21106766791933
+   *
+   * Python implementation reference at: http://sebastianraschka.com/Articles/2014_python_lda.html
+   *
+   * @param data to train on.
+   * @param labels Input class labels.
    * @return A PipelineNode which can be called on new data.
    */
   override def fit(data: RDD[DenseVector[Double]], labels: RDD[Int]): LinearMapper = {
     val sample = labels.zip(data).collect()
+    computeLDA(sample)
+  }
 
-    val featuresByClass = sample.groupBy(_._1).values.map(x => MatrixUtils.rowsToMatrix(x.map(_._2)))
+  def computeLDA(dataAndLabels: Array[(Int, DenseVector[Double])]): LinearMapper = {
+    val featuresByClass = dataAndLabels.groupBy(_._1).values.map(x => MatrixUtils.rowsToMatrix(x.map(_._2)))
     val meanByClass = featuresByClass.map(f => mean(f(::, *)): DenseMatrix[Double]) // each mean is a row vector, not col
 
     val sW = featuresByClass.zip(meanByClass).map(f => {
@@ -35,7 +46,7 @@ class LinearDiscriminantAnalysis(numDimensions: Int) extends LabelEstimator[Dens
     }).reduce(_+_)
 
     val numByClass = featuresByClass.map(_.rows : Double)
-    val features = MatrixUtils.rowsToMatrix(sample.map(_._2))
+    val features = MatrixUtils.rowsToMatrix(dataAndLabels.map(_._2))
     val totalMean: DenseMatrix[Double] = mean(features(::, *)) // A row-vector, not a column-vector
 
     val sB = meanByClass.zip(numByClass).map {

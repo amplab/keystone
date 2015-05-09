@@ -1,18 +1,16 @@
 package nodes
 
-import utils.{RowColumnMajorByteArrayVectorizedImage, ImageMetadata, LabeledImage}
-import pipelines.Transformer
+import java.io.FileInputStream
+
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
-import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
-import java.util.zip.GZIPInputStream
-import java.io.{BufferedInputStream, FileInputStream}
+import utils.{ImageMetadata, LabeledImage, RowColumnMajorByteArrayVectorizedImage}
 
 
 /**
  * Loads images from the CIFAR-10 Dataset.
  */
-object CifarLoader {
+object  CifarLoader {
   // We hardcode this because these are properties of the CIFAR-10 dataset.
   val nrow = 32
   val ncol = 32
@@ -21,8 +19,7 @@ object CifarLoader {
   val labelSize = 1
 
   def cifar10ToBufferedImage(cifar: Array[Byte]): RowColumnMajorByteArrayVectorizedImage = {
-    val rowlen = ncol*nchan
-    val byteLen = nrow*rowlen
+    val byteLen = nrow*ncol*nchan
 
     // Allocate some space for the rows.
     require(cifar.length == byteLen, "CIFAR-10 Images MUST be 32x32x3.")
@@ -38,7 +35,6 @@ object CifarLoader {
 
     val inFile = new FileInputStream(path)
 
-    println("About to read image")
     while(inFile.read(imageBytes, 0, imgCount) > 0) {
       val img = cifar10ToBufferedImage(imageBytes.tail)
       val label = imageBytes.head.toShort

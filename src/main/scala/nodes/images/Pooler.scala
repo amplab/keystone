@@ -7,6 +7,9 @@ import utils.{ImageMetadata, ArrayVectorizedImage, Image}
 /**
  * This node takes an image and performs pooling on regions of the image.
  *
+ * Divides images into fixed size pools, but when fed with images of various
+ * sizes may produce a varying number of pools.
+ *
  * NOTE: By default strides start from poolSize/2.
  *
  * @param stride x and y stride to get regions of the image

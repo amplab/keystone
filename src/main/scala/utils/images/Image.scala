@@ -219,8 +219,8 @@ trait VectorizedImage extends Image {
  *   is at y + x.metadata.yDim + channelIdx*metadata.yDim*metadata.xDim
  */
 case class RowColumnMajorByteArrayVectorizedImage(
-                                                   vectorizedImage: Array[Byte],
-                                                   override val metadata: ImageMetadata) extends VectorizedImage {
+    vectorizedImage: Array[Byte],
+    override val metadata: ImageMetadata) extends VectorizedImage {
   override def imageToVectorCoords(x: Int, y: Int, channelIdx: Int): Int = {
     val cidx = channelIdx
 

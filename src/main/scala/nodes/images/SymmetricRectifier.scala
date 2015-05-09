@@ -7,9 +7,10 @@ case class SymmetricRectifier(maxVal: Double = 0.0, alpha: Double = 0.0)
   extends Transformer[Image, Image] {
 
   def apply(img: Image): Image = {
-
-    val res = ArrayVectorizedImage(new Array[Double](img.metadata.xDim * img.metadata.yDim * img.metadata.numChannels * 2),
+    val res = ArrayVectorizedImage(
+      new Array[Double](img.metadata.xDim * img.metadata.yDim * img.metadata.numChannels * 2),
       img.metadata.copy(numChannels = img.metadata.numChannels * 2))
+
     var x, y, c = 0
     while (x < img.metadata.xDim) {
       y = 0

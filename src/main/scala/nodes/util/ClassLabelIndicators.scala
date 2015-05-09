@@ -28,9 +28,9 @@ case class ClassLabelIndicatorsFromIntArrayLabels(numClasses: Int)
   def apply(in: Array[Int]): DenseVector[Double] = {
     val indicatorVector = DenseVector.fill(numClasses, -1.0)
     var i = 0
-    while(i < in.length) {
+    while (i < in.length) {
       indicatorVector(in(i)) = 1.0
-      i+=1
+      i += 1
     }
     indicatorVector
   }

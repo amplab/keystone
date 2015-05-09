@@ -39,7 +39,8 @@ class Convolver(
 
   def apply(in: Image): Image = {
     var patchMat = new DenseMatrix[Double](resWidth*resHeight, convSize*convSize*imgChannels)
-    Convolver.convolve(in, patchMat, resWidth, resHeight, imgChannels, convSize, normalizePatches, whitener, convolutions)
+    Convolver.convolve(in, patchMat, resWidth, resHeight,
+      imgChannels, convSize, normalizePatches, whitener, convolutions)
   }
 }
 

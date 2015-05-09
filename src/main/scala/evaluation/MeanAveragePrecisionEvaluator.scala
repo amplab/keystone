@@ -3,6 +3,10 @@ package evaluation
 import org.apache.spark.rdd.RDD
 import org.apache.spark.SparkContext._
 
+/**
+ * MeanAveragePrecision (MAP) calculator based on MATLAB code
+ * from the encoding eval toolkit at http://www.robots.ox.ac.uk/~vgg/software/enceval_toolkit/
+ */
 object MeanAveragePrecisionEvaluator {
 
   /**
@@ -59,7 +63,7 @@ object MeanAveragePrecisionEvaluator {
   }
 
   /**
-   * Get average precision at 10 levels given precisions and recalls
+   * Get average precision at 11 levels given precisions and recalls
    */
   private def getAP(precisions: Array[Double], recalls: Array[Double]) = {
     var ap = 0.0

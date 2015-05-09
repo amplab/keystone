@@ -63,17 +63,7 @@ object Stats extends Serializable {
   def aboutEq(a: DenseMatrix[Double], b: DenseMatrix[Double]): Boolean = {
     Stats.aboutEq(a,b,thresh)
   }
-  /**
-    *  Apply power normalization: z <- sign(z)|z|^{\rho}
-    *  with \rho = \frac{1}{2}
-    *  This a "signed square root"
-    *  @param in  Input DenseVector[Double] RDD
-    */
-  def signedHellingerMapper(in: RDD[DenseVector[Double]]): RDD[DenseVector[Double]] = {
-    in.map(x => {
-      x.map(xi => math.signum(xi) * math.sqrt(math.abs(xi)))
-    })
-  }
+
   /**
     *  Generates a rows x cols Random matrix (dense) using Breeze's RandBasis (which takes in a prng)
     *  all values are uniformly distributed doubles between 0.0 and 1.0

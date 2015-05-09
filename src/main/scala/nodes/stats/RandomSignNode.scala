@@ -8,7 +8,6 @@ import pipelines.Transformer
  *  A node that takes in DenseVector[Double] and randomly flips
  *  the sign of some of the elements
  */
-
 case class RandomSignNode(signs: DenseVector[Double])
     extends Transformer[DenseVector[Double], DenseVector[Double]] {
 

@@ -2,10 +2,11 @@ package pipelines
 
 import breeze.linalg._
 import breeze.numerics._
+import evaluation.MulticlassClassifierEvaluator
 import nodes._
 import nodes.images._
-import nodes.learning.LinearMapEstimator
-import nodes.misc.StandardScaler
+import nodes.learning.{ZCAWhitenerEstimator, ZCAWhitener, LinearMapEstimator}
+import nodes.misc.{MaxClassifier, StandardScaler}
 import nodes.util.nodes.Sampler
 import nodes.util.{Cacher, ClassLabelIndicatorsFromIntLabels}
 import org.apache.spark.{SparkConf, SparkContext}
@@ -13,7 +14,7 @@ import scopt.OptionParser
 import utils.{MatrixUtils, Stats}
 
 
-object RandomPatchCifar extends Serializable {
+object RandomPatchCifar extends Serializable with Logging {
   val appName = "RandomPatchCifar"
 
   def run(sc: SparkContext, conf: RandomCifarConfig) {
@@ -23,9 +24,11 @@ object RandomPatchCifar extends Serializable {
     val numChannels = 3
     val whitenerSize = 100000
 
-
-    val dataLoader = CifarLoader
-    val trainData = dataLoader(sc, conf.trainLocation).sample(false, 0.2).cache()
+    // Load up training data, and optionally sample.
+    val trainData = conf.sampleFrac match {
+      case Some(f) => CifarLoader(sc, conf.trainLocation).sample(false, f).cache
+      case None => CifarLoader(sc, conf.trainLocation).cache
+    }
     val trainImages = ImageExtractor(trainData)
 
     val x = new Windower(conf.patchSteps, conf.patchSize)
@@ -40,7 +43,6 @@ object RandomPatchCifar extends Serializable {
         val whitener = new ZCAWhitenerEstimator().fitSingle(baseFilterMat)
 
         //Normalize them.
-
         val sampleFilters = MatrixUtils.sampleRows(baseFilterMat, conf.numFilters)
         val unnormFilters = whitener(sampleFilters)
         val unnormSq = pow(unnormFilters, 2.0)
@@ -50,7 +52,7 @@ object RandomPatchCifar extends Serializable {
     }
 
 
-    val featurizer = new Convolver(sc, filters, imageSize, imageSize, numChannels, Some(whitener), true)
+    val featurizer = new Convolver(filters, imageSize, imageSize, numChannels, Some(whitener), true)
         .then(SymmetricRectifier(alpha=conf.alpha))
         .then(new Pooler(conf.poolStride, conf.poolSize, identity, _.sum))
         .then(ImageVectorizer)
@@ -63,22 +65,22 @@ object RandomPatchCifar extends Serializable {
     val trainFeatures = featurizer(trainImages)
     val trainLabels = labelExtractor(trainData)
 
-
     val model = LinearMapEstimator(conf.lambda).fit(trainFeatures, trainLabels)
 
-    val predictionPipeline = featurizer then model then new Cacher[DenseVector[Double]]
+    val predictionPipeline = featurizer then model then MaxClassifier then new Cacher[Int]
 
-    //Calculate training error.
-    val trainError = Stats.classificationError(predictionPipeline(trainImages), trainLabels)
+    // Calculate training error.
+    val trainEval = MulticlassClassifierEvaluator(predictionPipeline(trainImages), LabelExtractor(trainData), numClasses)
 
-    //Do testing.
-    val testData = dataLoader(sc, conf.testLocation)
+    // Do testing.
+    val testData = CifarLoader(sc, conf.testLocation)
     val testImages = ImageExtractor(testData)
     val testLabels = labelExtractor(testData)
 
-    val testError = Stats.classificationError(predictionPipeline(testImages), testLabels)
+    val testEval = MulticlassClassifierEvaluator(predictionPipeline(testImages), LabelExtractor(testData), numClasses)
 
-    println(s"Training error is: $trainError, Test error is: $testError")
+    logInfo(s"Training error is: ${trainEval.macroaccuracy}")
+    logInfo(s"Test error is: ${testEval.macroaccuracy}")
   }
 
   case class RandomCifarConfig(

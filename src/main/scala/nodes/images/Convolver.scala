@@ -1,6 +1,7 @@
 package nodes.images
 
 import breeze.linalg._
+import nodes.learning.ZCAWhitener
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import pipelines._
@@ -16,7 +17,6 @@ import utils.{ArrayVectorizedImage, ImageMetadata, _}
  * @param imgHeight Height of images in pixels.
  */
 class Convolver(
-    sc: SparkContext,
     filters: DenseMatrix[Double],
     imgWidth: Int,
     imgHeight: Int,

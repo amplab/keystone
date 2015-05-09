@@ -1,17 +1,19 @@
 package pipelines.images.cifar
 
 import breeze.linalg.DenseVector
+import evaluation.MulticlassClassifierEvaluator
 import nodes.CifarLoader
 import nodes.images._
 import nodes.learning.LinearMapEstimator
-import nodes.misc.StandardScaler
+import nodes.misc.{MaxClassifier, StandardScaler}
 import nodes.util.{Cacher, ClassLabelIndicatorsFromIntLabels}
 import org.apache.spark.{SparkConf, SparkContext}
+import pipelines.Logging
 import scopt.OptionParser
 import utils.Stats
 
 
-object RandomCifar extends Serializable {
+object RandomCifar extends Serializable with Logging {
   val appName = "RandomCifar"
 
   def run(sc: SparkContext, conf: RandomCifarConfig) {
@@ -20,12 +22,10 @@ object RandomCifar extends Serializable {
     val imageSize = 32
     val numChannels = 3
 
-    def dataLoader(fname: String) = CifarLoader(sc, fname)
-
     // Load up training data, and optionally sample.
     val trainData = conf.sampleFrac match {
-      case Some(f) => dataLoader(conf.trainLocation).sample(false, f).cache
-      case None => dataLoader(conf.trainLocation).cache
+      case Some(f) => CifarLoader(sc, conf.trainLocation).sample(false, f).cache
+      case None => CifarLoader(sc, conf.trainLocation).cache
     }
 
     val trainImages = ImageExtractor(trainData)
@@ -34,7 +34,7 @@ object RandomCifar extends Serializable {
     val filters = Stats.randMatrixGaussian(conf.numFilters, conf.patchSize*conf.patchSize*numChannels)
 
     val featurizer =
-      new Convolver(sc, filters, imageSize, imageSize, numChannels, None, true)
+      new Convolver(filters, imageSize, imageSize, numChannels, None, true)
         .then(SymmetricRectifier(alpha=conf.alpha))
         .then(new Pooler(conf.poolStride, conf.poolSize, identity, _.sum))
         .then(ImageVectorizer)
@@ -49,23 +49,20 @@ object RandomCifar extends Serializable {
 
     val model = LinearMapEstimator(conf.lambda).fit(trainFeatures, trainLabels)
 
-    val predictionPipeline = featurizer then model then new Cacher[DenseVector[Double]]
+    val predictionPipeline = featurizer then model then MaxClassifier
 
     // Calculate training error.
-    val trainError = Stats.classificationError(predictionPipeline(trainImages), trainLabels)
+    val trainEval = MulticlassClassifierEvaluator(predictionPipeline(trainImages), LabelExtractor(trainData), numClasses)
 
     // Do testing.
-    val testData = dataLoader(conf.testLocation)
+    val testData = CifarLoader(sc, conf.testLocation)
     val testImages = ImageExtractor(testData)
     val testLabels = labelExtractor(testData)
 
-    val testError = Stats.classificationError(predictionPipeline(testImages), testLabels)
+    val testEval = MulticlassClassifierEvaluator(predictionPipeline(testImages), LabelExtractor(testData), numClasses)
 
-    println(s"Training error is: $trainError, Test error is: $testError")
-
-
-    sc.stop()
-    sys.exit(0)
+    logInfo(s"Training error is: ${trainEval.macroaccuracy}")
+    logInfo(s"Test error is: ${testEval.macroaccuracy}")
   }
 
   case class RandomCifarConfig(

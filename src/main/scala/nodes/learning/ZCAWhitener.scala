@@ -1,9 +1,9 @@
-package nodes.images
+package nodes.learning
 
 import breeze.linalg._
 import breeze.numerics._
 import breeze.stats._
-import com.github.fommil.netlib.LAPACK.{getInstance=>lapack}
+import com.github.fommil.netlib.LAPACK.{getInstance => lapack}
 import org.apache.spark.rdd.RDD
 import org.netlib.util.intW
 import pipelines._

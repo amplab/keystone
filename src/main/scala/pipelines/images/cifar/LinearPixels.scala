@@ -1,9 +1,11 @@
 package pipelines.images.cifar
 
 import breeze.linalg.DenseVector
+import evaluation.MulticlassClassifierEvaluator
 import nodes.CifarLoader
 import nodes.images.{ImageVectorizer, LabelExtractor, ImageExtractor, GrayScaler}
 import nodes.learning.LinearMapEstimator
+import nodes.misc.MaxClassifier
 import nodes.util.{ClassLabelIndicatorsFromIntLabels, Cacher}
 import org.apache.spark.{SparkContext, SparkConf}
 import pipelines.Logging
@@ -22,11 +24,12 @@ object LinearPixels extends Logging {
     val trainData = CifarLoader(sc, config.trainLocation).cache
 
     // A featurizer maps input images into vectors. For this pipeline, we'll also convert the image to grayscale.
-    val featurizer = ImageExtractor then GrayScaler then ImageVectorizer
+    val featurizer = GrayScaler then ImageVectorizer
     val labelExtractor = LabelExtractor then ClassLabelIndicatorsFromIntLabels(numClasses) then new Cacher[DenseVector[Double]]
 
     // Our training features are the featurizer applied to our training data.
-    val trainFeatures = featurizer(trainData)
+    val trainImages = ImageExtractor(trainData)
+    val trainFeatures = featurizer(trainImages)
     val trainLabels = labelExtractor(trainData)
 
     // We estimate our model as by calling a linear solver on our data.
@@ -34,18 +37,20 @@ object LinearPixels extends Logging {
 
     // The final prediction pipeline is the composition of our featurizer and our model.
     // Since we end up using the results of the prediction twice, we'll add a caching node.
-    val predictionPipeline = featurizer then model then new Cacher[DenseVector[Double]]
+    val predictionPipeline = featurizer then model then MaxClassifier
 
     // Calculate training error.
-    val trainError = Stats.classificationError(predictionPipeline(trainData), trainLabels)
+    val trainEval = MulticlassClassifierEvaluator(predictionPipeline(trainImages), LabelExtractor(trainData), numClasses)
 
     // Do testing.
     val testData = CifarLoader(sc, config.testLocation)
+    val testImages = ImageExtractor(testData)
     val testLabels = labelExtractor(testData)
 
-    val testError = Stats.classificationError(predictionPipeline(testData), testLabels)
+    val testEval = MulticlassClassifierEvaluator(predictionPipeline(testImages), LabelExtractor(testData), numClasses)
 
-    logInfo(s"Training error is: $trainError, Test error is: $testError")
+    logInfo(s"Training accuracy: \n${trainEval.macroaccuracy}")
+    logInfo(s"Test accuracy: \n${testEval.macroaccuracy}")
 
     predictionPipeline
   }

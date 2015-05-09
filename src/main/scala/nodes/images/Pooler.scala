@@ -1,5 +1,6 @@
 package nodes.images
 
+import breeze.linalg.DenseVector
 import pipelines._
 import utils.{ImageMetadata, ArrayVectorizedImage, Image}
 
@@ -17,7 +18,7 @@ class Pooler(
     stride: Int,
     poolSize: Int,
     pixelFunction: Double => Double,
-    poolFunction: Array[Double] => Double)
+    poolFunction: DenseVector[Double] => Double)
   extends Transformer[Image, Image] with Logging {
 
   val strideStart = poolSize / 2
@@ -36,7 +37,7 @@ class Pooler(
          y <- strideStart until yDim by stride) {
       // Extract the pool. Then apply the pixel and pool functions
 
-      val pool = new Array[Double](poolSize * poolSize)
+      val pool = DenseVector.zeros[Double](poolSize * poolSize)
       val startX = x - poolSize/2
       val endX = math.min(x + poolSize/2, xDim)
       val startY = y - poolSize/2

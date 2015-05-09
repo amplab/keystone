@@ -1,6 +1,7 @@
 package nodes.images
 
 import breeze.linalg._
+import breeze.numerics._
 
 import pipelines.Transformer
 import utils.Image
@@ -75,7 +76,7 @@ class DaisyExtractor(
       x: Int,
       y: Int,
       level: Int,
-      angleCount: Int): Array[Double] = {
+      angleCount: Int): DenseVector[Double] = {
     // Current radius
     val curRad = daisyR * (1 + level.toDouble) / daisyQ
     // Current angle
@@ -85,7 +86,7 @@ class DaisyExtractor(
     val lookupStartX = x + math.round(curRad * math.sin(curTheta)).toInt
     val lookupStartY = y + math.round(curRad * math.cos(curTheta)).toInt
 
-    (0 until daisyH).map(daisyLayers(level)(_).get(lookupStartX, lookupStartY, 0)).toArray
+    DenseVector((0 until daisyH).map(daisyLayers(level)(_).get(lookupStartX, lookupStartY, 0)):_*)
   }
 
   /**
@@ -95,8 +96,8 @@ class DaisyExtractor(
    * @param y The y-coord of the keypoint.
    * @return Histogram (H-vector) of a given key-point/angle/layer.
    */
-  private def getCenterHist(daisyLayers: Array[Array[Image]], x: Int, y: Int): Array[Double] = {
-    (0 until daisyH).map(daisyLayers(0)(_).get(x, y, 0)).toArray
+  private def getCenterHist(daisyLayers: Array[Array[Image]], x: Int, y: Int): DenseVector[Double] = {
+    DenseVector((0 until daisyH).map(daisyLayers(0)(_).get(x, y, 0)):_*)
   }
 
   /**
@@ -189,23 +190,12 @@ class DaisyExtractor(
     out
   }
 
-  def normalize(x: Array[Double]) = {
-    var i = 0
-    var sumSq = 0.0
-    while (i < x.length) {
-      sumSq += (x(i) * x(i))
-      i = i + 1
-    }
-    val norm = math.sqrt(sumSq)
-
-    val out = new Array[Double](x.length)
+  def normalize(x: DenseVector[Double]): DenseVector[Double] = {
+    val norm = math.sqrt(sum(pow(x, 2)))
     if (norm > featureThreshold) {
-      i = 0
-      while (i < x.length) {
-        out(i) = x(i) / norm
-        i = i + 1
-      }
+      (x :/ norm)
+    } else {
+      DenseVector.zeros[Double](x.length)
     }
-    out
   }
 }

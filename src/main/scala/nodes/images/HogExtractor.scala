@@ -75,9 +75,7 @@ class HogExtractor(binSize: Int) extends Transformer[Image, DenseMatrix[Float]] 
       numXCells: Int,
       numYCells: Int,
       numChannels: Int,
-      binSize: Int)
-    : Array[Float] = {
-
+      binSize: Int): Array[Float] = {
     // A flat array conceptually indexed by an (x, y, orientationIdx) triple.  To
     // reference the element at (x, y, o) use hist(x + y*numXCells + o*numYCells*numXCells).
     val hist: Array[Float] = Array.ofDim(numXCells * numYCells * 18)
@@ -198,9 +196,7 @@ class HogExtractor(binSize: Int) extends Transformer[Image, DenseMatrix[Float]] 
       hist: Array[Float],
       norm: Array[Float],
       numXCells: Int,
-      numYCells: Int)
-    : DenseMatrix[Float] = {
-
+      numYCells: Int): DenseMatrix[Float] = {
     val numXCellsWithFeatures = math.max(numXCells-2, 0)
     val numYCellsWithFeatures = math.max(numYCells-2, 0)
     val numFeatures = 27 + 4 + 1

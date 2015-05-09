@@ -82,13 +82,8 @@ class LCSExtractor(
     val means = new Array[Image](numChannels)
     val stds = new Array[Image](numChannels)
     var c = 0
-    // TODO(shivaram): Get rid of this once conv2D returns 'same' dimensions as input.
-    var convXDim = image.metadata.xDim 
-    var convYDim = image.metadata.yDim 
     while (c < numChannels) {
       val conv = ImageUtils.conv2D(channelSplitImgs(c), onesVector, onesVector)
-      convXDim = conv.metadata.xDim
-      convYDim = conv.metadata.yDim
       means(c) = conv
       val sq = ImageUtils.conv2D(channelSplitImgsSq(c), onesVector, onesVector)
       stds(c) = getSd(sq, means(c))

@@ -215,7 +215,7 @@ class LinearDiscriminantAnalysisSuite extends FunSuite with LocalSparkContext wi
       x <- 0 until dimRed;
       y <- 0 until dimRed if x != y
     ) {
-      assert(Stats.aboutEq(redCov(x,y), 0.0, 1e-6), s"PCA Matrix should be 0 off-diagonal. $x,$y = ${redCov(x,y)}")
+      assert(Stats.aboutEq(redCov(x,y), 0.0, 1e-6), s"LDA Matrix should be 0 off-diagonal. $x,$y = ${redCov(x,y)}")
     }
   }
 

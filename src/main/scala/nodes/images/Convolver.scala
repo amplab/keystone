@@ -5,7 +5,7 @@ import nodes.learning.ZCAWhitener
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import pipelines._
-import utils.{ArrayVectorizedImage, ImageMetadata, _}
+import utils.{ChannelMajorArrayVectorizedImage, ImageMetadata, _}
 
 /**
  * Convolves images with a bank of convolution filters. Convolution filters must be square.
@@ -61,7 +61,8 @@ object Convolver {
 
     val convRes: DenseMatrix[Double] = imgMat * convolutions
 
-    val res = new ArrayVectorizedImage(new Array[Double](resWidth*resHeight*convolutions.cols),
+    val res = new ChannelMajorArrayVectorizedImage(
+      new Array[Double](resWidth*resHeight*convolutions.cols),
       ImageMetadata(resWidth, resHeight, convolutions.cols))
 
     // Now pack the convolved features into the result.

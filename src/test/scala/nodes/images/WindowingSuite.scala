@@ -2,7 +2,7 @@ package nodes.images
 
 import org.scalatest.FunSuite
 import pipelines.Logging
-import utils.{ArrayVectorizedImage, ImageMetadata, TestUtils}
+import utils.{ChannelMajorArrayVectorizedImage, ImageMetadata, TestUtils}
 
 class WindowingSuite extends FunSuite with Logging {
 
@@ -15,7 +15,8 @@ class WindowingSuite extends FunSuite with Logging {
 
     val windows = windowing.getImageWindow(image)
 
-    assert(windows.map(_.metadata.xDim).forall(_ == size) && windows.map(_.metadata.yDim).forall(_ == size),
+    assert(windows.map(_.metadata.xDim).forall(_ == size) &&
+      windows.map(_.metadata.yDim).forall(_ == size),
       "All windows must be 100x100")
 
     assert(windows.size == (image.metadata.xDim/stride) * (image.metadata.yDim/stride),
@@ -33,7 +34,7 @@ class WindowingSuite extends FunSuite with Logging {
       }.toArray
 
 
-    val image = new ArrayVectorizedImage(imgArr, ImageMetadata(4, 4, 1))
+    val image = new ChannelMajorArrayVectorizedImage(imgArr, ImageMetadata(4, 4, 1))
 
     val windower = new Windower(1, 1)
     val windowImages = windower.getImageWindow(image)
@@ -56,7 +57,7 @@ class WindowingSuite extends FunSuite with Logging {
       }.toArray
 
 
-    val image = new ArrayVectorizedImage(imgArr, ImageMetadata(4, 4, 1))
+    val image = new ChannelMajorArrayVectorizedImage(imgArr, ImageMetadata(4, 4, 1))
 
     val windower = new Windower(2, 2)
 
@@ -82,7 +83,7 @@ class WindowingSuite extends FunSuite with Logging {
       }.toArray
 
 
-    val image = new ArrayVectorizedImage(imgArr, ImageMetadata(dim, dim, 1))
+    val image = new ChannelMajorArrayVectorizedImage(imgArr, ImageMetadata(dim, dim, 1))
     val sizes = List(1, 2, 3, 4, 6, 8)
 
     sizes.foreach { w =>

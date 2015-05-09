@@ -1,8 +1,7 @@
-package nodes.evaluation
+package evaluation
 
 import org.scalatest.FunSuite
 
-import evaluation.MeanAveragePrecisionEvaluator
 import pipelines.LocalSparkContext
 import org.apache.spark.SparkContext
 import utils.Stats

@@ -1,7 +1,6 @@
-package nodes.evaluation
+package evaluation
 
 import breeze.linalg.DenseMatrix
-import evaluation.MulticlassClassifierEvaluator
 import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
 import pipelines.LocalSparkContext

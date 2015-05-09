@@ -12,7 +12,7 @@ class ImageNetLoaderSuite extends FunSuite with LocalSparkContext {
     val dataPath = TestUtils.getTestResourceFileName("images/imagenet")
     val labelsPath = TestUtils.getTestResourceFileName("images/imagenet-test-labels")
 
-    val imgs = ImageNetLoader.apply(sc, dataPath, Some(labelsPath)).collect()
+    val imgs = ImageNetLoader.apply(sc, dataPath, labelsPath).collect()
     // We should have 5 images
     assert(imgs.length === 5)
 

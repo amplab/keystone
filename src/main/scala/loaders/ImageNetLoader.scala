@@ -23,8 +23,6 @@ import utils.{ImageMetadata, LabeledImage, ImageUtils}
 
 object ImageNetLoader {
   
-  val DEFAULT_LABEL_MAP = Map[String,Int]().withDefaultValue(0)
-
   /**
    * Loads images from @dataPath and associates images with the labels provided in @labelPath
    *
@@ -34,7 +32,7 @@ object ImageNetLoader {
    *                 directory is treated as the className.
    * @param labelsPath Local file that maps classNames to a numeric value
    */
-  def apply(sc: SparkContext, dataPath: String, labelsPath: Option[String]): RDD[LabeledImage] = {
+  def apply(sc: SparkContext, dataPath: String, labelsPath: String): RDD[LabeledImage] = {
     val filePaths = FileSystem.get(new URI(dataPath), new Configuration(true))
       .listStatus(new Path(dataPath))
       .filter(x => !x.isDir())
@@ -42,13 +40,11 @@ object ImageNetLoader {
     val numParts = filePaths.length
     val filePathsRDD = sc.parallelize(filePaths, numParts)
 
-    val labelsMap = labelsPath.map { path =>
-      val labelsMapFile = scala.io.Source.fromFile(path)
-      labelsMapFile.getLines().map(x => x.toString).toArray.map { line =>
-        val parts = line.split(" ")
-        (parts(0), parts(1).toInt)
-      }.toMap
-    }
+    val labelsMapFile = scala.io.Source.fromFile(labelsPath)
+    val labelsMap = labelsMapFile.getLines().map(x => x.toString).toArray.map { line =>
+      val parts = line.split(" ")
+      (parts(0), parts(1).toInt)
+    }.toMap
     ImageNetLoader.loadFiles(filePathsRDD, labelsMap)
   }
 
@@ -59,17 +55,13 @@ object ImageNetLoader {
    */
   def loadFiles(
       filePathsRDD: RDD[URI],
-      labelsMap: Option[Map[String, Int]]): RDD[LabeledImage] = {
+      labelsMap: Map[String, Int]): RDD[LabeledImage] = {
     filePathsRDD.flatMap(fileUri => loadFile(fileUri, labelsMap))
   }
 
   private def loadFile(
       fileUri: URI,
-      labelsMapOption: Option[Map[String, Int]])
-    : Iterator[LabeledImage] = {
-
-    val labelsMap: Map[String,Int] = labelsMapOption.getOrElse(DEFAULT_LABEL_MAP)
-
+      labelsMap: Map[String, Int]): Iterator[LabeledImage] = {
     val filePath = new Path(fileUri)
     val conf = new Configuration(true)
     val fs = FileSystem.get(filePath.toUri(), conf)

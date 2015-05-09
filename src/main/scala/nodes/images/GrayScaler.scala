@@ -6,6 +6,6 @@ import utils.{ImageUtils, Image}
 /**
  * Converts an input images to NTSC-standard grayscale.
  */
-class GrayScaler extends Transformer[Image,Image] {
-  override def apply(in: Image): Image = ImageUtils.toGrayScale(in)
+object GrayScaler extends Transformer[Image,Image] {
+  def apply(in: Image): Image = ImageUtils.toGrayScale(in)
 }

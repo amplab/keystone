@@ -25,7 +25,8 @@ libraryDependencies ++= Seq(
   "commons-io" % "commons-io" % "2.4",
   "org.scalanlp" % "breeze_2.10" % "0.9",
   "com.github.fommil.netlib" % "all" % "1.1.2",
-  "edu.berkeley.cs.amplab" % "mlmatrix" % "0.1" from "https://s3-us-west-1.amazonaws.com/amp-ml-matrix/2.10/mlmatrix_2.10-0.1.jar"
+  "edu.berkeley.cs.amplab" % "mlmatrix" % "0.1" from "https://s3-us-west-1.amazonaws.com/amp-ml-matrix/2.10/mlmatrix_2.10-0.1.jar",
+  "com.github.scopt" %% "scopt" % "3.3.0"
 )
 
 {
@@ -43,6 +44,8 @@ resolvers ++= Seq(
 )
 
 resolvers += "Amplab ml-matrix repo" at "https://s3-us-west-1.amazonaws.com/"
+
+resolvers += Resolver.sonatypeRepo("public")
 
 mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) =>
   {

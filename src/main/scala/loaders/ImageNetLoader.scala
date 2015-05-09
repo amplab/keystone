@@ -1,4 +1,4 @@
-package nodes
+package loaders
 
 import java.io.FileInputStream
 import java.io.ByteArrayInputStream

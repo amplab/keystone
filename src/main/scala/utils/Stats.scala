@@ -133,6 +133,14 @@ object Stats extends Serializable {
     errPercent
   }
 
+  /**
+   * Given a local matrix, compute the mean and variance of each row.
+   * Subtract the row mean from each row and divide by the sqrt(variance + alpha).
+   *
+   * @param mat Input matrix.
+   * @param alpha Alpha for the denominator.
+   * @return Normalized Matrix.
+   */
   def normalizeRows(mat: DenseMatrix[Double], alpha: Double = 1.0): DenseMatrix[Double] = {
     // FIXME: This currently must convert the matrices to double due to breeze implicits
     // TODO: Could optimize, use way fewer copies

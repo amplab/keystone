@@ -19,7 +19,7 @@ class Pooler(
     poolSize: Int,
     pixelFunction: Double => Double,
     poolFunction: DenseVector[Double] => Double)
-  extends Transformer[Image, Image] with Logging {
+  extends Transformer[Image, Image] {
 
   val strideStart = poolSize / 2
 

@@ -4,8 +4,7 @@ import pipelines._
 import utils.{ArrayVectorizedImage, Image}
 
 case class SymmetricRectifier(maxVal: Double = 0.0, alpha: Double = 0.0)
-  extends Transformer[Image, Image]
-  with Serializable {
+  extends Transformer[Image, Image] {
 
   def apply(img: Image): Image = {
 

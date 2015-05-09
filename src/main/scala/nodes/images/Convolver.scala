@@ -24,8 +24,7 @@ class Convolver(
     whitener: Option[ZCAWhitener] = None,
     normalizePatches: Boolean = true,
     varConstant: Double = 10.0)
-  extends Transformer[Image, Image]
-  with Serializable {
+  extends Transformer[Image, Image] {
 
   val convSize = math.sqrt(filters.cols/imgChannels).toInt
   val convolutions = filters.t

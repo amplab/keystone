@@ -13,7 +13,7 @@ import java.io.{BufferedInputStream, FileInputStream}
  * Loads images from the CIFAR-10 Dataset.
  */
 object CifarLoader {
-  //We hardcode this because these are properties of the CIFAR-10 dataset.
+  // We hardcode this because these are properties of the CIFAR-10 dataset.
   val nrow = 32
   val ncol = 32
   val nchan = 3
@@ -24,8 +24,8 @@ object CifarLoader {
     val rowlen = ncol*nchan
     val byteLen = nrow*rowlen
 
-    //Allocate some space for the rows.
-    assert(cifar.length == byteLen, "CIFAR-10 Images MUST be 32x32x3.")
+    // Allocate some space for the rows.
+    require(cifar.length == byteLen, "CIFAR-10 Images MUST be 32x32x3.")
 
     RowColumnMajorByteArrayVectorizedImage(cifar, ImageMetadata(nrow, ncol, nchan))
   }

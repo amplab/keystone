@@ -249,4 +249,4 @@ case class RowColumnMajorByteArrayVectorizedImage(
  * @param image An Image.
  * @param label A label. Should be in [0 .. K] where K is some number of unique labels.
  */
-case class LabeledImage(image: Image, label: Int)
+case class LabeledImage(image: Image, label: Int, filename: Option[String] = None)

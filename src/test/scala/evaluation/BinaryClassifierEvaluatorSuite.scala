@@ -1,6 +1,5 @@
-package nodes.evaluation
+package evaluation
 
-import evaluation.BinaryClassifierEvaluator
 import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
 import pipelines.LocalSparkContext

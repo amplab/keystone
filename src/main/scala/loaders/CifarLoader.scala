@@ -10,7 +10,7 @@ import utils.{ImageMetadata, LabeledImage, RowColumnMajorByteArrayVectorizedImag
 /**
  * Loads images from the CIFAR-10 Dataset.
  */
-object  CifarLoader {
+object CifarLoader {
   // We hardcode this because these are properties of the CIFAR-10 dataset.
   val nrow = 32
   val ncol = 32

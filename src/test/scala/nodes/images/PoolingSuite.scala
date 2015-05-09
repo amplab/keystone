@@ -4,7 +4,7 @@ import breeze.linalg.{DenseVector, sum}
 import nodes._
 import org.scalatest.FunSuite
 import pipelines.Logging
-import utils.{ArrayVectorizedImage, ImageMetadata}
+import utils.{ChannelMajorArrayVectorizedImage, ImageMetadata}
 
 class PoolingSuite extends FunSuite with Logging {
 
@@ -18,7 +18,7 @@ class PoolingSuite extends FunSuite with Logging {
         }
       }.toArray
 
-    val image = new ArrayVectorizedImage(imgArr, ImageMetadata(4, 4, 1))
+    val image = new ChannelMajorArrayVectorizedImage(imgArr, ImageMetadata(4, 4, 1))
     val pooling = new Pooler(2, 2, x => x, x => x.max)
 
     val poolImage = pooling(image)
@@ -44,7 +44,8 @@ class PoolingSuite extends FunSuite with Logging {
           }
         }.toArray
 
-      val image = new ArrayVectorizedImage(imgArr, ImageMetadata(convResSize, convResSize, 1000))
+      val image = new ChannelMajorArrayVectorizedImage(
+        imgArr, ImageMetadata(convResSize, convResSize, 1000))
 
       val poolSizeReqd = math.ceil(convResSize / 2.0).toInt
 

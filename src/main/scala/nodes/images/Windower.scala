@@ -3,7 +3,7 @@ package nodes.images
 import breeze.linalg.DenseVector
 import org.apache.spark.rdd.RDD
 import pipelines.{FunctionNode, Transformer}
-import utils.{ImageMetadata, ArrayVectorizedImage, Image}
+import utils.{ImageMetadata, ChannelMajorArrayVectorizedImage, Image}
 
 
 /**
@@ -47,7 +47,8 @@ class Windower(
           }
           c = c + 1
         }
-        ArrayVectorizedImage(pool.toArray, ImageMetadata(windowSize, windowSize, numChannels))
+        ChannelMajorArrayVectorizedImage(pool.toArray,
+          ImageMetadata(windowSize, windowSize, numChannels))
       }
     }
   }

@@ -2,7 +2,7 @@ package nodes.images
 
 import breeze.linalg.DenseVector
 import pipelines._
-import utils.{ImageMetadata, ArrayVectorizedImage, Image}
+import utils.{ImageMetadata, ChannelMajorArrayVectorizedImage, Image}
 
 /**
  * This node takes an image and performs pooling on regions of the image.
@@ -63,6 +63,6 @@ class Pooler(
         c = c + 1
       }
     }
-    ArrayVectorizedImage(patch, ImageMetadata(numPoolsX, numPoolsY, numChannels))
+    ChannelMajorArrayVectorizedImage(patch, ImageMetadata(numPoolsX, numPoolsY, numChannels))
   }
 }

@@ -6,7 +6,7 @@ import org.scalatest.FunSuite
 import pipelines.{Logging, LocalSparkContext}
 import utils._
 import org.apache.spark.SparkContext
-import utils.ArrayVectorizedImage
+import utils.ChannelMajorArrayVectorizedImage
 import utils.ImageMetadata
 
 class ConvolverSuite extends FunSuite with LocalSparkContext with Logging {
@@ -26,7 +26,8 @@ class ConvolverSuite extends FunSuite with LocalSparkContext with Logging {
         }
       }.toArray
 
-    val image = new ArrayVectorizedImage(imgArr, ImageMetadata(imgWidth, imgHeight, imgChannels))
+    val image = new ChannelMajorArrayVectorizedImage(
+      imgArr, ImageMetadata(imgWidth, imgHeight, imgChannels))
 
     var conv1 = DenseVector.zeros[Double](convSize * convSize * imgChannels)
     conv1(2) = 1.0
@@ -66,7 +67,8 @@ class ConvolverSuite extends FunSuite with LocalSparkContext with Logging {
         }
       }.toArray
 
-    val image = new ArrayVectorizedImage(imgArr, ImageMetadata(imgWidth, imgHeight, imgChannels))
+    val image = new ChannelMajorArrayVectorizedImage(
+      imgArr, ImageMetadata(imgWidth, imgHeight, imgChannels))
 
     var conv1 = DenseVector.zeros[Double](convSize * convSize * imgChannels)
     conv1(4) = 1.0

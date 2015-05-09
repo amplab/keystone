@@ -1,13 +1,13 @@
 package nodes.images
 
 import pipelines._
-import utils.{ArrayVectorizedImage, Image}
+import utils.{ChannelMajorArrayVectorizedImage, Image}
 
 case class SymmetricRectifier(maxVal: Double = 0.0, alpha: Double = 0.0)
   extends Transformer[Image, Image] {
 
   def apply(img: Image): Image = {
-    val res = ArrayVectorizedImage(
+    val res = ChannelMajorArrayVectorizedImage(
       new Array[Double](img.metadata.xDim * img.metadata.yDim * img.metadata.numChannels * 2),
       img.metadata.copy(numChannels = img.metadata.numChannels * 2))
 

@@ -63,11 +63,12 @@ object MeanAveragePrecisionEvaluator {
   }
 
   /**
-   * Get average precision at 11 levels given precisions and recalls
+   * Get precision at recall intervals of 0.1. This is the standard method
+   * used for the VOC2007-VOC 2009 dataset as described in the encoding eval toolkit.
    */
   private def getAP(precisions: Array[Double], recalls: Array[Double]) = {
     var ap = 0.0
-    val levels = (0 to 10 by 1).map(x => x / 10.0)
+    val levels = (0 to 10).map(x => x / 10.0)
     levels.foreach { t =>
       // Find where recalls are greater than t and precision values at those indices
       val px = recalls.toSeq.zipWithIndex.filter(x => x._1 >= t).map(x => precisions(x._2))

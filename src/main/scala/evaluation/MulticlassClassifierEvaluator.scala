@@ -34,11 +34,11 @@ case class MulticlassMetrics(confusionMatrix: DenseMatrix[Double]) {
   private def classAvg(f: BinaryClassificationMetrics => Double): Double = classMetrics.map(f).sum / numClasses
   private def micro(f: BinaryClassificationMetrics => Double): Double = f(classMetrics.reduce(_ merge _))
 
-  def macroaccuracy: Double = classAvg(_.accuracy)
+  def macroAccuracy: Double = classAvg(_.accuracy)
   def macroPrecision: Double = classAvg(_.precision)
   def macroRecall: Double = classAvg(_.recall)
   def macroFScore(beta: Double = 1.0): Double = classAvg(_.fScore(beta))
-  def microaccuracy: Double = micro(_.accuracy)
+  def microAccuracy: Double = micro(_.accuracy)
   def microPrecision: Double = micro(_.precision)
   def microRecall: Double = micro(_.recall)
   def microFScore(beta: Double = 1.0): Double = micro(_.fScore(beta))
@@ -77,9 +77,11 @@ case class MulticlassMetrics(confusionMatrix: DenseMatrix[Double]) {
    */
   def summary(classes: Array[String]): String = {
     pprintConfusionMatrix(classes) +
+    "\nMacro Accuracy: " + macroAccuracy
     "\nMacro Precision: " + macroPrecision +
     "\nMacro Recall: " + macroRecall +
     "\nMacro F1: " + macroFScore() +
+    "\nMicro Accuracy: " + microAccuracy
     "\nMicro Precision: " + microPrecision +
     "\nMicro Recall: " + microRecall +
     "\nMicro F1: " + microFScore()

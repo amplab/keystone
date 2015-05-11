@@ -1,4 +1,4 @@
-package nodes.misc
+package nodes.utils
 
 import breeze.linalg.DenseVector
 import org.scalatest.FunSuite

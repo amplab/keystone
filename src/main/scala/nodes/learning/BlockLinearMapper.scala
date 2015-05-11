@@ -7,9 +7,22 @@ import pipelines.Transformer
 import utils.{MatrixUtils, Stats}
 
 
+/**
+ * Transformer that applies a linear model to an input.
+ * Different from [[LinearMapper]] in that the matrix representing the transformation
+ * is vertically split into a seq, and the vectors being transformed are likewise expected to have
+ * been split into a Seq, matching the split of the transformation matrix.
+ * @param xs  The chunks of the matrix representing the linear model
+ */
 class BlockLinearMapper(val xs: Seq[DenseMatrix[Double]])
     extends Transformer[Seq[DenseVector[Double]], DenseVector[Double]] {
 
+  /**
+   * Applies the linear model to feature vectors large enough to have been split into several RDDs.
+   * @param ins  RDDs where the RDD at index i is expected to contain chunk i of all input vectors.
+   *             Must all be zippable.
+   * @return the output vectors
+   */
   def apply(ins: TraversableOnce[RDD[DenseVector[Double]]]): RDD[DenseVector[Double]] = {
     val res = ins.toIterator.zip(xs.iterator).map {
       case (in, x) => {
@@ -39,7 +52,14 @@ class BlockLinearMapper(val xs: Seq[DenseMatrix[Double]])
     res.reduceLeft((sum, next) => sum + next)
   }
 
-
+  /**
+   * Applies the linear model to feature vectors large enough to have been split into several RDDs.
+   * After processing chunk i of every vector, applies @param evaluator to the intermediate output
+   * vector.
+   * @param ins  RDDs where the RDD at index i is expected to contain chunk i of all input vectors.
+   *             Must all be zippable.
+   *
+   */
   def applyAndEvaluate(ins: TraversableOnce[RDD[DenseVector[Double]]], evaluator: (RDD[DenseVector[Double]]) => Unit) {
     val res = ins.toIterator.zip(xs.iterator).map {
       case (in, x) => {

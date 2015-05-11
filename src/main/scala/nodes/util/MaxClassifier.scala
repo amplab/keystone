@@ -1,6 +1,6 @@
-package nodes.misc
+package nodes.util
 
-import breeze.linalg.{argmax, DenseVector}
+import breeze.linalg.{DenseVector, argmax}
 import pipelines.Transformer
 
 /**

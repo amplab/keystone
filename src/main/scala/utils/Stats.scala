@@ -6,7 +6,7 @@ import breeze.linalg._
 import breeze.numerics._
 import breeze.stats._
 import breeze.stats.distributions._
-import nodes.misc.TopKClassifier
+import nodes.util.TopKClassifier
 import org.apache.spark.rdd.RDD
 
 object Stats extends Serializable {

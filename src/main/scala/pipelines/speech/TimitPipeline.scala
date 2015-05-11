@@ -2,55 +2,38 @@ package pipelines.speech
 
 import breeze.stats.distributions.{RandBasis, ThreadLocalRandomGenerator}
 import evaluation.MulticlassClassifierEvaluator
-import loaders.CsvDataLoader
+import loaders.{TimitFeaturesDataLoader, CsvDataLoader}
 import nodes.learning.BlockLinearMapper
-import nodes.misc.{ClassLabelIndicators, CosineRandomFeatures, MaxClassifier, StandardScaler}
+import nodes.misc.{CosineRandomFeatures, StandardScaler}
+import nodes.util.{MaxClassifier, ClassLabelIndicatorsFromIntLabels}
 import org.apache.commons.math3.random.MersenneTwister
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkContext}
 import pipelines._
+import scopt.OptionParser
 
 import scala.collection.mutable
 
 
 object TimitPipeline extends Logging {
+  val appName = "Timit"
 
-  def main(args: Array[String]) {
-    if (args.length < 11) {
-      println("Usage: TimitRandomCosineMultiPassPipeline <master> <trainingFeaturesFile> " +
-          " <trainingLabelsFile> <testFeaturesFile> <testLabelsFile> <numParts> <numCosines> " +
-          " <gamma> <cauchy|gaussian> <lambda> <numPasses> [modelFileName] [checkPointDir]")
-      System.exit(0)
-    }
+  case class TimitConfig(
+    trainDataLocation: String = "",
+    trainLabelsLocation: String = "",
+    testDataLocation: String = "",
+    testLabelsLocation: String = "",
+    numParts: Int = 512,
+    numCosines: Int = 50,
+    gamma: Double = 0.05555,
+    rfType: String = "gaussian",
+    lambda: Double = 0.0,
+    numEpochs: Int = 5,
+    checkpointDir: Option[String] = None)
 
-    // Get the command-line args & construct the spark context
-    val sparkMaster = args(0)
-    val trainingFile = args(1)
-    val trainingLabels = args(2)
-    val testFile = args(3)
-    val testActual = args(4)
-    val numParts = args(5).toInt
-    val numCosines = args(6).toInt
-    val gamma = args(7).toDouble
-    val rfType = args(8) match {
-      case "cauchy" => args(8)
-      case "gaussian" => args(8)
-      case _ => {
-        println("Invalid random feature type. Using gaussian")
-        "gaussian"
-      }
-    }
+  def run(sc: SparkContext, conf: TimitConfig) {
 
-    val lambda = args(9).toDouble
-    val numEpochs = args(10).toInt
-    val modelFileName = if (args.length > 11) Some(args(11)) else None
-    val checkpointDir = if (args.length > 12) Some(args(12)) else None
-
-    val conf = new SparkConf().setMaster(sparkMaster)
-        .setAppName("TimitRandomCosineMultiPassPipeline")
-        .setJars(SparkContext.jarOfObject(this).toSeq)
-    val sc = new SparkContext(conf)
-    checkpointDir.foreach(_ => sc.setCheckpointDir(_))
+    conf.checkpointDir.foreach(_ => sc.setCheckpointDir(_))
 
     Thread.sleep(5000)
 
@@ -60,25 +43,34 @@ object TimitPipeline extends Logging {
     val randomSignSource = new RandBasis(new ThreadLocalRandomGenerator(new MersenneTwister(random.nextLong())))
 
     val numCosineFeatures = 4096
-    val numCosineBatches = numCosines
+    val numCosineBatches = conf.numCosines
     val colsPerBatch = numCosineFeatures + 1
 
+    // Load the data
+    val timitFeaturesData = TimitFeaturesDataLoader(
+      sc,
+      conf.trainDataLocation,
+      conf.trainLabelsLocation,
+      conf.testDataLocation,
+      conf.testLabelsLocation,
+      conf.numParts)
+
     // Build the pipeline
-    val trainData = CsvDataLoader(sc, trainingFile, numParts).cache().setName("trainRaw")
+    val trainData = timitFeaturesData.train.data.cache().setName("trainRaw")
     trainData.count()
 
     val batchFeaturizer = (0 until numCosineBatches).map { batch =>
-      if (rfType == "cauchy") {
+      if (conf.rfType == "cauchy") {
         CosineRandomFeatures.createCauchyCosineRF(
-          TimitUtils.timitDimension,
+          TimitFeaturesDataLoader.timitDimension,
           numCosineFeatures,
-          gamma,
+          conf.gamma,
           randomSignSource)
       } else {
         CosineRandomFeatures.createGaussianCosineRF(
-          TimitUtils.timitDimension,
+          TimitFeaturesDataLoader.timitDimension,
           numCosineFeatures,
-          gamma,
+          conf.gamma,
           randomSignSource)
       }.thenEstimator(new StandardScaler()).fit(trainData)
     }
@@ -87,12 +79,11 @@ object TimitPipeline extends Logging {
       x.apply(trainData)
     }
 
-    val labels = TimitUtils.createTrainLabelsRDD(
-      TimitUtils.parseSparseLabels(trainingLabels),
-      trainData,
-      TimitUtils.numClasses).cache().setName("trainLabels")
+    val labels = ClassLabelIndicatorsFromIntLabels(TimitFeaturesDataLoader.numClasses).apply(
+      timitFeaturesData.train.labels
+    ).cache().setName("trainLabels")
 
-    val testData = CsvDataLoader(sc, testFile, numParts).cache().setName("testRaw")
+    val testData = timitFeaturesData.test.data.cache().setName("testRaw")
     val numTest = testData.count()
 
     val testBatches = batchFeaturizer.map { case x =>
@@ -100,62 +91,50 @@ object TimitPipeline extends Logging {
       rdd.cache().setName("testFeatures")
     }
 
-    val actual = TimitUtils.createActualLabelsRDD(
-      TimitUtils.parseSparseLabels(testActual), testData).cache().setName("actual")
+    val actual = timitFeaturesData.test.labels.cache().setName("actual")
 
     // Train the model
-    val blockLinearMapper = BlockLinearMapper.trainWithL2(trainingBatches, labels, lambda, numEpochs)
+    val blockLinearMapper = BlockLinearMapper.trainWithL2(trainingBatches, labels, conf.lambda, conf.numEpochs)
 
     // Calculate test error
     blockLinearMapper.applyAndEvaluate(testBatches, testPredictedValues => {
       val predicted = MaxClassifier(testPredictedValues)
-      val evaluator = MulticlassClassifierEvaluator(predicted, actual, TimitUtils.numClasses)
+      val evaluator = MulticlassClassifierEvaluator(predicted, actual, TimitFeaturesDataLoader.numClasses)
       println("TEST Error is " + (100d - 100d * evaluator.microAccuracy) + "%")
     })
 
     System.exit(0)
   }
+
+  def parse(args: Array[String]): TimitConfig = new OptionParser[TimitConfig](appName) {
+    head(appName, "0.1")
+    opt[String]("trainDataLocation") required() action { (x,c) => c.copy(trainDataLocation=x) }
+    opt[String]("trainLabelsLocation") required() action { (x,c) => c.copy(trainLabelsLocation=x) }
+    opt[String]("testDataLocation") required() action { (x,c) => c.copy(testDataLocation=x) }
+    opt[String]("testLabelsLocation") required() action { (x,c) => c.copy(testLabelsLocation=x) }
+    opt[String]("checkpointDir") action { (x,c) => c.copy(checkpointDir=Some(x)) }
+    opt[String]("rfType") action { (x,c) => c.copy(rfType=x) }
+    opt[Int]("numParts") action { (x,c) => c.copy(numParts=x) }
+    opt[Int]("numCosines") action { (x,c) => c.copy(numCosines=x) }
+    opt[Int]("numEpochs") action { (x,c) => c.copy(numEpochs=x) }
+    opt[Double]("gamma") action { (x,c) => c.copy(gamma=x) }
+    opt[Double]("lambda") action { (x,c) => c.copy(lambda=x) }
+  }.parse(args, TimitConfig()).get
+
+  /**
+   * The actual driver receives its configuration parameters from spark-submit usually.
+   * @param args
+   */
+  def main(args: Array[String]) = {
+    val conf = new SparkConf().setAppName(appName)
+    conf.setIfMissing("spark.master", "local[2]")
+
+    val sc = new SparkContext(conf)
+
+    val appConfig = parse(args)
+    run(sc, appConfig)
+
+    sc.stop()
+  }
+
 }
-
-object TimitUtils {
-
-  val timitDimension = 440
-  val numClasses = 147
-
-  // Assumes lines are formatted as
-  // row col value
-  def parseSparseLabels(fileName: String) = {
-    // Mapping from row number to label
-    val ret = new mutable.HashMap[Long, Int]
-
-    val lines = scala.io.Source.fromFile(fileName).getLines()
-    lines.foreach { line =>
-      val parts = line.split(" ")
-      ret(parts(0).toLong - 1) = parts(1).toInt
-    }
-    ret
-  }
-
-  def createActualLabelsRDD(
-      labelsMap: mutable.HashMap[Long, Int],
-      featuresRDD: RDD[_]) = {
-    val labelsMapBC = featuresRDD.context.broadcast(labelsMap)
-    val labelsRDD = featuresRDD.zipWithIndex().map { case (item, row) =>
-      labelsMapBC.value(row) - 1
-    }
-    labelsRDD
-  }
-
-  def createTrainLabelsRDD(
-      labelsMap: mutable.HashMap[Long, Int],
-      featuresRDD: RDD[_],
-      numClasses: Int) = {
-    val labelsMapBC = featuresRDD.context.broadcast(labelsMap)
-    val labelsRDD = featuresRDD.zipWithIndex().map { case (item, row) =>
-      labelsMapBC.value(row)
-    }
-    val indicatorExtractor = ClassLabelIndicators(numClasses)
-    indicatorExtractor.apply(labelsRDD)
-  }
-}
-

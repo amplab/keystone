@@ -5,8 +5,7 @@ import evaluation.MulticlassClassifierEvaluator
 import nodes.CifarLoader
 import nodes.images.{ImageVectorizer, LabelExtractor, ImageExtractor, GrayScaler}
 import nodes.learning.LinearMapEstimator
-import nodes.misc.MaxClassifier
-import nodes.util.{ClassLabelIndicatorsFromIntLabels, Cacher}
+import nodes.util.{MaxClassifier, ClassLabelIndicatorsFromIntLabels, Cacher}
 import org.apache.spark.{SparkContext, SparkConf}
 import pipelines.Logging
 import utils.Stats
@@ -49,8 +48,8 @@ object LinearPixels extends Logging {
 
     val testEval = MulticlassClassifierEvaluator(predictionPipeline(testImages), LabelExtractor(testData), numClasses)
 
-    logInfo(s"Training accuracy: \n${trainEval.macroaccuracy}")
-    logInfo(s"Test accuracy: \n${testEval.macroaccuracy}")
+    logInfo(s"Training accuracy: \n${trainEval.microAccuracy}")
+    logInfo(s"Test accuracy: \n${testEval.microAccuracy}")
 
     predictionPipeline
   }

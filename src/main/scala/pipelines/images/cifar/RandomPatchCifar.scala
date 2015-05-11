@@ -6,9 +6,9 @@ import evaluation.MulticlassClassifierEvaluator
 import nodes._
 import nodes.images._
 import nodes.learning.{ZCAWhitenerEstimator, ZCAWhitener, LinearMapEstimator}
-import nodes.misc.{MaxClassifier, StandardScaler}
+import nodes.misc.StandardScaler
 import nodes.util.nodes.Sampler
-import nodes.util.{Cacher, ClassLabelIndicatorsFromIntLabels}
+import nodes.util.{MaxClassifier, Cacher, ClassLabelIndicatorsFromIntLabels}
 import org.apache.spark.{SparkConf, SparkContext}
 import scopt.OptionParser
 import utils.{MatrixUtils, Stats}
@@ -79,8 +79,8 @@ object RandomPatchCifar extends Serializable with Logging {
 
     val testEval = MulticlassClassifierEvaluator(predictionPipeline(testImages), LabelExtractor(testData), numClasses)
 
-    logInfo(s"Training error is: ${trainEval.macroaccuracy}")
-    logInfo(s"Test error is: ${testEval.macroaccuracy}")
+    logInfo(s"Training error is: ${trainEval.microAccuracy}")
+    logInfo(s"Test error is: ${testEval.microAccuracy}")
   }
 
   case class RandomCifarConfig(

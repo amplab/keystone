@@ -1,7 +1,6 @@
 package nodes.util
 
 import breeze.linalg.DenseVector
-import nodes.util.TopKClassifier
 import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
 import pipelines.LocalSparkContext

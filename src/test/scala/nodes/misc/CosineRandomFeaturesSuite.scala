@@ -14,7 +14,7 @@ class CosineRandomFeaturesSuite extends FunSuite {
   val numOutputFeatures = 1000
 
   test("Guassian cosine random features") {
-    val rf = CosineRandomFeatures.createGaussianCosineRF(numInputFeatures, numOutputFeatures, gamma, Rand)
+    val rf = CosineRandomFeatures.createGaussianCosineRF(numInputFeatures, numOutputFeatures, gamma)
 
     // Check that b is uniform
     assert(max(rf.b) <= 2*math.Pi)
@@ -34,7 +34,7 @@ class CosineRandomFeaturesSuite extends FunSuite {
   }
 
   test("Cauchy cosine random features") {
-    val rf = CosineRandomFeatures.createGaussianCosineRF(numInputFeatures, numOutputFeatures, gamma, Rand)
+    val rf = CosineRandomFeatures.createGaussianCosineRF(numInputFeatures, numOutputFeatures, gamma)
 
     // Check that b is uniform
     assert(max(rf.b) <= 2*math.Pi)

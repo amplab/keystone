@@ -10,7 +10,7 @@ import utils.{MatrixUtils, Stats}
 /**
  * Transformer that applies a linear model to an input.
  * Different from [[LinearMapper]] in that the matrix representing the transformation
- * is vertically split into a seq, and the vectors being transformed are likewise expected to have
+ * is split into a seq, and the vectors being transformed are likewise expected to have
  * been split into a Seq, matching the split of the transformation matrix.
  * @param xs  The chunks of the matrix representing the linear model
  */

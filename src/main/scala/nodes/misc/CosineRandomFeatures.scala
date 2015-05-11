@@ -2,7 +2,7 @@ package nodes.misc
 
 import breeze.linalg._
 import breeze.numerics._
-import breeze.stats.distributions.RandBasis
+import breeze.stats.distributions.{Rand, RandBasis}
 import org.apache.spark.rdd.RDD
 import pipelines._
 import utils.{MatrixUtils, Stats}
@@ -47,7 +47,7 @@ object CosineRandomFeatures {
       numInputFeatures: Int,
       numOutputFeatures: Int,
       gamma: Double,
-      rand: RandBasis) = {
+      rand: RandBasis = Rand) = {
     val W = Stats.randMatrixGaussian(numOutputFeatures, numInputFeatures, rand) :* gamma
     val b = Stats.randMatrixUniform(numOutputFeatures, 1, rand) :* (2*math.Pi)
     new CosineRandomFeatures(W, b.toDenseVector)
@@ -58,7 +58,7 @@ object CosineRandomFeatures {
       numInputFeatures: Int,
       numOutputFeatures: Int,
       gamma: Double,
-      rand: RandBasis) = {
+      rand: RandBasis = Rand) = {
     val W = Stats.randMatrixCauchy(numOutputFeatures, numInputFeatures, rand) :* gamma
     val b = Stats.randMatrixUniform(numOutputFeatures, 1, rand) :* (2*math.Pi)
     new CosineRandomFeatures(W, b.toDenseVector)

@@ -6,7 +6,7 @@ import org.apache.spark.rdd.RDD
 
 import scala.collection.mutable
 
-/** A case class containing loaded 20 Newsgroups train & test data */
+/** A case class containing loaded pre-featurized TIMIT train & test data */
 case class TimitFeaturesData(
   train: LabeledData[Int, DenseVector[Double]],
   test: LabeledData[Int, DenseVector[Double]]

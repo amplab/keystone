@@ -1,6 +1,7 @@
 package pipelines.images.cifar
 
-import breeze.linalg.DenseVector
+import breeze.linalg.{DenseMatrix, DenseVector}
+import breeze.stats.distributions.Rand
 import evaluation.MulticlassClassifierEvaluator
 import nodes.CifarLoader
 import nodes.images._
@@ -31,7 +32,7 @@ object RandomCifar extends Serializable with Logging {
     val trainImages = ImageExtractor(trainData)
 
     // Set up a filter Array.
-    val filters = Stats.randMatrixGaussian(conf.numFilters, conf.patchSize*conf.patchSize*numChannels)
+    val filters = DenseMatrix.rand(conf.numFilters, conf.patchSize*conf.patchSize*numChannels, Rand.gaussian)
 
     val featurizer =
       new Convolver(filters, imageSize, imageSize, numChannels, None, true)

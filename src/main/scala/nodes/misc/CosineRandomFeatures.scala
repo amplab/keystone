@@ -20,6 +20,7 @@ class CosineRandomFeatures(
     val b: DenseVector[Double]) // should be numOutputFeatures by 1
     extends Transformer[DenseVector[Double], DenseVector[Double]] {
 
+  require(b.length == W.rows, "# of rows in W and size of b should match")
   override def apply(in: RDD[DenseVector[Double]]): RDD[DenseVector[Double]] = {
     in.mapPartitions { part =>
       val data = MatrixUtils.rowsToMatrix(part)
@@ -42,25 +43,15 @@ class CosineRandomFeatures(
  * Companion Object to generate random cosine features from various distributions
  */
 object CosineRandomFeatures {
-  /** Generate Random Cosine Features from a gaussian distribution **/
-  def createGaussianCosineRF(
+  /** Generate Random Cosine Features from the given distributions **/
+  def apply(
       numInputFeatures: Int,
       numOutputFeatures: Int,
       gamma: Double,
-      rand: RandBasis = Rand) = {
-    val W = Stats.randMatrixGaussian(numOutputFeatures, numInputFeatures, rand) :* gamma
-    val b = Stats.randMatrixUniform(numOutputFeatures, 1, rand) :* (2*math.Pi)
-    new CosineRandomFeatures(W, b.toDenseVector)
-  }
-
-  /** Generate Random Cosine Features from a cauchy distribution **/
-  def createCauchyCosineRF(
-      numInputFeatures: Int,
-      numOutputFeatures: Int,
-      gamma: Double,
-      rand: RandBasis = Rand) = {
-    val W = Stats.randMatrixCauchy(numOutputFeatures, numInputFeatures, rand) :* gamma
-    val b = Stats.randMatrixUniform(numOutputFeatures, 1, rand) :* (2*math.Pi)
-    new CosineRandomFeatures(W, b.toDenseVector)
+      wDist: Rand[Double] = Rand.gaussian,
+      bDist: Rand[Double] = Rand.uniform) = {
+    val W = DenseMatrix.rand(numOutputFeatures, numInputFeatures, wDist) :* gamma
+    val b = DenseVector.rand(numOutputFeatures, bDist) :* (2*math.Pi)
+    new CosineRandomFeatures(W, b)
   }
 }

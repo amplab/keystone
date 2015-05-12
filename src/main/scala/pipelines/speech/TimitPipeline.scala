@@ -1,18 +1,15 @@
 package pipelines.speech
 
-import breeze.stats.distributions.{RandBasis, ThreadLocalRandomGenerator}
+import breeze.stats.distributions.{CauchyDistribution, RandBasis, ThreadLocalRandomGenerator}
 import evaluation.MulticlassClassifierEvaluator
-import loaders.{TimitFeaturesDataLoader, CsvDataLoader}
+import loaders.TimitFeaturesDataLoader
 import nodes.learning.BlockLinearMapper
 import nodes.misc.{CosineRandomFeatures, StandardScaler}
-import nodes.util.{MaxClassifier, ClassLabelIndicatorsFromIntLabels}
+import nodes.util.{ClassLabelIndicatorsFromIntLabels, MaxClassifier}
 import org.apache.commons.math3.random.MersenneTwister
-import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkContext}
 import pipelines._
 import scopt.OptionParser
-
-import scala.collection.mutable
 
 
 object TimitPipeline extends Logging {
@@ -26,7 +23,7 @@ object TimitPipeline extends Logging {
     numParts: Int = 512,
     numCosines: Int = 50,
     gamma: Double = 0.05555,
-    rfType: String = "gaussian",
+    rfType: Distributions.Value = Distributions.Gaussian,
     lambda: Double = 0.0,
     numEpochs: Int = 5,
     checkpointDir: Option[String] = None)
@@ -40,7 +37,7 @@ object TimitPipeline extends Logging {
     // Set the constants
     val seed = 123L
     val random = new java.util.Random(seed)
-    val randomSignSource = new RandBasis(new ThreadLocalRandomGenerator(new MersenneTwister(random.nextLong())))
+    val randomSource = new RandBasis(new ThreadLocalRandomGenerator(new MersenneTwister(random.nextLong())))
 
     val numCosineFeatures = 4096
     val numCosineBatches = conf.numCosines
@@ -60,18 +57,22 @@ object TimitPipeline extends Logging {
     trainData.count()
 
     val batchFeaturizer = (0 until numCosineBatches).map { batch =>
-      if (conf.rfType == "cauchy") {
-        CosineRandomFeatures.createCauchyCosineRF(
+      if (conf.rfType == Distributions.Cauchy) {
+        // TODO: Once https://github.com/scalanlp/breeze/issues/398 is released,
+        // use a RandBasis for cauchy
+        CosineRandomFeatures(
           TimitFeaturesDataLoader.timitDimension,
           numCosineFeatures,
           conf.gamma,
-          randomSignSource)
+          new CauchyDistribution(0, 1),
+          randomSource.uniform)
       } else {
-        CosineRandomFeatures.createGaussianCosineRF(
+        CosineRandomFeatures(
           TimitFeaturesDataLoader.timitDimension,
           numCosineFeatures,
           conf.gamma,
-          randomSignSource)
+          randomSource.gaussian,
+          randomSource.uniform)
       }.thenEstimator(new StandardScaler()).fit(trainData)
     }
 
@@ -106,6 +107,11 @@ object TimitPipeline extends Logging {
     System.exit(0)
   }
 
+  object Distributions extends Enumeration {
+    type Distributions = Value
+    val Gaussian, Cauchy = Value
+  }
+
   def parse(args: Array[String]): TimitConfig = new OptionParser[TimitConfig](appName) {
     head(appName, "0.1")
     opt[String]("trainDataLocation") required() action { (x,c) => c.copy(trainDataLocation=x) }
@@ -113,12 +119,12 @@ object TimitPipeline extends Logging {
     opt[String]("testDataLocation") required() action { (x,c) => c.copy(testDataLocation=x) }
     opt[String]("testLabelsLocation") required() action { (x,c) => c.copy(testLabelsLocation=x) }
     opt[String]("checkpointDir") action { (x,c) => c.copy(checkpointDir=Some(x)) }
-    opt[String]("rfType") action { (x,c) => c.copy(rfType=x) }
     opt[Int]("numParts") action { (x,c) => c.copy(numParts=x) }
     opt[Int]("numCosines") action { (x,c) => c.copy(numCosines=x) }
     opt[Int]("numEpochs") action { (x,c) => c.copy(numEpochs=x) }
     opt[Double]("gamma") action { (x,c) => c.copy(gamma=x) }
     opt[Double]("lambda") action { (x,c) => c.copy(lambda=x) }
+    opt("rfType")(scopt.Read.reads(Distributions withName _)) action { (x,c) => c.copy(rfType = x)}
   }.parse(args, TimitConfig()).get
 
   /**

@@ -1,5 +1,7 @@
 package nodes.learning
 
+import breeze.linalg.{DenseVector, DenseMatrix}
+import breeze.stats.distributions.Rand
 import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
 import pipelines._
@@ -15,8 +17,8 @@ class BlockLinearMapperSuite extends FunSuite with LocalSparkContext with Loggin
     val numChunks = 5
     val numPerChunk = inDims/numChunks
 
-    val mat = Stats.randMatrixGaussian(inDims, outDims)
-    val vec = Stats.randMatrixGaussian(1, inDims).toDenseVector
+    val mat = DenseMatrix.rand(inDims, outDims, Rand.gaussian)
+    val vec = DenseVector.rand(inDims, Rand.gaussian)
 
     val splitVec = (0 until numChunks).map(i => vec((numPerChunk*i) until (numPerChunk*i + numPerChunk)))
     val splitMat = (0 until numChunks).map(i => mat((numPerChunk*i) until (numPerChunk*i + numPerChunk), ::))

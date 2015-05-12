@@ -65,29 +65,6 @@ object Stats extends Serializable {
   }
 
   /**
-    *  Generates a rows x cols Random matrix (dense) using Breeze's RandBasis (which takes in a prng)
-    *  all values are uniformly distributed doubles between 0.0 and 1.0
-    */
-  def randMatrixUniform(rows: Int, cols: Int, r: RandBasis = Rand): DenseMatrix[Double] = {
-    DenseMatrix.rand(rows, cols,r.uniform)
-  }
-  /**
-    *  Generates a rows x cols Random matrix (dense) using Breeze's RandBasis (which takes in a prng)
-    *  all values are Gaussian ("normally") distributed double value with mean 0.0 and standard deviation 1.0 
-    */
-  def randMatrixGaussian(rows: Int, cols: Int, r: RandBasis = Rand): DenseMatrix[Double] = {
-    DenseMatrix.rand(rows, cols,r.gaussian)
-  }
-  
-  /**
-    *  Generates a rows x cols Random matrix (dense) using Breeze's RandBasis (which takes in a prng)
-    *  all values are Cauchy distributed double value with location 0.0 and scale 1.0
-    */
-  def randMatrixCauchy(rows: Int, cols: Int, r: RandBasis = Rand): DenseMatrix[Double] = {
-    tan(math.Pi*(DenseMatrix.rand(rows, cols, r.uniform) - 0.5))
-  }
-
-  /**
    * Computes top-k classification error based on a distribution of predictions.
    *
    * @param predictions Distribution of predictions.

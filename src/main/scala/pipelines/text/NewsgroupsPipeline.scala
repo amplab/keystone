@@ -4,8 +4,9 @@ import breeze.linalg.{Vector, argmax}
 import evaluation.MulticlassClassifierEvaluator
 import loaders.NewsgroupsDataLoader
 import nodes.learning.NaiveBayesEstimator
-import nodes.misc.{MaxClassifier, TermFrequency, CommonSparseFeatures}
+import nodes.misc.{TermFrequency, CommonSparseFeatures}
 import nodes.nlp._
+import nodes.util.MaxClassifier
 import org.apache.spark.SparkContext
 import pipelines.Logging
 

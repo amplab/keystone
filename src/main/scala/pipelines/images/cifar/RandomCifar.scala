@@ -1,12 +1,13 @@
 package pipelines.images.cifar
 
-import breeze.linalg.DenseVector
+import breeze.linalg.{DenseMatrix, DenseVector}
+import breeze.stats.distributions.Rand
 import evaluation.MulticlassClassifierEvaluator
 import nodes.CifarLoader
 import nodes.images._
 import nodes.learning.LinearMapEstimator
-import nodes.misc.{MaxClassifier, StandardScaler}
-import nodes.util.{Cacher, ClassLabelIndicatorsFromIntLabels}
+import nodes.misc.StandardScaler
+import nodes.util.{MaxClassifier, Cacher, ClassLabelIndicatorsFromIntLabels}
 import org.apache.spark.{SparkConf, SparkContext}
 import pipelines.Logging
 import scopt.OptionParser
@@ -31,7 +32,7 @@ object RandomCifar extends Serializable with Logging {
     val trainImages = ImageExtractor(trainData)
 
     // Set up a filter Array.
-    val filters = Stats.randMatrixGaussian(conf.numFilters, conf.patchSize*conf.patchSize*numChannels)
+    val filters = DenseMatrix.rand(conf.numFilters, conf.patchSize*conf.patchSize*numChannels, Rand.gaussian)
 
     val featurizer =
       new Convolver(filters, imageSize, imageSize, numChannels, None, true)
@@ -61,8 +62,8 @@ object RandomCifar extends Serializable with Logging {
 
     val testEval = MulticlassClassifierEvaluator(predictionPipeline(testImages), LabelExtractor(testData), numClasses)
 
-    logInfo(s"Training error is: ${trainEval.macroaccuracy}")
-    logInfo(s"Test error is: ${testEval.macroaccuracy}")
+    logInfo(s"Training error is: ${trainEval.microAccuracy}")
+    logInfo(s"Test error is: ${testEval.microAccuracy}")
   }
 
   case class RandomCifarConfig(

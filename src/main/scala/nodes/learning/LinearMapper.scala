@@ -3,10 +3,15 @@ package nodes.learning
 import breeze.linalg._
 import edu.berkeley.cs.amplab.mlmatrix.{NormalEquations, RowPartitionedMatrix}
 import org.apache.spark.rdd.RDD
+
+import nodes.misc.{StandardScaler, StandardScalerModel}
 import pipelines.{LabelEstimator, Transformer}
 import utils.MatrixUtils
 
-case class LinearMapper(x: DenseMatrix[Double])
+case class LinearMapper(
+    x: DenseMatrix[Double],
+    b: DenseVector[Double],
+    featureScaler: Option[StandardScalerModel] = None)
   extends Transformer[DenseVector[Double], DenseVector[Double]] {
 
   /**
@@ -15,7 +20,8 @@ case class LinearMapper(x: DenseMatrix[Double])
    * @return Output.
    */
   def apply(in: DenseVector[Double]): DenseVector[Double] = {
-    x.t * in
+    val scaled = featureScaler.map(_.apply(in)).getOrElse(in)
+    x.t * scaled + b
   }
 
   /**
@@ -26,8 +32,11 @@ case class LinearMapper(x: DenseMatrix[Double])
    */
   override def apply(in: RDD[DenseVector[Double]]): RDD[DenseVector[Double]] = {
     val modelBroadcast = in.context.broadcast(x)
-    in.mapPartitions(rows => {
+    val bBroadcast = in.context.broadcast(b)
+    val inScaled = featureScaler.map(_.apply(in)).getOrElse(in)
+    inScaled.mapPartitions(rows => {
       val mat = MatrixUtils.rowsToMatrix(rows) * modelBroadcast.value
+      mat(*, ::) :+= bBroadcast.value
       MatrixUtils.matrixToRowArray(mat).iterator
     })
   }
@@ -52,15 +61,20 @@ class LinearMapEstimator(lambda: Option[Double] = None)
       trainingFeatures: RDD[DenseVector[Double]],
       trainingLabels: RDD[DenseVector[Double]]): LinearMapper = {
 
-    val A = RowPartitionedMatrix.fromArray(trainingFeatures.map(x => x.toArray))
-    val b = RowPartitionedMatrix.fromArray(trainingLabels.map(x => x.toArray))
+    val featureScaler = new StandardScaler(normalizeStdDev = false).fit(trainingFeatures)
+    val labelScaler = new StandardScaler(normalizeStdDev = false).fit(trainingLabels)
+
+    val A = RowPartitionedMatrix.fromArray(
+      featureScaler.apply(trainingFeatures).map(x => x.toArray))
+    val b = RowPartitionedMatrix.fromArray(
+      labelScaler.apply(trainingLabels).map(x => x.toArray))
 
     val x = lambda match {
       case Some(l) => new NormalEquations().solveLeastSquaresWithL2(A, b, l)
       case None => new NormalEquations().solveLeastSquares(A, b)
     }
 
-    LinearMapper(x)
+    LinearMapper(x, labelScaler.mean, Some(featureScaler))
   }
 }
 

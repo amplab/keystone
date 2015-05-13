@@ -24,7 +24,8 @@ case class VOCLabelPath(labelsFileName: String)
 /**
  * A data loader for the VOC 2007 Dataset. Expects input in a tar file.
  */
-object VOC2007Loader extends Logging with Serializable {
+object VOCLoader extends Logging with Serializable {
+  val NUM_CLASSES = 20 // This is a constant defined by the VOC 2007 dataset.
 
   /**
    * Loads a data path given a spark context and labels and returns an RDD[MultiLabeledImage].
@@ -55,7 +56,7 @@ object VOC2007Loader extends Logging with Serializable {
     }.toArray.groupBy(_._1).mapValues(_.map(_._2)).map(identity)
     labelsMapFile.close()
 
-    VOC2007Loader.loadFiles(filePathsRDD, dataPath.namePrefix, labelsMap)
+    loadFiles(filePathsRDD, dataPath.namePrefix, labelsMap)
   }
 
   /** Load all files whose paths are contained in @filePathsRDD.

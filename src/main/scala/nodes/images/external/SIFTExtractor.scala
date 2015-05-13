@@ -32,3 +32,9 @@ class SIFTExtractor(val stepSize: Int = 3, val binSize: Int = 4, val scales: Int
     new DenseMatrix(descriptorSize, numCols, rawDescData)
   }
 }
+
+object SIFTExtractor {
+  def apply(stepSize: Int = 3, binSize: Int = 4, scales: Int = 4) = {
+    new SIFTExtractor(stepSize, binSize, scales)
+  }
+}

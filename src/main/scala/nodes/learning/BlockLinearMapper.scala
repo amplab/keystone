@@ -19,7 +19,7 @@ import utils.{MatrixUtils, Stats}
  */
 class BlockLinearMapper(
     val xs: Seq[DenseMatrix[Double]],
-    val b: DenseVector[Double],
+    val bOpt: Option[DenseVector[Double]] = None,
     val featureScalersOpt: Option[Seq[StandardScalerModel]] = None)
   extends Transformer[Seq[DenseVector[Double]], DenseVector[Double]] {
 
@@ -39,12 +39,16 @@ class BlockLinearMapper(
         val x = xScaler._1
         val scaler = xScaler._2
         val modelBroadcast = in.context.broadcast(x)
-        val bBroadcast = in.context.broadcast(b)
+        val bBroadcast = in.context.broadcast(bOpt)
         scaler.apply(in).mapPartitions(rows => {
           if (!rows.isEmpty) {
             val out = MatrixUtils.rowsToMatrix(rows) * modelBroadcast.value
-            out(*, ::) :+= bBroadcast.value
-            Iterator.single(out)
+            Iterator.single(
+              bBroadcast.value.map { b =>
+                out(*, ::) :+= b
+                out
+              }.getOrElse(out)
+            )
           } else {
             Iterator.empty
           }
@@ -61,8 +65,10 @@ class BlockLinearMapper(
     val res = ins.zip(xs.zip(featureScalers)).map {
       case (in, xScaler) => {
         val out = xScaler._1.t * xScaler._2.apply(in)
-        out :+= b
-        out
+        bOpt.map { b =>
+          out :+= b
+          out
+        }.getOrElse(out)
       }
     }
 
@@ -83,11 +89,15 @@ class BlockLinearMapper(
         val x = xScaler._1
         val scaler = xScaler._2
         val modelBroadcast = in.context.broadcast(x)
-        val bBroadcast = in.context.broadcast(b)
+        val bBroadcast = in.context.broadcast(bOpt)
         scaler.apply(in).mapPartitions(rows => {
           val out = MatrixUtils.rowsToMatrix(rows) * modelBroadcast.value
-          out(*, ::) :+= bBroadcast.value
-          Iterator.single(out)
+          Iterator.single(
+            bBroadcast.value.map { b =>
+              out(*, ::) :+= b
+              out
+            }.getOrElse(out)
+          )
         })
       }
     }
@@ -137,7 +147,8 @@ object BlockLinearMapper extends Serializable {
     }
 
     val bcd = new BlockCoordinateDescent()
-    val models = bcd.solveLeastSquaresWithL2(A, b, Array(lambda), numIter, new NormalEquations()).transpose
-    new BlockLinearMapper(models.head, labelScaler.mean, Some(featureScalers))
+    val models = bcd.solveLeastSquaresWithL2(
+      A, b, Array(lambda), numIter, new NormalEquations()).transpose
+    new BlockLinearMapper(models.head, Some(labelScaler.mean), Some(featureScalers))
   }
 }

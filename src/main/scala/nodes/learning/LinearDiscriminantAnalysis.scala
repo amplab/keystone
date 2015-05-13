@@ -62,7 +62,7 @@ class LinearDiscriminantAnalysis(numDimensions: Int) extends LabelEstimator[Dens
     val topEigenvectors = eigenvectors.zip(eigen.eigenvalues.toArray).sortBy(x => -math.abs(x._2)).map(_._1).take(numDimensions)
     val W = DenseMatrix.horzcat(topEigenvectors:_*)
 
-    new LinearMapper(W, DenseVector.zeros(W.cols))
+    new LinearMapper(W)
   }
 }
 

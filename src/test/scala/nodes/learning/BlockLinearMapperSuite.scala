@@ -23,8 +23,8 @@ class BlockLinearMapperSuite extends FunSuite with LocalSparkContext with Loggin
     val splitVec = (0 until numChunks).map(i => vec((numPerChunk*i) until (numPerChunk*i + numPerChunk)))
     val splitMat = (0 until numChunks).map(i => mat((numPerChunk*i) until (numPerChunk*i + numPerChunk), ::))
 
-    val linearMapper = new LinearMapper(mat, DenseVector.zeros(mat.cols))
-    val blockLinearMapper = new BlockLinearMapper(splitMat, DenseVector.zeros(mat.cols))
+    val linearMapper = new LinearMapper(mat)
+    val blockLinearMapper = new BlockLinearMapper(splitMat)
 
     assert(Stats.aboutEq(blockLinearMapper(splitVec), linearMapper(vec), 1e-4))
   }

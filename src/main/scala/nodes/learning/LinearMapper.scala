@@ -8,9 +8,16 @@ import nodes.misc.{StandardScaler, StandardScalerModel}
 import pipelines.{LabelEstimator, Transformer}
 import utils.MatrixUtils
 
+/**
+ * Computes A * x + b i.e. a linear map of data using a trained model.
+ *
+ * @param x trained model
+ * @param bOpt optional intercept to add
+ * @param featureScaler optional scaler to apply to data before applying the model
+ */
 case class LinearMapper(
     x: DenseMatrix[Double],
-    b: DenseVector[Double],
+    bOpt: Option[DenseVector[Double]] = None,
     featureScaler: Option[StandardScalerModel] = None)
   extends Transformer[DenseVector[Double], DenseVector[Double]] {
 
@@ -21,7 +28,10 @@ case class LinearMapper(
    */
   def apply(in: DenseVector[Double]): DenseVector[Double] = {
     val scaled = featureScaler.map(_.apply(in)).getOrElse(in)
-    x.t * scaled + b
+    val out = x.t * scaled
+    bOpt.map { b =>
+      out :+= b
+    }.getOrElse(out)
   }
 
   /**
@@ -32,12 +42,16 @@ case class LinearMapper(
    */
   override def apply(in: RDD[DenseVector[Double]]): RDD[DenseVector[Double]] = {
     val modelBroadcast = in.context.broadcast(x)
-    val bBroadcast = in.context.broadcast(b)
+    val bBroadcast = in.context.broadcast(bOpt)
     val inScaled = featureScaler.map(_.apply(in)).getOrElse(in)
     inScaled.mapPartitions(rows => {
       val mat = MatrixUtils.rowsToMatrix(rows) * modelBroadcast.value
-      mat(*, ::) :+= bBroadcast.value
-      MatrixUtils.matrixToRowArray(mat).iterator
+      val out = bBroadcast.value.map { b =>
+        mat(*, ::) :+= b
+        mat
+      }.getOrElse(mat)
+
+      MatrixUtils.matrixToRowArray(out).iterator
     })
   }
 }
@@ -74,7 +88,7 @@ class LinearMapEstimator(lambda: Option[Double] = None)
       case None => new NormalEquations().solveLeastSquares(A, b)
     }
 
-    LinearMapper(x, labelScaler.mean, Some(featureScaler))
+    LinearMapper(x, Some(labelScaler.mean), Some(featureScaler))
   }
 }
 

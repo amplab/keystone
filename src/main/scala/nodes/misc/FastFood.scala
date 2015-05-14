@@ -4,7 +4,13 @@ import breeze.linalg.DenseVector
 import breeze.math.Complex
 import pipelines.Transformer
 
-
+/**
+ * This transformer pads input vectors to the nearest power of two,
+ * then returns the real values of the first half of the fourier transform on the padded vectors.
+ *
+ * Goes from vectors of size n to vectors of size nextPowerOfTwo(n)/2
+ * @param numFeatures The size of the input vectors
+ */
 class FastFood(numFeatures: Int) extends Transformer[DenseVector[Double], DenseVector[Double]] {
   val paddedSize = nextPowerOfTwo(numFeatures)
   override def apply(in: DenseVector[Double]): DenseVector[Double] = {

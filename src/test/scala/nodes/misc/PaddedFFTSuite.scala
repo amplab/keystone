@@ -14,7 +14,7 @@ class PaddedFFTSuite extends FunSuite with LocalSparkContext with Logging {
   test("Test PaddedFFT node") {
     sc = new SparkContext("local", "test")
 
-    //Set up a test matrix.
+    // Set up a test matrix.
     val ones = DenseVector.zeros[Double](100)
     val twos = DenseVector.zeros[Double](100)
     ones(0) = 1.0
@@ -23,10 +23,7 @@ class PaddedFFTSuite extends FunSuite with LocalSparkContext with Logging {
     val x = sc.parallelize(Seq(twos, ones))
     val fftd = PaddedFFT(x).collect()
 
-    logInfo("Twos first")
     val twosout = fftd(0)
-
-    logInfo("Then ones")
     val onesout = fftd(1)
 
     // Proof by agreement w/ R: Re(fft(c(0, 0, 1, rep(0, 125))))

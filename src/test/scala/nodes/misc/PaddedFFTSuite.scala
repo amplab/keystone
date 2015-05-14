@@ -29,14 +29,14 @@ class PaddedFFTSuite extends FunSuite with LocalSparkContext with Logging {
     logInfo("Then ones")
     val onesout = fftd(1)
 
-    // Proof by agreement w/ Matlab: Re(fft(c(0, 0, 1, rep(0, 125))))
+    // Proof by agreement w/ R: Re(fft(c(0, 0, 1, rep(0, 125))))
     assert(twosout.length === 64)
     assert(Stats.aboutEq(twosout(0), 1.0))
     assert(Stats.aboutEq(twosout(16), 0.0))
     assert(Stats.aboutEq(twosout(32), -1.0))
     assert(Stats.aboutEq(twosout(48), 0.0))
 
-    // Proof by agreement w/ Matlab: Re(fft(c(1, rep(0, 127))))
+    // Proof by agreement w/ R: Re(fft(c(1, rep(0, 127))))
     assert(Stats.aboutEq(onesout, DenseVector.ones[Double](64)))
   }
 }

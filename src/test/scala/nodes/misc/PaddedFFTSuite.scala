@@ -20,7 +20,7 @@ class PaddedFFTSuite extends FunSuite with LocalSparkContext with Logging {
     ones(0) = 1.0
     twos(2) = 1.0
 
-    val x = sc.parallelize(Seq(twos,ones))
+    val x = sc.parallelize(Seq(twos, ones))
     val fftd = PaddedFFT(x).collect()
 
     logInfo("Twos first")

@@ -32,9 +32,10 @@ class PCATransformer(val pcaMat: DenseMatrix[Float]) extends Transformer[DenseVe
  *
  * @param pcaMat A DxK projection matrix.
  */
-class BatchPCATransformer(val pcaMat: DenseMatrix[Float]) extends Transformer[DenseMatrix[Float], DenseMatrix[Float]] {
+class BatchPCATransformer(val pcaMat: DenseMatrix[Float]) extends Transformer[DenseMatrix[Float], DenseMatrix[Float]] with Logging {
   def apply(in: DenseMatrix[Float]): DenseMatrix[Float] = {
-    in * pcaMat
+    logInfo(s"Multiplying pcaMat:(${pcaMat.rows}x${pcaMat.cols}), in: (${in.rows}x${in.cols})")
+    pcaMat.t * in
   }
 }
 

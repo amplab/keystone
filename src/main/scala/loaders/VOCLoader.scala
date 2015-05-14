@@ -41,7 +41,7 @@ object VOCLoader extends Logging with Serializable {
   def apply(sc: SparkContext, dataPath: VOCDataPath, labelsPath: VOCLabelPath): RDD[MultiLabeledImage] = {
     val filePaths = FileSystem.get(new URI(dataPath.imagesDirName), new Configuration(true))
       .listStatus(new Path(dataPath.imagesDirName))
-      .filter(x => !x.isDirectory())
+      .filter(x => !x.isDir())
       .map(x => x.getPath().toUri())
 
     val numParts = dataPath.numParts.getOrElse(filePaths.length)

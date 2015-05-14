@@ -23,26 +23,6 @@ object BlockWeightedLeastSquares extends Logging {
   case class BlockStatistics(popCov: DenseMatrix[Double], popMean: DenseVector[Double],
     jointMean: DenseMatrix[Double], jointMeanRDD: RDD[DenseVector[Double]])
 
-  private def addMatrices(a: DenseMatrix[Double], b: DenseMatrix[Double]): DenseMatrix[Double] = {
-    a += b
-    a
-  }
-
-  private def addPairMatrices(
-      a: (DenseMatrix[Double], DenseMatrix[Double]),
-      b: (DenseMatrix[Double], DenseMatrix[Double]))
-    : (DenseMatrix[Double], DenseMatrix[Double]) = {
-
-    a._1 += b._1
-    a._2 += b._2
-    a
-  }
-  
-  private def addVectors(a: DenseVector[Double], b: DenseVector[Double]): DenseVector[Double] = {
-    a += b
-    a
-  }
-
   /**
    * Train a weighted block-coordinate descent model using least squares
    * NOTE: This function assumes that the trainingFeatures have been partitioned by
@@ -102,7 +82,7 @@ object BlockWeightedLeastSquares extends Logging {
 
     var residualMean = MLMatrixUtils.treeReduce(residual.map { mat =>
       mean(mat(::, *)).toDenseVector
-    }, addVectors) :/ nClasses.toDouble
+    }, MatrixUtils.addVectors) :/ nClasses.toDouble
 
     @transient val blockStats: Array[Option[BlockStatistics]] = (0 until numBlocks).map { blk =>
       None
@@ -140,7 +120,7 @@ object BlockWeightedLeastSquares extends Logging {
 
           val aTaResidual = MLMatrixUtils.treeReduce(blockFeaturesMat.zip(residual).map { part =>
             (part._1.t * part._1, part._1.t * part._2)
-          }, addPairMatrices, depth=depth)
+          }, MatrixUtils.addPairMatrices, depth=depth)
 
           val blockPopCov = (aTaResidual._1 :/ nTrain.toDouble) - (blockPopMean * blockPopMean.t)
 
@@ -151,7 +131,7 @@ object BlockWeightedLeastSquares extends Logging {
         } else {
           val aTResidual = MLMatrixUtils.treeReduce(blockFeaturesMat.zip(residual).map { part =>
             part._1.t * part._2
-          }, addMatrices, depth=depth)
+          }, MatrixUtils.addMatrices, depth=depth)
 
           val blockStat = blockStats(block).get 
           (blockStat.popCov, aTResidual :/ (nTrain.toDouble), blockStat.jointMeanRDD,
@@ -220,7 +200,7 @@ object BlockWeightedLeastSquares extends Logging {
 
         residualMean = residual.map { mat =>
           mean(mat(::, *)).toDenseVector
-        }.reduce(addVectors) :/ nClasses.toDouble
+        }.reduce(MatrixUtils.addVectors) :/ nClasses.toDouble
 
         popCovBC.unpersist()
         popMeanBC.unpersist()

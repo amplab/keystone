@@ -177,7 +177,9 @@ object FVVOC2007 extends Serializable {
 
     val testFeaturesMat = RowPartitionedMatrix.fromArray(testFeatures.map(_.toArray))
 
-    val predictions = new BlockLinearMapper(model.toSeq).apply(Seq(testFeatures))
+    val fullModel = model.reduceLeftOption((a,b) => DenseMatrix.vertcat(a, b)).getOrElse(new DenseMatrix[Double](0, 0))
+
+    val predictions = new BlockLinearMapper(Seq(fullModel)).apply(Seq(testFeatures))
 
     val map = MeanAveragePrecisionEvaluator(testActuals, predictions, numClasses)
     println(s"TEST APs are: ${map.toArray.mkString(",")}")

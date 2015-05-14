@@ -43,7 +43,7 @@ class VLFeatSuite extends FunSuite with Logging {
 
     // Because of subtle differences in the way image smoothing works in the VLFeat C library and the VLFeat matlab
     // library (vl_imsmooth_f vs. _vl_imsmooth_f), these two matrices will not be exactly the same.
-    // Instead, we check that 99.5% of the matrix entries are off by less than one.
+    // Instead, we check that 99.5% of the matrix entries are off by at most 1.
     val absdiff = abs(diff).toDenseVector
 
     assert(absdiff.findAll(_ > 1.0).length.toDouble < 0.005*absdiff.length,

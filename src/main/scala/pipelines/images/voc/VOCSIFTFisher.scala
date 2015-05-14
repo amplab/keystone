@@ -102,7 +102,7 @@ object FVVOC2007 extends Serializable {
     val pcaTransformer = if (args.length > 8) {
       new BatchPCATransformer(convert(MatrixUtils.loadCSVFile(args(8)), Float).t)
     } else {
-      val se = SIFTExtractor()
+      val se = SIFTExtractor(scaleStep = 0)
       val siftSamples = se(grayRDD)
       val pca = new PCAEstimator(descDim).fit(createSamples(siftSamples, numPcaSamples))
       new BatchPCATransformer(pca.pcaMat)
@@ -120,7 +120,7 @@ object FVVOC2007 extends Serializable {
 
     val labelsRDD = labelGrabber(parsedRDD)
 
-    val labels = RowPartitionedMatrix.fromArray(labelsRDD.map(_.toArray))
+    val labels = RowPartitionedMatrix.fromArray(labelsRDD.map(_.toArray)).cache()
 
     //Now train a GMM based on the dimred'ed data.
     val gmm = if (args.length > 9) {
@@ -139,33 +139,35 @@ object FVVOC2007 extends Serializable {
 
     def doubleConverter(x: DenseMatrix[Float]): DenseMatrix[Double] = convert(x, Double)
 
-    //Step 3
-    val fisherFeaturizer = new FisherVector(gmm) then doubleConverter _
-    val fisherFeatures = fisherFeaturizer(firstCachedRDD).cache()
 
-    //Step 4
-    val normalizingFeaturizers =  (MatrixVectorizer
+    //Step 3
+    val fisherFeaturizer =  (
+      new FisherVector(gmm) then doubleConverter _
+      then MatrixVectorizer
       then normalizeRows _
       then SignedHellingerMapper
       then normalizeRows _
       then new Cacher[DenseVector[Double]])
       
 
-    val trainingFeatures = RowPartitionedMatrix.fromArray(normalizingFeaturizers(fisherFeatures).map(_.toArray))
+    val trainingFeatures = RowPartitionedMatrix.fromArray(fisherFeaturizer(firstCachedRDD).map(_.toArray))
     
     println("Computing model.")
-
     val model = new BlockCoordinateDescent().solveOnePassL2(
       splitMatrixParts(trainingFeatures, 4096), labels, Array(lambda), new NormalEquations()).map(x => x(0))
     println("Model Computed.")
 
     trainingFeatures.rdd.unpersist()
 
-    val testParsedRDD = VOCLoader(sc, VOCDataPath(testingDirName, "VOCdevkit/VOC2007/JPEGImages/", Some(1)), VOCLabelPath(labelPath)).repartition(numParts)
+    val testParsedRDD = VOCLoader(
+      sc,
+      VOCDataPath(testingDirName, "VOCdevkit/VOC2007/JPEGImages/", Some(1)),
+      VOCLabelPath(labelPath)).repartition(numParts)
+
     val testCachedRDD = featurizer(grayscaler(testParsedRDD))
 
     println("Test Cached RDD has: " + testCachedRDD.count)
-    val testFeatures = normalizingFeaturizers(fisherFeaturizer(testCachedRDD))
+    val testFeatures = fisherFeaturizer(testCachedRDD)
 
     val testLabels = labelGrabber(testParsedRDD)
 
@@ -175,9 +177,7 @@ object FVVOC2007 extends Serializable {
 
     val testFeaturesMat = RowPartitionedMatrix.fromArray(testFeatures.map(_.toArray))
 
-    val fullModel = model.reduceLeftOption((a,b) => DenseMatrix.vertcat(a, b)).getOrElse(new DenseMatrix[Double](0, 0))
-
-    val predictions = new BlockLinearMapper(Seq(fullModel)).apply(Seq(testFeatures))
+    val predictions = new BlockLinearMapper(model.toSeq).apply(Seq(testFeatures))
 
     val map = MeanAveragePrecisionEvaluator(testActuals, predictions, numClasses)
     println(s"TEST APs are: ${map.toArray.mkString(",")}")

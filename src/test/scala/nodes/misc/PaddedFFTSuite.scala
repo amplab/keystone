@@ -10,7 +10,7 @@ import pipelines.{Logging, LocalSparkContext}
 import utils.Stats
 
 
-class FastFoodSuite extends FunSuite with LocalSparkContext with Logging {
+class PaddedFFTSuite extends FunSuite with LocalSparkContext with Logging {
   test("Test FastFood FFT node") {
     sc = new SparkContext("local", "test")
 
@@ -21,7 +21,7 @@ class FastFoodSuite extends FunSuite with LocalSparkContext with Logging {
     twos(2) = 1.0
 
     val x = sc.parallelize(Seq(twos,ones))
-    val fftNode = new FastFood(100)
+    val fftNode = new PaddedFFT(100)
     val fftd = fftNode(x).collect()
 
     logInfo("Twos first")

@@ -102,6 +102,15 @@ class NGram[@specialized(Int) T: ClassTag](final val words: Seq[T]) extends Seri
 }
 
 /**
+ * Control flags used for [[NGramsCounts]].  Use `Default` if counts are to be
+ * aggregated across partitions and sorted; use `NoAdd` if just count ngrams within
+ * each partition, with no cross-partition summing or sorting.
+ */
+object NGramsCountsMode extends Enumeration {
+  val Default, NoAdd = Value
+}
+
+/**
  * A simple transformer that represents each ngram to an [[NGram]] and counts
  * their occurance.  Returns an RDD[(NGram, Int)] that is sorted by frequency
  * in descending order.
@@ -109,9 +118,9 @@ class NGram[@specialized(Int) T: ClassTag](final val words: Seq[T]) extends Seri
  * This implementation may not be space-efficient, but should handle commonly-sized
  * workloads well.
  *
- * @param mode "default": aggregated and sorted; "noAdd": just count within partitions.
+ * @param mode a control flag defined in [[NGramsCountsMode]]
  */
-case class NGramsCounts[T: ClassTag](mode: String = "default")
+case class NGramsCounts[T: ClassTag](mode: NGramsCountsMode.Value = NGramsCountsMode.Default)
   extends Transformer[Seq[Seq[T]], (NGram[T], Int)] {
 
   // Output uses NGram as key type, since aggregation of counts uses a hash map,
@@ -135,9 +144,9 @@ case class NGramsCounts[T: ClassTag](mode: String = "default")
     }
 
     mode match {
-      case "default" => ngramCnts.reduceByKey(_ + _)
-        .sortBy(_._2, ascending = false)
-      case "noAdd" => ngramCnts
+      case NGramsCountsMode.Default => ngramCnts
+        .reduceByKey(_ + _).sortBy(_._2, ascending = false)
+      case NGramsCountsMode.NoAdd => ngramCnts
       case _ => throw new IllegalArgumentException(s"`mode` must be `default` or `noAdd`")
     }
   }

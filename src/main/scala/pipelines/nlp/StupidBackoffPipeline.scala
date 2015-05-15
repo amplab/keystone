@@ -26,7 +26,7 @@ object StupidBackoffPipeline {
     /** NGram (n >= 2) generation step */
     val makeNGrams = frequencyEncode then
       NGramsFeaturizer(2 to 5) then
-      NGramsCounts("noAdd")
+      NGramsCounts(NGramsCountsMode.NoAdd)
 
     val ngramCounts = makeNGrams(text)
 

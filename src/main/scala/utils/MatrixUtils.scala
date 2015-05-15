@@ -87,23 +87,4 @@ object MatrixUtils extends Serializable {
     (in(rows,::)).toDenseMatrix
   }
 
-  def addMatrices(a: DenseMatrix[Double], b: DenseMatrix[Double]): DenseMatrix[Double] = {
-    a += b
-    a
-  }
-
-  def addPairMatrices(
-      a: (DenseMatrix[Double], DenseMatrix[Double]),
-      b: (DenseMatrix[Double], DenseMatrix[Double]))
-    : (DenseMatrix[Double], DenseMatrix[Double]) = {
-
-    a._1 += b._1
-    a._2 += b._2
-    a
-  }
-  
-  def addVectors(a: DenseVector[Double], b: DenseVector[Double]): DenseVector[Double] = {
-    a += b
-    a
-  }
 }

@@ -82,7 +82,7 @@ object BlockWeightedLeastSquares extends Logging {
 
     var residualMean = MLMatrixUtils.treeReduce(residual.map { mat =>
       mean(mat(::, *)).toDenseVector
-    }, MatrixUtils.addVectors) /= nClasses.toDouble
+    }, (a: DenseVector[Double], b: DenseVector[Double]) => a += b ) /= nClasses.toDouble
 
     @transient val blockStats: Array[Option[BlockStatistics]] = (0 until numBlocks).map { blk =>
       None
@@ -120,7 +120,7 @@ object BlockWeightedLeastSquares extends Logging {
 
           val aTaResidual = MLMatrixUtils.treeReduce(blockFeaturesMat.zip(residual).map { part =>
             (part._1.t * part._1, part._1.t * part._2)
-          }, MatrixUtils.addPairMatrices, depth=depth)
+          }, addPairMatrices, depth=depth)
 
           val blockPopCov = (aTaResidual._1 / nTrain.toDouble) - (blockPopMean * blockPopMean.t)
 
@@ -131,7 +131,7 @@ object BlockWeightedLeastSquares extends Logging {
         } else {
           val aTResidual = MLMatrixUtils.treeReduce(blockFeaturesMat.zip(residual).map { part =>
             part._1.t * part._2
-          }, MatrixUtils.addMatrices, depth=depth)
+          }, (a: DenseMatrix[Double], b: DenseMatrix[Double]) => a += b, depth=depth)
 
           val blockStat = blockStats(block).get 
           (blockStat.popCov, aTResidual / (nTrain.toDouble), blockStat.jointMeanRDD,
@@ -200,7 +200,9 @@ object BlockWeightedLeastSquares extends Logging {
 
         residualMean = residual.map { mat =>
           mean(mat(::, *)).toDenseVector
-        }.reduce(MatrixUtils.addVectors) /= nClasses.toDouble
+        }.reduce { (a: DenseVector[Double], b: DenseVector[Double]) =>
+          a += b
+        } /= nClasses.toDouble
 
         popCovBC.unpersist()
         popMeanBC.unpersist()
@@ -225,6 +227,16 @@ object BlockWeightedLeastSquares extends Logging {
 
     val finalB = jointLabelMean - sum(jointMeansCombined.t :* finalFullModel, Axis._0).toDenseVector
     new BlockLinearMapper(models, Some(finalB))
+  }
+
+  def addPairMatrices(
+      a: (DenseMatrix[Double], DenseMatrix[Double]),
+      b: (DenseMatrix[Double], DenseMatrix[Double]))
+    : (DenseMatrix[Double], DenseMatrix[Double]) = {
+
+    a._1 += b._1
+    a._2 += b._2
+    a
   }
 
 }

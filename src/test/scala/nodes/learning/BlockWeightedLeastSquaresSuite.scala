@@ -53,7 +53,7 @@ class BlockWeightedLeastSquaresSuite extends FunSuite with Logging with LocalSpa
       out -= labels
       out :*= wts
       feats.t * out
-    }.reduce(MatrixUtils.addMatrices)
+    }.reduce((a: DenseMatrix[Double], b: DenseMatrix[Double]) => a += b)
 
     val gradW = matOut + modelBroadcast.value * lambda
     gradW

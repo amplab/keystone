@@ -18,12 +18,15 @@ object ImageExtractor extends Transformer[LabeledImage, Image] {
 }
 
 /**
+ * Extracts a label from a multi-labeled image.
+ */
+object MultiLabelExtractor extends Transformer[MultiLabeledImage, Array[Int]] {
+  override def apply(in: MultiLabeledImage): Array[Int] = in.label
+}
+
+/**
  * Extracts an image from a multi-labeled image.
  */
 object MultiLabeledImageExtractor extends Transformer[MultiLabeledImage, Image] {
   def apply(in: MultiLabeledImage): Image = in.image
-}
-
-object MultiLabelExtractor extends Transformer[MultiLabeledImage, Array[Int]] {
-  override def apply(in: MultiLabeledImage): Array[Int] = in.label
 }

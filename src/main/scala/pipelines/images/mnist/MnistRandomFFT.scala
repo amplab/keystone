@@ -6,6 +6,7 @@ import evaluation.MulticlassClassifierEvaluator
 import loaders.{CsvDataLoader, LabeledData}
 import nodes.images._
 import nodes.learning.BlockLinearMapper
+import nodes.misc.ZipRDDs
 import nodes.stats.{LinearRectifier, PaddedFFT, RandomSignNode}
 import nodes.util.{ClassLabelIndicatorsFromIntLabels, MaxClassifier}
 import org.apache.commons.math3.random.MersenneTwister
@@ -18,8 +19,6 @@ import scopt.OptionParser
 object MnistRandomFFT extends Serializable with Logging {
   val appName = "MnistRandomFFT"
 
-  def zipRdds(in: Seq[RDD[DenseVector[Double]]]) = in.reduceLeft((a,b) => a.zip(b).map(r => DenseVector.vertcat(r._1, r._2)))
-
   def run(sc: SparkContext, conf: MnistRandomFFTConfig) {
     // Set up some constants.
     val numParts = 10
@@ -30,10 +29,12 @@ object MnistRandomFFT extends Serializable with Logging {
     val randomSignSource = new RandBasis(new ThreadLocalRandomGenerator(new MersenneTwister(random.nextLong())))
 
     val d = 784
+    // Because d is 784, we get 512 PaddedFFT features per FFT.
+    // So, setting fftsPerBatch to 8 leads to a block size of 4096 features.
     val fftsPerBatch = 8
     val numFFTBatches = conf.numFFTs/fftsPerBatch
 
-    val startTime = System.currentTimeMillis
+    val startTime = System.nanoTime()
 
     val train = LabeledData(
       CsvDataLoader(sc, conf.trainLocation, numParts)
@@ -48,7 +49,7 @@ object MnistRandomFFT extends Serializable with Logging {
     }
 
     val trainingBatches = batchFeaturizer.map { x =>
-      zipRdds(x.map(y => y.apply(train.data))).cache()
+      ZipRDDs(x.map(y => y.apply(train.data))).cache()
     }
 
     // Train the model
@@ -61,19 +62,25 @@ object MnistRandomFFT extends Serializable with Logging {
     val actual = test.labels
 
     val testBatches = batchFeaturizer.toIterator.map { x =>
-      zipRdds(x.map(y => y.apply(test.data))).cache()
+      ZipRDDs(x.map(y => y.apply(test.data))).cache()
     }
+
+    // Calculate train error
+    blockLinearMapper.applyAndEvaluate(trainingBatches, trainPredictedValues => {
+      val predicted = MaxClassifier(trainPredictedValues)
+      val evaluator = MulticlassClassifierEvaluator(predicted, train.labels, numClasses)
+      logInfo("Train Error is " + (100 * evaluator.totalError) + "%")
+    })
 
     // Calculate test error
     blockLinearMapper.applyAndEvaluate(testBatches, testPredictedValues => {
       val predicted = MaxClassifier(testPredictedValues)
       val evaluator = MulticlassClassifierEvaluator(predicted, actual, numClasses)
       logInfo("TEST Error is " + (100 * evaluator.totalError) + "%")
-      logInfo("TEST Error is " + (100 * evaluator.totalAccuracy) + "%")
     })
 
-    val endTime = System.currentTimeMillis
-    logInfo("Pipeline took " + (endTime - startTime)/1000 + " s")
+    val endTime = System.nanoTime()
+    logInfo("Pipeline took " + (endTime - startTime)/1e9 + " s")
   }
 
   case class MnistRandomFFTConfig(

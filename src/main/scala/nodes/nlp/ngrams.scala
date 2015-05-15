@@ -30,11 +30,11 @@ case class NGramsFeaturizer[@specialized(Int) T: ClassTag](orders: Seq[Int])
 
   override def apply(in: RDD[Seq[T]]): RDD[Seq[Seq[T]]] = {
     in.mapPartitions { lines =>
-      val ngramsBuf = new ArrayBuffer[Seq[T]]()
       val ngramBuf = new ArrayBuffer[T](orders.max)
       var j = 0
       var order = 0
-      lines.foreach { tokens =>
+      lines.map { tokens =>
+        val ngramsBuf = new ArrayBuffer[Seq[T]]()
         var i = 0
         while (i + minOrder <= tokens.length) {
           ngramBuf.clear()
@@ -54,8 +54,8 @@ case class NGramsFeaturizer[@specialized(Int) T: ClassTag](orders: Seq[Int])
           }
           i += 1
         }
+        ngramsBuf
       }
-      Iterator.single(ngramsBuf)
     }
   }
 

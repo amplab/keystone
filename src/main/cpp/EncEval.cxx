@@ -1,6 +1,5 @@
  /** @internal
  ** @file     FisherExtractor.cxx
- ** @author   Evan Sparks
  ** @brief    JNI Wrapper for enceval GMM and Fisher Vector
  **/
 

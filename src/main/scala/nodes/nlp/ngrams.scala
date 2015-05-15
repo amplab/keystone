@@ -59,6 +59,33 @@ case class NGramsFeaturizer[@specialized(Int) T: ClassTag](orders: Seq[Int])
     }
   }
 
+  def apply(line: Seq[T]): Seq[Seq[T]] = {
+    val ngramBuf = new ArrayBuffer[T](orders.max)
+    var j = 0
+    var order = 0
+    val ngramsBuf = new ArrayBuffer[Seq[T]]()
+    var i = 0
+    while (i + minOrder <= line.length) {
+      ngramBuf.clear()
+
+      j = i
+      while (j < i + minOrder) {
+        ngramBuf += line(j)
+        j += 1
+      }
+      ngramsBuf += ngramBuf.clone()
+
+      order = minOrder + 1
+      while (order <= maxOrder && i + order <= line.length) {
+        ngramBuf += line(i + order - 1)
+        ngramsBuf += ngramBuf.clone()
+        order += 1
+      }
+      i += 1
+    }
+    ngramsBuf
+  }
+
 }
 
 /**
@@ -111,8 +138,8 @@ object NGramsCountsMode extends Enumeration {
 }
 
 /**
- * A simple transformer that represents each ngram to an [[NGram]] and counts
- * their occurance.  Returns an RDD[(NGram, Int)] that is sorted by frequency
+ * A simple transformer that represents each ngram as an [[NGram]] and counts
+ * their occurrence.  Returns an RDD[(NGram, Int)] that is sorted by frequency
  * in descending order.
  *
  * This implementation may not be space-efficient, but should handle commonly-sized
@@ -150,5 +177,8 @@ case class NGramsCounts[T: ClassTag](mode: NGramsCountsMode.Value = NGramsCounts
       case _ => throw new IllegalArgumentException(s"`mode` must be `default` or `noAdd`")
     }
   }
+
+  def apply(line: Seq[Seq[T]]): (NGram[T], Int) = throw new UnsupportedOperationException(
+      "Doesn't make sense to call single-item apply() on this node")
 
 }

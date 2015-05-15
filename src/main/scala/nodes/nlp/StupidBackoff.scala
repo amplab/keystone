@@ -116,7 +116,11 @@ class StupidBackoffModel[@specialized(Int) T: ClassTag](
   def score(ngram: NGram[T]): Double =
     scoreFunc(1.0, ngram, ngramLookup(ngram))
 
-  def apply(ignored: RDD[(NGram[T], Int)]): RDD[(NGram[T], Double)] =
+  override def apply(ignored: RDD[(NGram[T], Int)]): RDD[(NGram[T], Double)] =
+    throw new UnsupportedOperationException(
+      "Doesn't make sense to chain this node; use method score(ngram) to query the model.")
+
+  def apply(ignored: (NGram[T], Int)): (NGram[T], Double) =
     throw new UnsupportedOperationException(
       "Doesn't make sense to chain this node; use method score(ngram) to query the model.")
 
@@ -143,7 +147,7 @@ class StupidBackoffModel[@specialized(Int) T: ClassTag](
 case class StupidBackoffEstimator[@specialized(Int) T: ClassTag](
     unigramCounts: collection.Map[T, Int],
     alpha: Double = 0.4)
-  extends Estimator[RDD[(NGram[T], Int)], RDD[(NGram[T], Double)]] {
+  extends Estimator[(NGram[T], Int), (NGram[T], Double)] {
 
   private[this] val indexer = new NGramIndexerImpl[T]
   private[this] lazy val numTokens = unigramCounts.values.sum

@@ -1,6 +1,6 @@
 package nodes.nlp
 
-import pipelines.{LocalSparkContext, Transformer}
+import pipelines.LocalSparkContext
 
 import org.apache.spark.SparkContext
 
@@ -10,30 +10,29 @@ class NGramSuite extends FunSuite with LocalSparkContext {
 
   test("NGramsFeaturizer") {
     sc = new SparkContext("local[2]", "NGramSuite")
-    val rdd = sc.parallelize(Seq("Pipelines are awesome", "NLP is awesome"), 2)
+    val rdd = sc.parallelize(Seq("Pipelines are awesome", "NLP is awesome"), 1)
 
     def run(orders: Seq[Int]) = {
-      val pipeline = SimpleTokenizer then NGramsFeaturizer(orders)
+      val pipeline = Tokenizer() then NGramsFeaturizer[String](orders)
 
       pipeline(rdd)
-        .mapPartitions(_.flatten) // for comparison
         .collect()
-        .toSeq.map(_.toSeq) // for comparison
+        .toSeq // for comparison
     }
 
     val unigrams = Seq(
-      Seq("Pipelines"), Seq("are"), Seq("awesome"),
-      Seq("NLP"), Seq("is"), Seq("awesome")
+      Seq(Seq("Pipelines"), Seq("are"), Seq("awesome")),
+      Seq(Seq("NLP"), Seq("is"), Seq("awesome"))
     )
     assert(run(Seq(1)) === unigrams)
 
     val bigramTrigrams = Seq(
-      Seq("Pipelines", "are"), Seq("Pipelines", "are", "awesome"), Seq("are", "awesome"),
-      Seq("NLP", "is"), Seq("NLP", "is", "awesome"), Seq("is", "awesome")
+      Seq(Seq("Pipelines", "are"), Seq("Pipelines", "are", "awesome"), Seq("are", "awesome")),
+      Seq(Seq("NLP", "is"), Seq("NLP", "is", "awesome"), Seq("is", "awesome"))
     )
     assert(run(2 to 3) === bigramTrigrams)
 
-    assert(run(Seq(6)) === Seq.empty, "returns 6-grams when there aren't any")
+    assert(run(Seq(6)) === Seq(Seq.empty, Seq.empty), "returns 6-grams when there aren't any")
   }
 
   test("NGramsCounts") {
@@ -41,9 +40,9 @@ class NGramSuite extends FunSuite with LocalSparkContext {
     val rdd = sc.parallelize(Seq("Pipelines are awesome", "NLP is awesome"), 2)
 
     def run(orders: Seq[Int]) = {
-      val pipeline = SimpleTokenizer then
-        NGramsFeaturizer(orders) then
-        NGramsCounts()
+      val pipeline = Tokenizer() then
+        NGramsFeaturizer[String](orders) then
+        NGramsCounts[String]()
 
       pipeline(rdd).collect().toSet
     }
@@ -79,9 +78,9 @@ class NGramSuite extends FunSuite with LocalSparkContext {
     val rdd = sc.parallelize(Seq("Pipelines are awesome", "NLP is awesome"), 2)
 
     def run(orders: Seq[Int]) = {
-      val pipeline = SimpleTokenizer then
-        NGramsFeaturizer(orders) then
-        NGramsCounts("noAdd")
+      val pipeline = Tokenizer() then
+        NGramsFeaturizer[String](orders) then
+        NGramsCounts[String](NGramsCountsMode.NoAdd)
 
       pipeline(rdd).collect().toSeq.sortBy(_._1)
     }

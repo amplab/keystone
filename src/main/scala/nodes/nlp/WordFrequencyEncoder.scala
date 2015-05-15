@@ -5,9 +5,9 @@ import pipelines.{Estimator, Transformer}
 
 import org.apache.spark.rdd.RDD
 
-object WordFrequencyEncoder extends Estimator[RDD[Seq[String]], RDD[Seq[Int]]] {
+object WordFrequencyEncoder extends Estimator[Seq[String], Seq[Int]] {
 
-  private[this] val makeUnigrams = NGramsFeaturizer[String](1 to 1) then NGramsCounts()
+  private[this] val makeUnigrams = NGramsFeaturizer[String](1 to 1) then NGramsCounts[String]()
 
   // TODO: alternative approach: collectAsMap once, let driver do the work.
   def fit(data: RDD[Seq[String]]): WordFrequencyTransformer = {
@@ -48,11 +48,16 @@ class WordFrequencyTransformer(
 
   final val OOV_INDEX = -1
 
-  def apply(in: RDD[Seq[String]]): RDD[Seq[Int]] = {
+  override def apply(in: RDD[Seq[String]]): RDD[Seq[Int]] = {
     in.mapPartitions { case part =>
       val index = wordIndexBroadcast.value
       part.map(ngram => ngram.map(index.getOrElse(_, OOV_INDEX)))
     }
+  }
+
+  def apply(words: Seq[String]): Seq[Int] = {
+    val index = wordIndexBroadcast.value
+    words.map(index.getOrElse(_, OOV_INDEX))
   }
 
 }

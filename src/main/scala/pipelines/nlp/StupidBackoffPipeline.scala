@@ -17,7 +17,7 @@ object StupidBackoffPipeline {
     val conf = new SparkConf().setMaster(sparkMaster).setAppName("StupidBackoffPipeline")
     val sc = new SparkContext(conf)
 
-    val text = SimpleTokenizer(sc.textFile(trainData, numParts))
+    val text = Tokenizer()(sc.textFile(trainData, numParts))
 
     /** Vocab generation step */
     val frequencyEncode = WordFrequencyEncoder.fit(text)
@@ -25,8 +25,8 @@ object StupidBackoffPipeline {
 
     /** NGram (n >= 2) generation step */
     val makeNGrams = frequencyEncode then
-      NGramsFeaturizer(2 to 5) then
-      NGramsCounts(NGramsCountsMode.NoAdd)
+      NGramsFeaturizer[Int](2 to 5) then
+      NGramsCounts[Int](NGramsCountsMode.NoAdd)
 
     val ngramCounts = makeNGrams(text)
 

@@ -12,7 +12,7 @@ class WordFrequencyEncoderSuite extends FunSuite with LocalSparkContext {
 
   test("WordFrequencyEncoder") {
     sc = new SparkContext("local[2]", "WordFrequencyEncoderSuite")
-    val rdd = SimpleTokenizer(sc.parallelize(text, 2))
+    val rdd = Tokenizer()(sc.parallelize(text, 2))
     val encoder = WordFrequencyEncoder.fit(rdd)
 
     assert(encoder(rdd).collect().sameElements(Seq(Seq(0, 1), Seq(0, 0, 2, 1))),

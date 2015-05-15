@@ -12,19 +12,25 @@ scalaVersion := "2.10.4"
 
 parallelExecution in Test := false
 
-libraryDependencies ++= Seq(
-  "org.slf4j" % "slf4j-api" % "1.7.2",
-  "org.slf4j" % "slf4j-log4j12" % "1.7.2",
-  "org.scalatest" %% "scalatest" % "1.9.1" % "test",
-  "org.apache.spark" % "spark-core_2.10" % "1.3.0",
-  "org.apache.spark" % "spark-mllib_2.10" % "1.3.0",
-  "org.apache.spark" % "spark-sql_2.10" % "1.3.0",
-  "org.apache.commons" % "commons-compress" % "1.7",
-  "commons-io" % "commons-io" % "2.4",
-  "org.scalanlp" % "breeze_2.10" % "0.9",
-  "com.github.fommil.netlib" % "all" % "1.1.2",
-  "edu.berkeley.cs.amplab" % "mlmatrix" % "0.1" from "https://s3-us-west-1.amazonaws.com/amp-ml-matrix/2.10/mlmatrix_2.10-0.1.jar"
-)
+{
+  val excludeHadoop = ExclusionRule(organization = "org.apache.hadoop")
+  libraryDependencies ++= Seq(
+    "edu.arizona.sista" % "processors" % "3.0" exclude("ch.qos.logback", "logback-classic"),
+    "edu.arizona.sista" % "processors" % "3.0" classifier "models",
+    "org.slf4j" % "slf4j-api" % "1.7.2",
+    "org.slf4j" % "slf4j-log4j12" % "1.7.2",
+    "org.scalatest" %% "scalatest" % "1.9.1" % "test",
+    "org.apache.spark" % "spark-core_2.10" % "1.3.1" excludeAll(excludeHadoop),
+    "org.apache.spark" % "spark-mllib_2.10" % "1.3.1" excludeAll(excludeHadoop),
+    "org.apache.spark" % "spark-sql_2.10" % "1.3.1" excludeAll(excludeHadoop),
+    "org.apache.commons" % "commons-compress" % "1.7",
+    "commons-io" % "commons-io" % "2.4",
+    "org.scalanlp" % "breeze_2.10" % "0.11.2",
+    "com.github.fommil.netlib" % "all" % "1.1.2" pomOnly(),
+    "edu.berkeley.cs.amplab" % "mlmatrix" % "0.1" from "https://s3-us-west-1.amazonaws.com/amp-ml-matrix/2.10/mlmatrix_2.10-0.1.jar",
+    "com.github.scopt" %% "scopt" % "3.3.0"
+  )
+}
 
 {
   val defaultHadoopVersion = "1.0.4"
@@ -41,6 +47,8 @@ resolvers ++= Seq(
 )
 
 resolvers += "Amplab ml-matrix repo" at "https://s3-us-west-1.amazonaws.com/"
+
+resolvers += Resolver.sonatypeRepo("public")
 
 mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) =>
   {

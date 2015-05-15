@@ -4,7 +4,7 @@ import nodes.nlp._
 
 import org.apache.spark.{SparkContext, SparkConf}
 
-object StupidBackoffLMPipeline {
+object StupidBackoffPipeline {
 
   def main(args: Array[String]) {
     if (args.length < 2) {
@@ -14,7 +14,7 @@ object StupidBackoffLMPipeline {
     val trainData = args(1)
     val numParts = args(2).toInt
 
-    val conf = new SparkConf().setMaster(sparkMaster).setAppName("StupidBackoffLMPipeline")
+    val conf = new SparkConf().setMaster(sparkMaster).setAppName("StupidBackoffPipeline")
     val sc = new SparkContext(conf)
 
     val text = SimpleTokenizer(sc.textFile(trainData, numParts))

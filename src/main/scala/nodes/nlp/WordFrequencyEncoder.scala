@@ -31,6 +31,16 @@ object WordFrequencyEncoder extends Estimator[RDD[Seq[String]], RDD[Seq[Int]]] {
 
 }
 
+/**
+ * Encodes string tokens as non-negative integers, which are indices of the
+ * tokens' positions in the sorted-by-frequency order.  Out-of-vocabulary words
+ * are mapped to the special index -1.
+ *
+ * The parameters passed to this class are usually calculated by [[WordFrequencyEncoder]].
+ *
+ * @param wordIndexBroadcast A mapping from token string to its frequency-ordered index
+ * @param unigramCounts the counts of unigrams in the training corpus
+ */
 class WordFrequencyTransformer(
     wordIndexBroadcast: Broadcast[scala.collection.Map[String, Int]],
     val unigramCounts: scala.collection.Map[Int, Int])

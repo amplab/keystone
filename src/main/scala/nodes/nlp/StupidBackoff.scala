@@ -11,7 +11,17 @@ import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 
-/** Useful for Stupid Backoff. */
+/**
+ * Partitions each ngram by hashing on its first two words (first as in farthest away
+ * from the current word), then mod by `numPartitions`.
+ *
+ * Useful for grouping ngrams that share the first two words in context.  An example
+ * usage is the [[StupidBackoffEstimator]].
+ *
+ * @param numPartitions the desired number of partitions
+ * @param indexer a [[BackoffIndexer]]; required for retrieving first two words of ngrams
+ * @tparam WordType type of each word (e.g. Int or String)
+ */
 class InitialBigramPartitioner[WordType: ClassTag](
     val numPartitions: Int,
     indexer: BackoffIndexer[WordType, NGram[WordType]]) extends Partitioner {
@@ -112,6 +122,24 @@ class StupidBackoffModel[@specialized(Int) T: ClassTag](
 
 }
 
+/**
+ * Estimates a Stupid Backoff ngram language model, which was introduced in the
+ * following paper:
+ *
+ *     Brants, Thorsten, et al. "Large language models in machine translation." 2007.
+ *
+ * The results are scores indicating likeliness of each ngram, but they are not normalized
+ * probabilities.  The score for an n-gram is defined recursively:
+ *
+ *    S(w_i | w_{i - n + 1}^{i - 1}) :=
+ *      if numerator > 0:  freq(w_{i - n + 1}^i) / freq(w_{i - n + 1}^{i - 1})
+ *      otherwise:         \alpha * S(w_i | w_{i - n + 2}^{i - 1})
+ *
+ *    S(w_i) := freq(w_i) / N,  where N is the total number of tokens in training corpus.
+ *
+ * @param unigramCounts the pre-computed unigram counts of the training corpus
+ * @param alpha hyperparameter that gets multiplied once per backoff
+ */
 case class StupidBackoffEstimator[@specialized(Int) T: ClassTag](
     unigramCounts: collection.Map[T, Int],
     alpha: Double = 0.4)

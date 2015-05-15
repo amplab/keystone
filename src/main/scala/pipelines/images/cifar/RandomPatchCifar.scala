@@ -123,6 +123,4 @@ object RandomPatchCifar extends Serializable with Logging {
 
     sc.stop()
   }
-
-
 }

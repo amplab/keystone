@@ -99,7 +99,7 @@ object FVVOC2007 extends Serializable {
     }
 
     //Part 2 Compute dimensionality-reduced PCA features.
-    val featurizer =  new SIFTExtractor then pcaTransformer
+    val featurizer =  new SIFTExtractor(scaleStep = 0) then pcaTransformer
 
     val firstCachedRDD = featurizer(grayRDD).cache()
 
@@ -122,7 +122,7 @@ object FVVOC2007 extends Serializable {
     }
 
     def normalizeRows(x: DenseVector[Double]): DenseVector[Double] = {
-        val norm = max(sum(sqrt(x)), 2.2e-16)
+        val norm = max(sqrt(sum(pow(x, 2.0))), 2.2e-16)
         x / norm
     }
 
@@ -159,9 +159,11 @@ object FVVOC2007 extends Serializable {
 
     val testLabels = labelGrabber(testParsedRDD)
 
-    val testActuals = testLabels.map { x =>
+    /*val testActuals = testLabels.map { x =>
       x.findAll(_ > 0.0).toArray
-    }
+    }*/
+
+    val testActuals = MultiLabelExtractor(testParsedRDD)
 
     val predictions = model(splitFeatures(testFeatures, 4096))
 

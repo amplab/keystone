@@ -39,16 +39,9 @@ class BlockLinearMapper(
         val x = xScaler._1
         val scaler = xScaler._2
         val modelBroadcast = in.context.broadcast(x)
-        val bBroadcast = in.context.broadcast(bOpt)
         scaler.apply(in).mapPartitions(rows => {
           if (!rows.isEmpty) {
-            val out = MatrixUtils.rowsToMatrix(rows) * modelBroadcast.value
-            Iterator.single(
-              bBroadcast.value.map { b =>
-                out(*, ::) :+= b
-                out
-              }.getOrElse(out)
-            )
+            Iterator.single(MatrixUtils.rowsToMatrix(rows) * modelBroadcast.value)
           } else {
             Iterator.empty
           }
@@ -58,21 +51,30 @@ class BlockLinearMapper(
 
     val matOut = res.reduceLeft((sum, next) => sum.zip(next).map(c => c._1 + c._2))
 
-    matOut.flatMap(MatrixUtils.matrixToRowArray)
+    // Add the intercept here
+    val bBroadcast = matOut.context.broadcast(bOpt)
+    val matOutWithIntercept = matOut.map { mat =>
+      bOpt.map { b =>
+        mat(*, ::) :+= b
+        mat
+      }.getOrElse(mat)
+    }
+
+    matOutWithIntercept.flatMap(MatrixUtils.matrixToRowArray)
   }
 
   override def apply(ins: Seq[DenseVector[Double]]): DenseVector[Double] = {
     val res = ins.zip(xs.zip(featureScalers)).map {
       case (in, xScaler) => {
-        val out = xScaler._1.t * xScaler._2.apply(in)
-        bOpt.map { b =>
-          out :+= b
-          out
-        }.getOrElse(out)
+        xScaler._1.t * xScaler._2.apply(in)
       }
     }
 
-    res.reduceLeft((sum, next) => sum + next)
+    val out = res.reduceLeft((sum, next) => sum + next)
+    bOpt.map { b =>
+      out += b
+      out
+    }.getOrElse(out)
   }
 
   /**
@@ -89,15 +91,9 @@ class BlockLinearMapper(
         val x = xScaler._1
         val scaler = xScaler._2
         val modelBroadcast = in.context.broadcast(x)
-        val bBroadcast = in.context.broadcast(bOpt)
         scaler.apply(in).mapPartitions(rows => {
           val out = MatrixUtils.rowsToMatrix(rows) * modelBroadcast.value
-          Iterator.single(
-            bBroadcast.value.map { b =>
-              out(*, ::) :+= b
-              out
-            }.getOrElse(out)
-          )
+          Iterator.single(out)
         })
       }
     }
@@ -109,7 +105,15 @@ class BlockLinearMapper(
         case None => next.cache()
       }
 
-      evaluator.apply(sum.flatMap(MatrixUtils.matrixToRowArray))
+      // NOTE: We should only add the intercept once. So do it right before
+      // we call the evaluator but don't cache this
+      val sumAndIntercept = sum.map { mat =>
+        bOpt.map { b =>
+          mat(*, ::) :+= b
+          mat
+        }.getOrElse(mat)
+      }
+      evaluator.apply(sumAndIntercept.flatMap(MatrixUtils.matrixToRowArray))
       prev.map(_.unpersist())
       prev = Some(sum)
     }

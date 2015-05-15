@@ -220,13 +220,9 @@ object BlockWeightedLeastSquares extends Logging {
     }
 
     // Takes the local models stacks them vertically to get a full model
-    val finalFullModel = models.reduceLeft { (a, b) =>
-      DenseMatrix.vertcat(a, b)
-    }
+    val finalFullModel = DenseMatrix.vertcat(models:_*)
+    val jointMeansCombined = DenseMatrix.horzcat(blockStats.map(_.get.jointMean):_*)
 
-    val jointMeansCombined = blockStats.map(_.get.jointMean).reduceLeft { (a, b) =>
-      DenseMatrix.horzcat(a, b)
-    }
     val finalB = jointLabelMean - sum(jointMeansCombined.t :* finalFullModel, Axis._0).toDenseVector
     new BlockLinearMapper(models, Some(finalB))
   }

@@ -25,28 +25,17 @@ object Im2Single extends Transformer[Image,Image] {
 
 object FVVOC2007 extends Serializable {
 
-  def splitMatrixParts(A: RowPartitionedMatrix, colBlockSize: Int): Iterator[RowPartitionedMatrix] = {
-    // Step 1: Split the RowPartitionedMatrix into a list of RowPartitionedMatrix such that
-    // each of them has colBlockSize columns.
-    val numColsA = A.numCols()
-
-    // If the last block will be smaller than colBlockSize/2 just merge it with previous block
-    val numColBlocks = if (numColsA % colBlockSize < colBlockSize/2) {
-      (numColsA / colBlockSize).toInt
-    } else {
-      (numColsA / colBlockSize).toInt + 1
-    }
-
-    val aParts = (0 until numColBlocks).map { colBlock =>
-      // get columns from colBlock to colBlock + colBlockSize
-      if (colBlock != numColBlocks - 1) {
-        A(::, colBlock * colBlockSize until colBlock * colBlockSize + colBlockSize)
-      } else {
-        A(::, colBlock * colBlockSize until numColsA.toInt)
+  def splitFeatures(
+      in: RDD[DenseVector[Double]],
+      blockSize: Int) = {
+    val numFeatures = in.first.length
+    val numBlocks = math.ceil(numFeatures.toDouble / blockSize).toInt
+    (0 until numBlocks).map { blockNum =>
+      in.map { vec =>
+        // For the evilness of breeze's slice
+        DenseVector(vec.slice(blockNum * blockSize, (blockNum + 1) * blockSize).toArray)
       }
     }
-    println("Created aParts " + aParts.length + " " + numColBlocks)
-    aParts.iterator
   }
 
   def main(args: Array[String]) {
@@ -120,8 +109,6 @@ object FVVOC2007 extends Serializable {
 
     val labelsRDD = labelGrabber(parsedRDD)
 
-    val labels = RowPartitionedMatrix.fromArray(labelsRDD.map(_.toArray)).cache()
-
     //Now train a GMM based on the dimred'ed data.
     val gmm = if (args.length > 9) {
       new GaussianMixtureModel(
@@ -148,16 +135,16 @@ object FVVOC2007 extends Serializable {
       then SignedHellingerMapper
       then normalizeRows _
       then new Cacher[DenseVector[Double]])
-      
 
-    val trainingFeatures = RowPartitionedMatrix.fromArray(fisherFeaturizer(firstCachedRDD).map(_.toArray))
+
+    val trainingFeatures = fisherFeaturizer(firstCachedRDD)
     
     println("Computing model.")
-    val model = new BlockCoordinateDescent().solveOnePassL2(
-      splitMatrixParts(trainingFeatures, 4096), labels, Array(lambda), new NormalEquations()).map(x => x(0))
+
+    val model = BlockLinearMapper.trainWithL2(splitFeatures(trainingFeatures, 4096), labelsRDD, lambda, 1)
     println("Model Computed.")
 
-    trainingFeatures.rdd.unpersist()
+    trainingFeatures.unpersist()
 
     val testParsedRDD = VOCLoader(
       sc,
@@ -175,11 +162,7 @@ object FVVOC2007 extends Serializable {
       x.findAll(_ > 0.0).toArray
     }
 
-    val testFeaturesMat = RowPartitionedMatrix.fromArray(testFeatures.map(_.toArray))
-
-    val fullModel = model.reduceLeftOption((a,b) => DenseMatrix.vertcat(a, b)).getOrElse(new DenseMatrix[Double](0, 0))
-
-    val predictions = new BlockLinearMapper(Seq(fullModel)).apply(Seq(testFeatures))
+    val predictions = model(splitFeatures(testFeatures, 4096))
 
     val map = MeanAveragePrecisionEvaluator(testActuals, predictions, numClasses)
     println(s"TEST APs are: ${map.toArray.mkString(",")}")

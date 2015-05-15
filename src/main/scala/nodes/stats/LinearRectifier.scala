@@ -1,4 +1,4 @@
-package nodes.images
+package nodes.stats
 
 import breeze.linalg.DenseVector
 import pipelines._

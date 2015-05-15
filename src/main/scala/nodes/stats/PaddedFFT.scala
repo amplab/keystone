@@ -1,4 +1,4 @@
-package nodes.misc
+package nodes.stats
 
 import breeze.linalg.DenseVector
 import breeze.math.Complex

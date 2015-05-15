@@ -1,21 +1,18 @@
 package pipelines.images.mnist
 
-import breeze.linalg.{DenseMatrix, DenseVector}
-import breeze.stats.distributions.{ThreadLocalRandomGenerator, RandBasis, Rand}
+import breeze.linalg.DenseVector
+import breeze.stats.distributions.{RandBasis, ThreadLocalRandomGenerator}
 import evaluation.MulticlassClassifierEvaluator
 import loaders.{CsvDataLoader, LabeledData}
-import nodes._
 import nodes.images._
-import nodes.learning.{BlockLinearMapper, LinearMapEstimator}
-import nodes.misc.{PaddedFFT, StandardScaler}
-import nodes.stats.RandomSignNode
-import nodes.util.{Cacher, ClassLabelIndicatorsFromIntLabels, MaxClassifier}
+import nodes.learning.BlockLinearMapper
+import nodes.stats.{LinearRectifier, PaddedFFT, RandomSignNode}
+import nodes.util.{ClassLabelIndicatorsFromIntLabels, MaxClassifier}
 import org.apache.commons.math3.random.MersenneTwister
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkContext}
 import pipelines._
 import scopt.OptionParser
-import utils.{Stats, ImageMetadata}
 
 
 object MnistRandomFFT extends Serializable with Logging {
@@ -40,7 +37,7 @@ object MnistRandomFFT extends Serializable with Logging {
 
     val train = LabeledData(
       CsvDataLoader(sc, conf.trainLocation, numParts)
-        .map(x => (x(0).toInt, x(1 until x.length)))
+        .map(x => (x(0).toInt - 1, x(1 until x.length)))
         .cache())
     val labels = ClassLabelIndicatorsFromIntLabels(numClasses).apply(train.labels)
 
@@ -59,7 +56,7 @@ object MnistRandomFFT extends Serializable with Logging {
 
     val test = LabeledData(
       CsvDataLoader(sc, conf.testLocation, numParts)
-          .map(x => (x(0).toInt, x(1 until x.length)))
+          .map(x => (x(0).toInt - 1, x(1 until x.length)))
           .cache())
     val actual = test.labels
 
@@ -71,7 +68,8 @@ object MnistRandomFFT extends Serializable with Logging {
     blockLinearMapper.applyAndEvaluate(testBatches, testPredictedValues => {
       val predicted = MaxClassifier(testPredictedValues)
       val evaluator = MulticlassClassifierEvaluator(predicted, actual, numClasses)
-      println("TEST Error is " + (100d - 100d * evaluator.microAccuracy) + "%")
+      logInfo("TEST Error is " + (100 * evaluator.totalError) + "%")
+      logInfo("TEST Error is " + (100 * evaluator.totalAccuracy) + "%")
     })
 
     val endTime = System.currentTimeMillis

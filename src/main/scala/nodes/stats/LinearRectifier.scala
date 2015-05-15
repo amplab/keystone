@@ -5,7 +5,6 @@ import pipelines._
 
 /**
  * This transformer applies a Linear Rectifier,
- *
  * an activation function defined as:
  * f(x) = max({@param maxVal}, x - {@param alpha})
  */

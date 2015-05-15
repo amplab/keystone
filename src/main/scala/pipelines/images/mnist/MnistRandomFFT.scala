@@ -6,7 +6,7 @@ import evaluation.MulticlassClassifierEvaluator
 import loaders.{CsvDataLoader, LabeledData}
 import nodes.images._
 import nodes.learning.BlockLinearMapper
-import nodes.misc.ZipRDDs
+import nodes.misc.ZipVectors
 import nodes.stats.{LinearRectifier, PaddedFFT, RandomSignNode}
 import nodes.util.{ClassLabelIndicatorsFromIntLabels, MaxClassifier}
 import org.apache.commons.math3.random.MersenneTwister
@@ -49,7 +49,7 @@ object MnistRandomFFT extends Serializable with Logging {
     }
 
     val trainingBatches = batchFeaturizer.map { x =>
-      ZipRDDs(x.map(y => y.apply(train.data))).cache()
+      ZipVectors(x.map(y => y.apply(train.data))).cache()
     }
 
     // Train the model
@@ -62,7 +62,7 @@ object MnistRandomFFT extends Serializable with Logging {
     val actual = test.labels
 
     val testBatches = batchFeaturizer.toIterator.map { x =>
-      ZipRDDs(x.map(y => y.apply(test.data))).cache()
+      ZipVectors(x.map(y => y.apply(test.data))).cache()
     }
 
     // Calculate train error

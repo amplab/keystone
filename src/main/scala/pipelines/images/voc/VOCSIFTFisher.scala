@@ -68,13 +68,14 @@ object FVVOC2007 extends Serializable {
     Thread.sleep(5000)
 
     //Load
-    val parsedRDD = VOCLoader(sc, VOCDataPath(trainingDirName, "VOCdevkit/VOC2007/JPEGImages/", Some(1)), VOCLabelPath(labelPath)).repartition(numParts)
-    val filenamesRDD = parsedRDD.map(_.filename.get)
+    val parsedRDD = VOCLoader(
+      sc,
+      VOCDataPath(trainingDirName, "VOCdevkit/VOC2007/JPEGImages/", Some(1)),
+      VOCLabelPath(labelPath)).repartition(numParts)
 
     //Part 1
     val grayscaler = MultiLabeledImageExtractor then Im2Single then GrayScaler
     val grayRDD = grayscaler(parsedRDD).cache()
-    //makeImageCsv(filenamesRDD, grayRDD).saveAsTextFile("/testing/grayfeatures")
 
     def createSamples(in: RDD[DenseMatrix[Float]], numSamples: Int = 1000000): RDD[DenseVector[Float]] = {
       val numImgs = in.count.toInt
@@ -109,6 +110,7 @@ object FVVOC2007 extends Serializable {
 
     val labelsRDD = labelGrabber(parsedRDD)
 
+
     //Now train a GMM based on the dimred'ed data.
     val gmm = if (args.length > 9) {
       new GaussianMixtureModel(
@@ -140,7 +142,6 @@ object FVVOC2007 extends Serializable {
     val trainingFeatures = fisherFeaturizer(firstCachedRDD)
     
     println("Computing model.")
-
     val model = BlockLinearMapper.trainWithL2(splitFeatures(trainingFeatures, 4096), labelsRDD, lambda, 1)
     println("Model Computed.")
 

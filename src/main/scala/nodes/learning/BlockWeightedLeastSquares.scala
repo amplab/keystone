@@ -12,16 +12,44 @@ import org.apache.spark.rdd.RDD
 import edu.berkeley.cs.amplab.mlmatrix.{RowPartition, NormalEquations, BlockCoordinateDescent, RowPartitionedMatrix}
 import edu.berkeley.cs.amplab.mlmatrix.util.{Utils => MLMatrixUtils}
 
-import nodes.misc.StandardScaler
-import pipelines.{Transformer, Logging}
+import nodes.misc.{StandardScaler, VectorSplitter}
+import pipelines.{Transformer, LabelEstimator, Logging}
 import utils.{MatrixUtils, Stats}
 
-object BlockWeightedLeastSquares extends Logging {
+// Utility class that holds statistics related to each block we solve
+// Used to cache information across many passes
+case class BlockStatistics(popCov: DenseMatrix[Double], popMean: DenseVector[Double],
+  jointMean: DenseMatrix[Double], jointMeanRDD: RDD[DenseVector[Double]])
+
+class BlockWeightedLeastSquaresEstimator(
+    blockSize: Int,
+    numIter: Int,
+    lambda: Double,
+    mixtureWeight: Double)
+  extends LabelEstimator[DenseVector[Double], DenseVector[Double], DenseVector[Double]] {
  
-  // Utility class that holds statistics related to each block we solve
-  // Used to cache information across many passes
-  case class BlockStatistics(popCov: DenseMatrix[Double], popMean: DenseVector[Double],
-    jointMean: DenseMatrix[Double], jointMeanRDD: RDD[DenseVector[Double]])
+  def fit(
+      trainingFeatures: Seq[RDD[DenseVector[Double]]],
+      trainingLabels: RDD[DenseVector[Double]]): BlockLinearMapper = {
+    BlockWeightedLeastSquaresEstimator.trainWithL2(
+      trainingFeatures,
+      trainingLabels,
+      blockSize,
+      numIter,
+      lambda,
+      mixtureWeight)
+  }
+
+  override def fit(
+      trainingFeatures: RDD[DenseVector[Double]],
+      trainingLabels: RDD[DenseVector[Double]]): BlockLinearMapper = {
+    val trainingFeaturesSplit = new VectorSplitter(blockSize).apply(trainingFeatures)
+    fit(trainingFeaturesSplit, trainingLabels)
+  }
+
+}
+
+object BlockWeightedLeastSquaresEstimator extends Logging {
 
   /**
    * Train a weighted block-coordinate descent model using least squares
@@ -42,9 +70,10 @@ object BlockWeightedLeastSquares extends Logging {
   def trainWithL2(
       trainingFeatures: Seq[RDD[DenseVector[Double]]],
       trainingLabels: RDD[DenseVector[Double]],
+      blockSize: Int,
+      numIter: Int,
       lambda: Double,
-      mixtureWeight: Double,
-      numPasses: Int): BlockLinearMapper = {
+      mixtureWeight: Double): BlockLinearMapper = {
     val sc = trainingFeatures.head.context
 
     // Check if all examples in a partition are of the same class
@@ -59,7 +88,6 @@ object BlockWeightedLeastSquares extends Logging {
     
     val nTrain = trainingLabels.count
     val nClasses = trainingLabels.first.length
-    val numBlocks = trainingFeatures.length
 
     val trainingLabelsMat = trainingLabels.mapPartitions(part =>
       Iterator.single(MatrixUtils.rowsToMatrix(part)))
@@ -70,10 +98,12 @@ object BlockWeightedLeastSquares extends Logging {
 
     // Initialize models to zero here. Each model is a (W, b)
     // NOTE: We get first element from every training block here
-    val models = (0 until numBlocks).map { block =>
-      val blockSize = trainingFeatures(block).first.length
+    val models = trainingFeatures.map { block =>
+      val blockSize = block.first.length
       DenseMatrix.zeros[Double](blockSize, nClasses)
     }.toArray
+
+    val numBlocks = models.length
 
     // Initialize residual to labels - jointLabelMean
     var residual = trainingLabelsMat.map { mat =>
@@ -88,7 +118,7 @@ object BlockWeightedLeastSquares extends Logging {
       None
     }.toArray
 
-    (0 until numPasses).foreach { pass =>
+    (0 until numIter).foreach { pass =>
       var blockIdx = 0
        // TODO: Figure out if this should be shuffled ? rnd.shuffle((0 until numBlocks).toList)
       val randomBlocks = (0 until numBlocks).toList
@@ -110,8 +140,8 @@ object BlockWeightedLeastSquares extends Logging {
           // TODO: This expects blockFeatures to be cached as this does one pass ??
           val blockPopMean = new StandardScaler(normalizeStdDev=false).fit(blockFeatures).mean
 
-          // This is 1000x4k -- So keep a RDD version of it that we can zip with each partition
-          // and also a local version of it.
+          // This is numClasses x blockSize -- So keep a RDD version of it that we can zip with each
+          // partition and also a local version of it.
           val blockJointMeansRDD = blockFeaturesMat.map { mat =>
             mean(mat(::, *)).toDenseVector * mixtureWeight + blockPopMean * (1.0 -
               mixtureWeight)
@@ -226,7 +256,7 @@ object BlockWeightedLeastSquares extends Logging {
     val jointMeansCombined = DenseMatrix.horzcat(blockStats.map(_.get.jointMean):_*)
 
     val finalB = jointLabelMean - sum(jointMeansCombined.t :* finalFullModel, Axis._0).toDenseVector
-    new BlockLinearMapper(models, Some(finalB))
+    new BlockLinearMapper(models, blockSize, Some(finalB))
   }
 
   def addPairMatrices(

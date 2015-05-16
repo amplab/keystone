@@ -60,32 +60,23 @@ class BlockWeightedLeastSquaresSuite extends FunSuite with Logging with LocalSpa
   }
 
   test("BlockWeighted solver solution should have zero gradient") {
-    val numPerChunk = 4
-    val numChunks = 3
-    val numPasses = 10
-    val nClasses = 3
-    val mixtureWeight = 0.3
+    val blockSize = 4
+    val numIter = 10
     val lambda = 0.1
+    val mixtureWeight = 0.3
+
+    val numParts = 3
 
     val aMat = csvread(new File(TestUtils.getTestResourceFileName("aMat.csv")))
     val bMat = csvread(new File(TestUtils.getTestResourceFileName("bMat.csv")))
 
-    val splitAMat = (0 until numChunks).map { i => 
-      new DenseMatrix(aMat.rows, numPerChunk,
-        aMat(::, (numPerChunk*i) until (numPerChunk*i + numPerChunk)).toArray)
-    }
-
     sc = new SparkContext("local", "test")
 
-    val fullARDD = sc.parallelize(MatrixUtils.matrixToRowArray(aMat), 3).cache()
+    val fullARDD = sc.parallelize(MatrixUtils.matrixToRowArray(aMat), numParts).cache()
+    val bRDD = sc.parallelize(MatrixUtils.matrixToRowArray(bMat), numParts).cache()
 
-    val aRDDs = splitAMat.map { mat =>
-      sc.parallelize(MatrixUtils.matrixToRowArray(mat), 3).cache()
-    }
-    val bRDD = sc.parallelize(MatrixUtils.matrixToRowArray(bMat), 3).cache()
-
-    val wsq = BlockWeightedLeastSquares.trainWithL2(
-      aRDDs, bRDD, lambda, mixtureWeight, numPasses)
+    val wsq = new BlockWeightedLeastSquaresEstimator(blockSize, numIter, lambda,
+      mixtureWeight).fit(fullARDD, bRDD)
 
     val finalFullModel = wsq.xs.reduceLeft { (a, b) =>
       DenseMatrix.vertcat(a, b)

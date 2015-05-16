@@ -31,8 +31,6 @@ object RandomPatchCifar extends Serializable with Logging {
     }
     val trainImages = ImageExtractor(trainData)
 
-    val x = new Windower(conf.patchSteps, conf.patchSize)
-
     val patchExtractor = new Windower(conf.patchSteps, conf.patchSize)
       .andThen(ImageVectorizer.apply)
       .andThen(new Sampler(whitenerSize))

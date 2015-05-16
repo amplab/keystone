@@ -4,7 +4,7 @@ import breeze.stats.distributions.{CauchyDistribution, RandBasis, ThreadLocalRan
 import evaluation.MulticlassClassifierEvaluator
 import loaders.TimitFeaturesDataLoader
 import nodes.learning.BlockLinearMapper
-import nodes.misc.{CosineRandomFeatures, StandardScaler}
+import nodes.stats.{StandardScaler, CosineRandomFeatures}
 import nodes.util.{ClassLabelIndicatorsFromIntLabels, MaxClassifier}
 import org.apache.commons.math3.random.MersenneTwister
 import org.apache.spark.{SparkConf, SparkContext}
@@ -101,7 +101,7 @@ object TimitPipeline extends Logging {
     blockLinearMapper.applyAndEvaluate(testBatches, testPredictedValues => {
       val predicted = MaxClassifier(testPredictedValues)
       val evaluator = MulticlassClassifierEvaluator(predicted, actual, TimitFeaturesDataLoader.numClasses)
-      println("TEST Error is " + (100d - 100d * evaluator.microAccuracy) + "%")
+      logInfo("TEST Error is " + (100d * evaluator.totalError) + "%")
     })
 
     System.exit(0)

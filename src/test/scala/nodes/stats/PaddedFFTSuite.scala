@@ -1,12 +1,9 @@
-package nodes.misc
+package nodes.stats
 
 import breeze.linalg._
-import breeze.numerics.cos
-import breeze.stats._
-import breeze.stats.distributions.{CauchyDistribution, Rand}
 import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
-import pipelines.{Logging, LocalSparkContext}
+import pipelines.{LocalSparkContext, Logging}
 import utils.Stats
 
 

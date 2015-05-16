@@ -2,7 +2,7 @@ package nodes.learning
 
 import breeze.linalg._
 import breeze.stats.distributions.{Multinomial, Uniform, Gaussian}
-import nodes.misc.StandardScaler
+import nodes.stats.StandardScaler
 import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
 import pipelines.{LocalSparkContext, Logging}

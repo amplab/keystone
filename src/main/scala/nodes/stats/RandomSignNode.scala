@@ -17,8 +17,8 @@ case class RandomSignNode(signs: DenseVector[Double])
 
 object RandomSignNode {
   /* Create a random sign node */
-  def apply(size: Int): RandomSignNode = {
-    val signs = 2.0*convert(DenseVector.rand(size, Binomial(1, 0.5)), Double) - 1.0
+  def apply(size: Int, rand: RandBasis = Rand): RandomSignNode = {
+    val signs = 2.0*convert(DenseVector.rand(size, Binomial(1, 0.5)(rand)), Double) - 1.0
     new RandomSignNode(signs)
   }
 }

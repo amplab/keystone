@@ -5,8 +5,9 @@ import edu.berkeley.cs.amplab.mlmatrix.{RowPartition, NormalEquations, BlockCoor
 import nodes.stats.{StandardScalerModel, StandardScaler}
 import org.apache.spark.rdd.RDD
 
+import nodes.misc.{VectorSplitter}
 import nodes.util.Identity
-import pipelines.Transformer
+import pipelines.{Transformer, LabelEstimator}
 import utils.{MatrixUtils, Stats}
 
 
@@ -19,27 +20,31 @@ import utils.{MatrixUtils, Stats}
  */
 class BlockLinearMapper(
     val xs: Seq[DenseMatrix[Double]],
+    val blockSize: Int,
     val bOpt: Option[DenseVector[Double]] = None,
-    val featureScalersOpt: Option[Seq[StandardScalerModel]] = None)
-  extends Transformer[Seq[DenseVector[Double]], DenseVector[Double]] {
+    val featureScalersOpt: Option[Seq[Transformer[DenseVector[Double], DenseVector[Double]]]] = None)
+  extends Transformer[DenseVector[Double], DenseVector[Double]] {
 
   // Use identity nodes if we don't need to do scaling
   val featureScalers = featureScalersOpt.getOrElse(
     Seq.fill(xs.length)(new Identity[DenseVector[Double]]))
+  val vectorSplitter = new VectorSplitter(blockSize)
 
   /**
    * Applies the linear model to feature vectors large enough to have been split into several RDDs.
-   * @param ins  RDDs where the RDD at index i is expected to contain chunk i of all input vectors.
-   *             Must all be zippable.
+   * @param ins RDD of vectors to apply the model to
    * @return the output vectors
    */
-  def apply(ins: TraversableOnce[RDD[DenseVector[Double]]]): RDD[DenseVector[Double]] = {
-    val res = ins.toIterator.zip(xs.iterator.zip(featureScalers.iterator)).map {
-      case (in, xScaler) => {
-        val x = xScaler._1
-        val scaler = xScaler._2
-        val modelBroadcast = in.context.broadcast(x)
-        scaler.apply(in).mapPartitions(rows => {
+  override def apply(in: RDD[DenseVector[Double]]): RDD[DenseVector[Double]] = {
+    apply(vectorSplitter(in))
+  }
+
+  def apply(in: Seq[RDD[DenseVector[Double]]]): RDD[DenseVector[Double]] = {
+    val res = in.zip(xs.zip(featureScalers)).map {
+      case (rdd, xScaler) => {
+        val (x, scaler) = xScaler
+        val modelBroadcast = rdd.context.broadcast(x)
+        scaler(rdd).mapPartitions(rows => {
           if (!rows.isEmpty) {
             Iterator.single(MatrixUtils.rowsToMatrix(rows) * modelBroadcast.value)
           } else {
@@ -63,10 +68,10 @@ class BlockLinearMapper(
     matOutWithIntercept.flatMap(MatrixUtils.matrixToRowArray)
   }
 
-  override def apply(ins: Seq[DenseVector[Double]]): DenseVector[Double] = {
-    val res = ins.zip(xs.zip(featureScalers)).map {
+  override def apply(in: DenseVector[Double]): DenseVector[Double] = {
+    val res = vectorSplitter.splitVector(in).zip(xs.zip(featureScalers)).map {
       case (in, xScaler) => {
-        xScaler._1.t * xScaler._2.apply(in)
+        xScaler._1.t * xScaler._2(in)
       }
     }
 
@@ -78,20 +83,21 @@ class BlockLinearMapper(
   }
 
   /**
-   * Applies the linear model to feature vectors large enough to have been split into several RDDs.
-   * After processing chunk i of every vector, applies @param evaluator to the intermediate output
-   * vector.
-   * @param ins  RDDs where the RDD at index i is expected to contain chunk i of all input vectors.
-   *             Must all be zippable.
-   *
+   * Applies the linear model to feature vectors. After processing chunk i of every vector, applies
+   * @param evaluator to the intermediate output vector.
+   * @param in 
    */
-  def applyAndEvaluate(ins: TraversableOnce[RDD[DenseVector[Double]]], evaluator: (RDD[DenseVector[Double]]) => Unit) {
-    val res = ins.toIterator.zip(xs.iterator.zip(featureScalers.iterator)).map {
-      case (in, xScaler) => {
-        val x = xScaler._1
-        val scaler = xScaler._2
-        val modelBroadcast = in.context.broadcast(x)
-        scaler.apply(in).mapPartitions(rows => {
+  def applyAndEvaluate(in: RDD[DenseVector[Double]], evaluator: (RDD[DenseVector[Double]]) => Unit) {
+    applyAndEvaluate(vectorSplitter(in), evaluator)
+  }
+
+  def applyAndEvaluate(
+      in: Seq[RDD[DenseVector[Double]]],
+      evaluator: (RDD[DenseVector[Double]]) => Unit) {
+    val res = in.zip(xs.zip(featureScalers)).map {
+      case (rdd, xScaler) => {
+        val modelBroadcast = rdd.context.broadcast(xScaler._1)
+        xScaler._2(rdd).mapPartitions(rows => {
           val out = MatrixUtils.rowsToMatrix(rows) * modelBroadcast.value
           Iterator.single(out)
         })
@@ -121,17 +127,13 @@ class BlockLinearMapper(
   }
 }
 
-object BlockLinearMapper extends Serializable {
+class BlockLeastSquaresEstimator(blockSize: Int, numIter: Int, lambda: Double = 0.0)
+  extends LabelEstimator[DenseVector[Double], DenseVector[Double], DenseVector[Double]] {
 
-  def trainWithL2(
-    trainingFeatures: Seq[RDD[DenseVector[Double]]],
-    trainingLabels: RDD[DenseVector[Double]],
-    lambda: Double,
-    numIter: Int)
-  : BlockLinearMapper = {
-
+  def fit(
+      trainingFeatures: Seq[RDD[DenseVector[Double]]],
+      trainingLabels: RDD[DenseVector[Double]]): BlockLinearMapper = {
     val labelScaler = new StandardScaler(normalizeStdDev = false).fit(trainingLabels)
-
     // Find out numRows, numCols once
     val b = RowPartitionedMatrix.fromArray(
       labelScaler.apply(trainingLabels).map(_.toArray)).cache()
@@ -153,6 +155,14 @@ object BlockLinearMapper extends Serializable {
     val bcd = new BlockCoordinateDescent()
     val models = bcd.solveLeastSquaresWithL2(
       A, b, Array(lambda), numIter, new NormalEquations()).transpose
-    new BlockLinearMapper(models.head, Some(labelScaler.mean), Some(featureScalers))
+    new BlockLinearMapper(models.head, blockSize, Some(labelScaler.mean), Some(featureScalers))
+  }
+
+  override def fit(
+      trainingFeatures: RDD[DenseVector[Double]],
+      trainingLabels: RDD[DenseVector[Double]]): BlockLinearMapper = {
+    val vectorSplitter = new VectorSplitter(blockSize)
+    val featureBlocks = vectorSplitter.apply(trainingFeatures)
+    fit(featureBlocks, trainingLabels) 
   }
 }

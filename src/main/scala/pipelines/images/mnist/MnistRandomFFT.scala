@@ -1,14 +1,16 @@
 package pipelines.images.mnist
 
 import breeze.stats.distributions.{RandBasis, ThreadLocalRandomGenerator}
+import breeze.linalg._
 import evaluation.MulticlassClassifierEvaluator
 import loaders.{CsvDataLoader, LabeledData}
-import nodes.learning.BlockLinearMapper
+import nodes.learning.{BlockLinearMapper, BlockLeastSquaresEstimator}
 import nodes.misc.ZipVectors
 import nodes.stats.{LinearRectifier, PaddedFFT, RandomSignNode}
 import nodes.util.{ClassLabelIndicatorsFromIntLabels, MaxClassifier}
 import org.apache.commons.math3.random.MersenneTwister
 import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.rdd.RDD
 import pipelines._
 import scopt.OptionParser
 
@@ -50,7 +52,8 @@ object MnistRandomFFT extends Serializable with Logging {
     }
 
     // Train the model
-    val blockLinearMapper = BlockLinearMapper.trainWithL2(trainingBatches, labels, conf.lambda.getOrElse(0), 1)
+    val blockLinearMapper = new BlockLeastSquaresEstimator(
+      conf.blockSize, 1, conf.lambda.getOrElse(0)).fit(trainingBatches, labels)
 
     val test = LabeledData(
       CsvDataLoader(sc, conf.testLocation, conf.numPartitions)
@@ -59,23 +62,27 @@ object MnistRandomFFT extends Serializable with Logging {
         .cache())
     val actual = test.labels
 
-    val testBatches = batchFeaturizer.toIterator.map { x =>
+    val testBatches = batchFeaturizer.map { x =>
       ZipVectors(x.map(y => y.apply(test.data))).cache()
     }
 
     // Calculate train error
-    blockLinearMapper.applyAndEvaluate(trainingBatches, trainPredictedValues => {
-      val predicted = MaxClassifier(trainPredictedValues)
-      val evaluator = MulticlassClassifierEvaluator(predicted, train.labels, numClasses)
-      logInfo("Train Error is " + (100 * evaluator.totalError) + "%")
-    })
+    blockLinearMapper.applyAndEvaluate(trainingBatches,
+      (trainPredictedValues: RDD[DenseVector[Double]]) => {
+        val predicted = MaxClassifier(trainPredictedValues)
+        val evaluator = MulticlassClassifierEvaluator(predicted, train.labels, numClasses)
+        logInfo("Train Error is " + (100 * evaluator.totalError) + "%")
+      }
+    )
 
     // Calculate test error
-    blockLinearMapper.applyAndEvaluate(testBatches, testPredictedValues => {
-      val predicted = MaxClassifier(testPredictedValues)
-      val evaluator = MulticlassClassifierEvaluator(predicted, actual, numClasses)
-      logInfo("TEST Error is " + (100 * evaluator.totalError) + "%")
-    })
+    blockLinearMapper.applyAndEvaluate(testBatches,
+      (testPredictedValues: RDD[DenseVector[Double]]) => {
+        val predicted = MaxClassifier(testPredictedValues)
+        val evaluator = MulticlassClassifierEvaluator(predicted, actual, numClasses)
+        logInfo("TEST Error is " + (100 * evaluator.totalError) + "%")
+      }
+    )
 
     val endTime = System.nanoTime()
     logInfo(s"Pipeline took ${(endTime - startTime)/1e9} s")

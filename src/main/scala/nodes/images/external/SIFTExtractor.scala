@@ -35,6 +35,6 @@ class SIFTExtractor(val stepSize: Int = 3, val binSize: Int = 4, val scales: Int
 
 object SIFTExtractor {
   def apply(stepSize: Int = 3, binSize: Int = 4, scales: Int = 4, scaleStep: Int = 1) = {
-    new SIFTExtractor(stepSize, binSize, scales)
+    new SIFTExtractor(stepSize, binSize, scales, scaleStep)
   }
 }

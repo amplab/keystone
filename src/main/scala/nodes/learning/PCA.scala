@@ -22,7 +22,7 @@ class PCATransformer(val pcaMat: DenseMatrix[Float]) extends Transformer[DenseVe
    * @return Dimensionality reduced output.
    */
   def apply(in: DenseVector[Float]): DenseVector[Float] = {
-    (in.t * pcaMat).t
+    pcaMat.t * in
   }
 }
 

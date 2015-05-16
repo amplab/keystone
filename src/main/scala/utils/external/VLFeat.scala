@@ -16,6 +16,13 @@ class VLFeat extends Serializable {
    * @return SIFTs as Shorts.
    */
   @native
-  def getSIFTs(width: Int, height: Int, step: Int, bin: Int, numScales: Int, scaleStep: Int, image: Array[Float]): Array[Short]
+  def getSIFTs(
+      width: Int,
+      height: Int,
+      step: Int,
+      bin: Int,
+      numScales: Int,
+      scaleStep: Int,
+      image: Array[Float]): Array[Short]
 
 }

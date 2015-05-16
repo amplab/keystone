@@ -6,10 +6,10 @@ import breeze.stats._
 import evaluation.MeanAveragePrecisionEvaluator
 import loaders.{VOCDataPath, VOCLabelPath, VOCLoader}
 import nodes.images.external.{FisherVector, SIFTExtractor}
-import nodes.images.{GrayScaler, Im2Single, MultiLabelExtractor, MultiLabeledImageExtractor}
+import nodes.images.{GrayScaler, PixelScaler, MultiLabelExtractor, MultiLabeledImageExtractor}
 import nodes.learning._
-import nodes.misc.MatrixVectorizer
-import nodes.stats.SignedHellingerMapper
+import nodes.misc.{MatrixVectorizer, FloatToDouble}
+import nodes.stats.{NormalizeRows, SignedHellingerMapper}
 import nodes.util.{Cacher, ClassLabelIndicatorsFromIntArrayLabels}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkContext}
@@ -45,7 +45,7 @@ object VOCSIFTFisher extends Serializable {
       VOCLabelPath(conf.labelPath)).repartition(conf.numParts)
 
     //Part 1
-    val grayscaler = MultiLabeledImageExtractor then Im2Single then GrayScaler then new Cacher[Image]
+    val grayscaler = MultiLabeledImageExtractor then PixelScaler then GrayScaler then new Cacher[Image]
     val grayRDD = grayscaler(parsedRDD)
 
     def createSamples(in: RDD[DenseMatrix[Float]], numSamples: Int): RDD[DenseVector[Float]] = {
@@ -92,21 +92,14 @@ object VOCSIFTFisher extends Serializable {
           .fit(createSamples(firstCachedRDD, numGmmSamples).map(convert(_, Double)))
     }
 
-    def normalizeRows(x: DenseVector[Double]): DenseVector[Double] = {
-        val norm = max(sqrt(sum(pow(x, 2.0))), 2.2e-16)
-        x / norm
-    }
-
-    def doubleConverter(x: DenseMatrix[Float]): DenseMatrix[Double] = convert(x, Double)
-
     //Step 3
-    val fisherFeaturizer =  (
-      new FisherVector(gmm) then doubleConverter _
-      then MatrixVectorizer
-      then normalizeRows _
-      then SignedHellingerMapper
-      then normalizeRows _
-      then new Cacher[DenseVector[Double]])
+    val fisherFeaturizer =  new FisherVector(gmm) then
+        FloatToDouble then
+        MatrixVectorizer then
+        NormalizeRows then
+        SignedHellingerMapper then
+        NormalizeRows then
+        new Cacher[DenseVector[Double]]
 
     val trainingFeatures = fisherFeaturizer(firstCachedRDD)
 

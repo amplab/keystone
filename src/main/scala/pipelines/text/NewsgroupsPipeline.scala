@@ -32,10 +32,14 @@ object NewsgroupsPipeline extends Logging {
     // Build the classifier estimator
     logInfo("Training classifier")
     val predictor = Trim.then(LowerCase())
-        .then(Tokenizer()).then(new NGramsFeaturizer(1 to 2)).to[Seq[Any]].then(TermFrequency(x => 1))
-        .thenEstimator(CommonSparseFeatures(100000)).fit(newsgroupsData.train.data).to[Vector[Double]]
+        .then(Tokenizer())
+        .then(new NGramsFeaturizer(1 to 2)).to[Seq[Any]]
+        .then(TermFrequency(x => 1))
+        .thenEstimator(CommonSparseFeatures(100000))
+        .fit(newsgroupsData.train.data).to[Vector[Double]]
         .thenLabelEstimator(NaiveBayesEstimator(numClasses))
-        .fit(newsgroupsData.train.data, newsgroupsData.train.labels).then(MaxClassifier)
+        .fit(newsgroupsData.train.data, newsgroupsData.train.labels)
+        .then(MaxClassifier)
 
     // Evaluate the classifier
     logInfo("Evaluating classifier")

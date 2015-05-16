@@ -1,15 +1,20 @@
 package pipelines.speech
 
 import breeze.stats.distributions.{CauchyDistribution, RandBasis, ThreadLocalRandomGenerator}
+import breeze.linalg.DenseVector
+import org.apache.commons.math3.random.MersenneTwister
+import scopt.OptionParser
+
+import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.rdd.RDD
+
 import evaluation.MulticlassClassifierEvaluator
 import loaders.TimitFeaturesDataLoader
-import nodes.learning.BlockLinearMapper
-import nodes.misc.{CosineRandomFeatures, StandardScaler}
+import nodes.learning.{BlockLinearMapper, BlockLeastSquaresEstimator}
+import nodes.stats.{CosineRandomFeatures, StandardScaler}
 import nodes.util.{ClassLabelIndicatorsFromIntLabels, MaxClassifier}
-import org.apache.commons.math3.random.MersenneTwister
-import org.apache.spark.{SparkConf, SparkContext}
+
 import pipelines._
-import scopt.OptionParser
 
 
 object TimitPipeline extends Logging {
@@ -95,14 +100,18 @@ object TimitPipeline extends Logging {
     val actual = timitFeaturesData.test.labels.cache().setName("actual")
 
     // Train the model
-    val blockLinearMapper = BlockLinearMapper.trainWithL2(trainingBatches, labels, conf.lambda, conf.numEpochs)
+    val blockLinearMapper = new BlockLeastSquaresEstimator(
+      numCosineFeatures, conf.numEpochs, conf.lambda).fit(trainingBatches, labels)
 
     // Calculate test error
-    blockLinearMapper.applyAndEvaluate(testBatches, testPredictedValues => {
-      val predicted = MaxClassifier(testPredictedValues)
-      val evaluator = MulticlassClassifierEvaluator(predicted, actual, TimitFeaturesDataLoader.numClasses)
-      println("TEST Error is " + (100d - 100d * evaluator.microAccuracy) + "%")
-    })
+    blockLinearMapper.applyAndEvaluate(testBatches,
+      (testPredictedValues: RDD[DenseVector[Double]]) => {
+        val predicted = MaxClassifier(testPredictedValues)
+        val evaluator = MulticlassClassifierEvaluator(predicted, actual,
+          TimitFeaturesDataLoader.numClasses)
+        println("TEST Error is " + (100d * evaluator.totalError) + "%")
+      }
+    )
 
     System.exit(0)
   }

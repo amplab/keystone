@@ -6,7 +6,7 @@ import evaluation.MulticlassClassifierEvaluator
 import nodes.CifarLoader
 import nodes.images._
 import nodes.learning.LinearMapEstimator
-import nodes.misc.StandardScaler
+import nodes.stats.StandardScaler
 import nodes.util.{MaxClassifier, Cacher, ClassLabelIndicatorsFromIntLabels}
 import org.apache.spark.{SparkConf, SparkContext}
 import pipelines.Logging
@@ -62,8 +62,8 @@ object RandomCifar extends Serializable with Logging {
 
     val testEval = MulticlassClassifierEvaluator(predictionPipeline(testImages), LabelExtractor(testData), numClasses)
 
-    logInfo(s"Training error is: ${trainEval.microAccuracy}")
-    logInfo(s"Test error is: ${testEval.microAccuracy}")
+    logInfo(s"Training error is: ${trainEval.totalError}")
+    logInfo(s"Test error is: ${testEval.totalError}")
   }
 
   case class RandomCifarConfig(

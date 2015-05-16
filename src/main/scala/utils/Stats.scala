@@ -39,6 +39,7 @@ object Stats extends Serializable {
     * @return True if the two numbers are within `thresh` of each other.
     */
   def aboutEq(as: DenseVector[Double], bs: DenseVector[Double], thresh: Double): Boolean = {
+    require(as.length == bs.length, "Vectors must be the same size")
     abs(as-bs).toArray.forall(_ < thresh)
   }
   

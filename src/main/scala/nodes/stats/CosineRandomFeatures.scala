@@ -1,11 +1,11 @@
-package nodes.misc
+package nodes.stats
 
 import breeze.linalg._
 import breeze.numerics._
-import breeze.stats.distributions.{Rand, RandBasis}
+import breeze.stats.distributions.Rand
 import org.apache.spark.rdd.RDD
 import pipelines._
-import utils.{MatrixUtils, Stats}
+import utils.MatrixUtils
 
 /**
  * Transformer that extracts random cosine features from a feature vector

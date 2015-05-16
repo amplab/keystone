@@ -48,8 +48,8 @@ object LinearPixels extends Logging {
 
     val testEval = MulticlassClassifierEvaluator(predictionPipeline(testImages), LabelExtractor(testData), numClasses)
 
-    logInfo(s"Training accuracy: \n${trainEval.microAccuracy}")
-    logInfo(s"Test accuracy: \n${testEval.microAccuracy}")
+    logInfo(s"Training accuracy: \n${trainEval.totalAccuracy}")
+    logInfo(s"Test accuracy: \n${testEval.totalAccuracy}")
 
     predictionPipeline
   }

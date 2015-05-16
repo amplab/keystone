@@ -31,6 +31,8 @@ Or you can run it in another system on new samples of text - just like any other
 //Show categorize("Some text")
 {% endhighlight %}
 
+KeystoneML is built to do more than just work with text. Have a look at our [examples](examples.html) to see example pipelines in the domains of computer vision and speech.
+
 ## Downloading
 
 KeystoneML is available on [GitHub](http://github.com/amplab/keystone/). 
@@ -59,7 +61,7 @@ However, to run the larger examples, you'll want access to a Spark cluster.
 $ #TODO example of running keystone.
 {% endhighlight %}
 
-## Building new pipelines
+## Building New Pipelines
 
 Now that you've seen an example pipeline, have a look at the [programming guide](programming_guide.html). 
 

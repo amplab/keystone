@@ -97,10 +97,10 @@ object MnistRandomFFT extends Serializable with Logging {
     opt[Int]("numFFTs") action { (x,c) => c.copy(numFFTs=x) }
     opt[Int]("blockSize") validate { x =>
       // Bitwise trick to test if x is a power of 2
-      if (((x & -x) == x) && (x >= 512)) {
+      if (x % 512 == 0) {
         success
       } else  {
-        failure("Option --blockSize must be a power of 2, and >= 512")
+        failure("Option --blockSize must be divisible by 512")
       }
     } action { (x,c) => c.copy(blockSize=x) }
     opt[Int]("numPartitions") action { (x,c) => c.copy(numPartitions=x) }

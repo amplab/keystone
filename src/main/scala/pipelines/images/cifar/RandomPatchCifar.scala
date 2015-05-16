@@ -79,8 +79,8 @@ object RandomPatchCifar extends Serializable with Logging {
 
     val testEval = MulticlassClassifierEvaluator(predictionPipeline(testImages), LabelExtractor(testData), numClasses)
 
-    logInfo(s"Training error is: ${trainEval.totalAccuracy}")
-    logInfo(s"Test error is: ${testEval.totalAccuracy}")
+    logInfo(s"Training error is: ${trainEval.totalError}")
+    logInfo(s"Test error is: ${testEval.totalError}")
   }
 
   case class RandomCifarConfig(

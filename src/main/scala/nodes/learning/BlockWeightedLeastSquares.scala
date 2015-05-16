@@ -12,7 +12,8 @@ import org.apache.spark.rdd.RDD
 import edu.berkeley.cs.amplab.mlmatrix.{RowPartition, NormalEquations, BlockCoordinateDescent, RowPartitionedMatrix}
 import edu.berkeley.cs.amplab.mlmatrix.util.{Utils => MLMatrixUtils}
 
-import nodes.misc.{StandardScaler, VectorSplitter}
+import nodes.stats.StandardScaler
+import nodes.misc.VectorSplitter
 import pipelines.{Transformer, LabelEstimator, Logging}
 import utils.{MatrixUtils, Stats}
 

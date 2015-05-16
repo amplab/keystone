@@ -2,9 +2,10 @@ package nodes.learning
 
 import breeze.linalg._
 import edu.berkeley.cs.amplab.mlmatrix.{RowPartition, NormalEquations, BlockCoordinateDescent, RowPartitionedMatrix}
+import nodes.stats.{StandardScalerModel, StandardScaler}
 import org.apache.spark.rdd.RDD
 
-import nodes.misc.{StandardScaler, StandardScalerModel, VectorSplitter}
+import nodes.misc.{VectorSplitter}
 import nodes.util.Identity
 import pipelines.{Transformer, LabelEstimator}
 import utils.{MatrixUtils, Stats}

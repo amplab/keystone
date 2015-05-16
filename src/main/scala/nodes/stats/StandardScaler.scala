@@ -1,10 +1,10 @@
-package nodes.misc
+package nodes.stats
 
 import breeze.linalg.DenseVector
 import breeze.numerics.sqrt
 import org.apache.spark.mllib.stat.MultivariateOnlineSummarizer
 import org.apache.spark.rdd.RDD
-import pipelines.{Transformer, Estimator}
+import pipelines.{Estimator, Transformer}
 import utils.MLlibUtils
 
 /**

@@ -1,13 +1,12 @@
-package nodes.misc
+package nodes.stats
 
 import breeze.linalg.DenseVector
 import org.apache.spark.SparkContext
-import org.scalatest.FunSuite
-
-import org.apache.spark.mllib.stat.{MultivariateStatisticalSummary, MultivariateOnlineSummarizer}
+import org.apache.spark.mllib.stat.{MultivariateOnlineSummarizer, MultivariateStatisticalSummary}
 import org.apache.spark.rdd.RDD
+import org.scalatest.FunSuite
 import pipelines.LocalSparkContext
-import utils.{Stats, MLlibUtils}
+import utils.{MLlibUtils, Stats}
 
 class StandardScalerSuite extends FunSuite with LocalSparkContext {
 

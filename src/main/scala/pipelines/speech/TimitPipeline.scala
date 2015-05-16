@@ -11,7 +11,7 @@ import org.apache.spark.rdd.RDD
 import evaluation.MulticlassClassifierEvaluator
 import loaders.TimitFeaturesDataLoader
 import nodes.learning.{BlockLinearMapper, BlockLeastSquaresEstimator}
-import nodes.misc.{CosineRandomFeatures, StandardScaler}
+import nodes.stats.{CosineRandomFeatures, StandardScaler}
 import nodes.util.{ClassLabelIndicatorsFromIntLabels, MaxClassifier}
 
 import pipelines._
@@ -109,7 +109,7 @@ object TimitPipeline extends Logging {
         val predicted = MaxClassifier(testPredictedValues)
         val evaluator = MulticlassClassifierEvaluator(predicted, actual,
           TimitFeaturesDataLoader.numClasses)
-        println("TEST Error is " + (100d - 100d * evaluator.microAccuracy) + "%")
+        println("TEST Error is " + (100d * evaluator.totalError) + "%")
       }
     )
 

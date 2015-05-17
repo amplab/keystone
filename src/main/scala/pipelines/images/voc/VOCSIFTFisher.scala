@@ -1,5 +1,7 @@
 package pipelines.images.voc
 
+import java.io.File
+
 import breeze.linalg._
 import breeze.stats._
 import evaluation.MeanAveragePrecisionEvaluator
@@ -36,7 +38,7 @@ object VOCSIFTFisher extends Serializable {
 
     // Part 1a: If necessary, perform PCA on samples of the SIFT features, or load a PCA matrix from disk.
     val pcaTransformer = conf.pcaFile match {
-      case Some(fname) => new BatchPCATransformer(convert(MatrixUtils.loadCSVFile(fname), Float).t)
+      case Some(fname) => new BatchPCATransformer(convert(csvread(new File(fname)), Float).t)
       case None => {
         val pcapipe = new SIFTExtractor(scaleStep = conf.scaleStep) then
           new ColumnSampler(conf.numPcaSamples)
@@ -57,9 +59,9 @@ object VOCSIFTFisher extends Serializable {
     val gmm = conf.gmmMeanFile match {
       case Some(f) =>
         new GaussianMixtureModel(
-          MatrixUtils.loadCSVFile(conf.gmmMeanFile.get),
-          MatrixUtils.loadCSVFile(conf.gmmVarFile.get),
-          MatrixUtils.loadCSVFile(conf.gmmWtsFile.get).toDenseVector)
+          csvread(new File(conf.gmmMeanFile.get)),
+          csvread(new File(conf.gmmVarFile.get)),
+          csvread(new File(conf.gmmWtsFile.get)).toDenseVector)
       case None =>
         val sampler = new ColumnSampler(conf.numGmmSamples)
         new GaussianMixtureModelEstimator(conf.vocabSize)

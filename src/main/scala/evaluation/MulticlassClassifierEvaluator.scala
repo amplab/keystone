@@ -11,6 +11,11 @@ import pipelines.text.NewsgroupsPipeline._
  * Similar to MLlib's [[org.apache.spark.mllib.evaluation.MulticlassMetrics]],
  * but only does one pass over the data to calculate everything
  *
+ * Sample metrics compared at:
+ * Sokolova, M., & Lapalme, G. (2009). A systematic analysis of performance measures for
+ * classification tasks. Information Processing and Management, 45, p. 427-437
+ * http://rali.iro.umontreal.ca/rali/sites/default/files/publis/SokolovaLapalme-JIPM09.pdf
+ *
  * @param confusionMatrix  rows are the true labels, cols are the predicted labels
  */
 case class MulticlassMetrics(confusionMatrix: DenseMatrix[Double]) {
@@ -34,11 +39,13 @@ case class MulticlassMetrics(confusionMatrix: DenseMatrix[Double]) {
   private def classAvg(f: BinaryClassificationMetrics => Double): Double = classMetrics.map(f).sum / numClasses
   private def micro(f: BinaryClassificationMetrics => Double): Double = f(classMetrics.reduce(_ merge _))
 
-  def macroAccuracy: Double = classAvg(_.accuracy)
+  def avgAccuracy: Double = classAvg(_.accuracy)
+  def avgError: Double = classAvg(_.error)
   def macroPrecision: Double = classAvg(_.precision)
   def macroRecall: Double = classAvg(_.recall)
   def macroFScore(beta: Double = 1.0): Double = classAvg(_.fScore(beta))
-  def microAccuracy: Double = micro(_.accuracy)
+  def totalAccuracy: Double = micro(_.precision)
+  def totalError: Double = micro(x => x.fn / (x.fn + x.tp))
   def microPrecision: Double = micro(_.precision)
   def microRecall: Double = micro(_.recall)
   def microFScore(beta: Double = 1.0): Double = micro(_.fScore(beta))
@@ -77,11 +84,11 @@ case class MulticlassMetrics(confusionMatrix: DenseMatrix[Double]) {
    */
   def summary(classes: Array[String]): String = {
     pprintConfusionMatrix(classes) +
-    "\nMacro Accuracy: " + macroAccuracy
+    "\nAvg Accuracy: " + avgAccuracy
     "\nMacro Precision: " + macroPrecision +
     "\nMacro Recall: " + macroRecall +
     "\nMacro F1: " + macroFScore() +
-    "\nMicro Accuracy: " + microAccuracy
+    "\nTotal Accuracy: " + totalAccuracy
     "\nMicro Precision: " + microPrecision +
     "\nMicro Recall: " + microRecall +
     "\nMicro F1: " + microFScore()

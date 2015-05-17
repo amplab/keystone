@@ -21,24 +21,23 @@ class PCATransformer(val pcaMat: DenseMatrix[Float]) extends Transformer[DenseVe
    * @param in A point.
    * @return Dimensionality reduced output.
    */
-  override def apply(in: DenseVector[Float]): DenseVector[Float] = {
-    PCATransformer.reducePoint(in, pcaMat)
+  def apply(in: DenseVector[Float]): DenseVector[Float] = {
+    pcaMat.t * in
   }
 }
 
-object PCATransformer extends Serializable {
-
-  /**
-   * Applies dimensionality reduction to a point.
-   * @param x Input point.
-   * @param mat Dimensionality reduction matrix.
-   * @return Dimensionality reduced point.
-   */
-  def reducePoint(x: DenseVector[Float], mat: DenseMatrix[Float]): DenseVector[Float] = {
-    (x.t * mat).t
+/**
+ * Performs dimensionality reduction on an input dataset where each input item is an NxD array and the
+ * projection matrix is a DxK array.
+ *
+ * @param pcaMat A DxK projection matrix.
+ */
+class BatchPCATransformer(val pcaMat: DenseMatrix[Float]) extends Transformer[DenseMatrix[Float], DenseMatrix[Float]] with Logging {
+  def apply(in: DenseMatrix[Float]): DenseMatrix[Float] = {
+    logInfo(s"Multiplying pcaMat:(${pcaMat.rows}x${pcaMat.cols}), in: (${in.rows}x${in.cols})")
+    pcaMat.t * in
   }
 }
-
 
 /**
  * Estimates a PCA model for dimensionality reduction based on a sample of a larger input dataset.

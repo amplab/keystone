@@ -41,7 +41,7 @@ class EncEvalSuite extends FunSuite with Logging {
     val nsamps = 10000
 
     // Generate two gaussians.
-    val x = Gaussian(-1.0, 5.0).samples.take(nsamps).toArray
+    val x = Gaussian(-1.0, 0.5).samples.take(nsamps).toArray
     val y = Gaussian(5.0, 1.0).samples.take(nsamps).toArray
 
     val z = shuffle(x ++ y).map(x => DenseVector(x))
@@ -57,7 +57,7 @@ class EncEvalSuite extends FunSuite with Logging {
     // The results should be close to the distribution we set up.
     assert(Stats.aboutEq(min(gmm.means), -1.0, 1e-1), "Smallest mean should be close to -1.0")
     assert(Stats.aboutEq(max(gmm.means), 5.0, 1e-1), "Largest mean should be close to 1.0")
-    assert(Stats.aboutEq(math.sqrt(min(gmm.variances)), 1.0, 1e-1), "Smallest SD should be close to 1.0")
-    assert(Stats.aboutEq(math.sqrt(max(gmm.variances)), 5.0, 1e-1), "Largest SD should be close to 5.0")
+    assert(Stats.aboutEq(math.sqrt(min(gmm.variances)), 0.5, 1e-1), "Smallest SD should be close to 0.25")
+    assert(Stats.aboutEq(math.sqrt(max(gmm.variances)), 1.0, 1e-1), "Largest SD should be close to 5.0")
   }
 }

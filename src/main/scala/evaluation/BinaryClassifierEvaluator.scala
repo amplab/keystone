@@ -21,6 +21,7 @@ case class BinaryClassificationMetrics(tp: Double, fp: Double, tn: Double, fn: D
   }
 
   def accuracy: Double = (tp + tn) / (tp + fp + tn + fn)
+  def error: Double = (fp + fn) / (tp + fp + tn + fn)
   def recall: Double = tp / (tp + fn)
   def precision: Double = tp / (tp + fp)
   def specificity: Double = tn / (fp + tn)

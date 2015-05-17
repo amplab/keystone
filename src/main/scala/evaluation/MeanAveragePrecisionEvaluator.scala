@@ -1,5 +1,6 @@
 package evaluation
 
+import breeze.linalg.DenseVector
 import org.apache.spark.rdd.RDD
 import org.apache.spark.SparkContext._
 
@@ -21,9 +22,9 @@ object MeanAveragePrecisionEvaluator {
    */
   def apply(
       testActual: RDD[Array[Int]],
-      testPredicted: RDD[Array[Double]],
+      testPredicted: RDD[DenseVector[Double]],
       numClasses: Int)
-    : Array[Double] = {
+    : DenseVector[Double] = {
 
     // TODO(shivaram): This might not work well on on large amounts of classes or data.
     // as we group every data item to every class. Thus entire data must fit in a single
@@ -59,7 +60,7 @@ object MeanAveragePrecisionEvaluator {
       (key, getAP(precisions, recalls))
     }
 
-    mapData.collect().sortBy(_._1).map(_._2).toArray
+    new DenseVector(mapData.collect().sortBy(_._1).map(_._2))
   }
 
   /**

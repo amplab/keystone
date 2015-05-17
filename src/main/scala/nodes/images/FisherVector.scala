@@ -6,4 +6,4 @@ import pipelines.Transformer
 /**
  * Abstract interface for Fisher Vector.
  */
-trait FisherVectorInterface extends Transformer[DenseMatrix[Double], DenseMatrix[Double]]
+trait FisherVectorInterface extends Transformer[DenseMatrix[Float], DenseMatrix[Float]]

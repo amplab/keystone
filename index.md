@@ -65,12 +65,16 @@ $ git clone https://github.com/amplab/keystone.git
 Once downloaded, you can build KeystoneML with the following commands:
 {% highlight bash %}
 $ cd keystone
+$ make
 $ sbt/sbt assembly
 {% endhighlight %}
 
 This will automatically resolve dependencies and package a jar file in `target/keystone/scala-2.10/keystone-assembly-0.1.jar`.
 
-## Running Examples
+You can then run example pipelines with the included `run-pipeline` script, or pass as an argument to `spark-submit`.
+
+
+## Running an Example
 
 Once you've built KeystoneML, you can run many of the example pipelines locally.
 However, to run the larger examples, you'll want access to a Spark cluster.
@@ -78,6 +82,8 @@ However, to run the larger examples, you'll want access to a Spark cluster.
 {% highlight bash %}
 $ #TODO example of running keystone.
 {% endhighlight %}
+
+To run on a cluster, we recommend using the `spark-ec2` to launch a cluster and provision with correct versions of [BLAS](http://www.netlib.org/blas/) and native C libraries used by KeystoneML.
 
 ## Building New Pipelines
 

@@ -1,10 +1,9 @@
 package nodes.stats
 
 import breeze.linalg._
-import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
 import org.scalatest.matchers.ShouldMatchers
-import pipelines.{LocalSparkContext, Logging}
+import pipelines.Logging
 
 class RandomSignNodeSuite extends FunSuite with Logging with ShouldMatchers {
 

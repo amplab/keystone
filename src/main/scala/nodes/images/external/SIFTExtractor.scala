@@ -13,7 +13,7 @@ import utils.external.VLFeat
  * @param binSize Size of histogram bins for SIFT.
  * @param scales Number of scales at which to extract.
  */
-class SIFTExtractor(val stepSize: Int = 3, val binSize: Int = 4, val scales: Int = 4)
+class SIFTExtractor(val stepSize: Int = 3, val binSize: Int = 4, val scales: Int = 4, val scaleStep: Int = 1)
   extends SIFTExtractorInterface {
   @transient lazy val extLib = new VLFeat()
 
@@ -26,9 +26,15 @@ class SIFTExtractor(val stepSize: Int = 3, val binSize: Int = 4, val scales: Int
    */
   def apply(in: Image): DenseMatrix[Float] = {
     val rawDescDataShort = extLib.getSIFTs(in.metadata.xDim, in.metadata.yDim,
-      stepSize, binSize, scales, in.getSingleChannelAsFloatArray())
+      stepSize, binSize, scales, scaleStep, in.getSingleChannelAsFloatArray())
     val numCols = rawDescDataShort.length/descriptorSize
     val rawDescData = rawDescDataShort.map(s => s.toFloat)
     new DenseMatrix(descriptorSize, numCols, rawDescData)
+  }
+}
+
+object SIFTExtractor {
+  def apply(stepSize: Int = 3, binSize: Int = 4, scales: Int = 4, scaleStep: Int = 1) = {
+    new SIFTExtractor(stepSize, binSize, scales, scaleStep)
   }
 }

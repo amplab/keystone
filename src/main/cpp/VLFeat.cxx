@@ -40,7 +40,8 @@ DescSet* getMultiScaleDSIFTs_f(
     float* imgData, 
     int step,
     int bin, 
-    int imgNumScales) {
+    int imgNumScales,
+    int scaleStep) {
 		
   float magnif = 6.0;
   // the number of descriptors extracted in total, also the value this function returns
@@ -71,7 +72,10 @@ DescSet* getMultiScaleDSIFTs_f(
     int scaleValue = bin + (scale*2);
     // create the filter for this scale
     fflush(stdout);
-    dfilt[scale] = vl_dsift_new_basic(pim->width, pim->height, step+scale, scaleValue);
+
+    // Note, the step + scale*scaleStep term controls the granularity of sampling at each SIFT scale.
+    // scaleStep=0 is the setting used by the enceval code out of the box.
+    dfilt[scale] = vl_dsift_new_basic(pim->width, pim->height, step + scale*scaleStep, scaleValue);
     if (dfilt[scale] == NULL) {
       printf("Error creating filter at scale %i\n", scale);
       fflush(stdout);  
@@ -207,6 +211,7 @@ JNIEXPORT jshortArray JNICALL Java_utils_external_VLFeat_getSIFTs (
     jint step,
     jint bin,
     jint numScales,
+    jint scaleStep,
     jfloatArray image) {
 	  
   // Create and set PGMImage metadata
@@ -237,7 +242,7 @@ JNIEXPORT jshortArray JNICALL Java_utils_external_VLFeat_getSIFTs (
   }
   // calculate and get the denseSIFTdescriptors 
   // NOTE! we need to clean up this array with free the passed container pointer. 
-  DescSet* dSiftSet = getMultiScaleDSIFTs_f(&pim, pimData, step, bin, numScales);
+  DescSet* dSiftSet = getMultiScaleDSIFTs_f(&pim, pimData, step, bin, numScales, scaleStep);
   int numDesc = dSiftSet->numDesc;
   float* floatResult = dSiftSet->descriptors;
   free (dSiftSet);

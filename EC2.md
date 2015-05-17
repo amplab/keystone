@@ -5,15 +5,15 @@ To run KeystoneML on EC2 you can use the
 
 ## Getting spark-ec2
 
-As KeystoneML requires a recent version of spark-ec2, it is recommended that you clone
-the Spark source code master branch for this. You can do this with
+As the KeystoneML scripts require a recent version of spark-ec2 (Spark 1.4.0 or later), it is
+recommended that you clone the Spark source code master branch for this. You can do this with
 ```
 git clone https://github.com/apache/spark.git
 ``` 
 
 ## Launching a Cluster
 
-You can now use the `bin/keystone-ec2.sh` to launch a cluster with KeystonML pre-installed.
+You can now use the `bin/keystone-ec2.sh` to launch a cluster with KeystoneML pre-installed.
 To do that you can run a command which looks like 
 
 ```

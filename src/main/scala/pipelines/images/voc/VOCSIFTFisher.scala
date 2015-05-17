@@ -80,6 +80,7 @@ object VOCSIFTFisher extends Serializable {
     // Part 4: Fit a linear model to the data.
     val model = new BlockLeastSquaresEstimator(4096, 1, conf.lambda).fit(trainingFeatures, trainingLabels)
 
+    firstCachedRDD.unpersist()
     trainingFeatures.unpersist()
 
     // Now featurize and apply the model to test data.
@@ -110,7 +111,7 @@ object VOCSIFTFisher extends Serializable {
     lambda: Double = 0.5,
     descDim: Int = 80,
     vocabSize: Int = 256,
-    scaleStep: Int = 0,
+    scaleStep: Int = 1,
     pcaFile: Option[String] = None,
     gmmMeanFile: Option[String]= None,
     gmmVarFile: Option[String] = None,
@@ -120,6 +121,7 @@ object VOCSIFTFisher extends Serializable {
 
   def parse(args: Array[String]): SIFTFisherConfig = new OptionParser[SIFTFisherConfig](appName) {
     head(appName, "0.1")
+    help("help") text("prints this usage text")
     opt[String]("trainLocation") required() action { (x,c) => c.copy(trainLocation=x) }
     opt[String]("testLocation") required() action { (x,c) => c.copy(testLocation=x) }
     opt[String]("labelPath") required() action { (x,c) => c.copy(labelPath=x) }
@@ -141,12 +143,11 @@ object VOCSIFTFisher extends Serializable {
    * @param args
    */
   def main(args: Array[String]) = {
+    val appConfig = parse(args)
+
     val conf = new SparkConf().setAppName(appName)
     conf.setIfMissing("spark.master", "local[2]")
-
     val sc = new SparkContext(conf)
-
-    val appConfig = parse(args)
     run(sc, appConfig)
 
     sc.stop()

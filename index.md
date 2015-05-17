@@ -4,34 +4,52 @@ layout: default
 ---
 
 # KeystoneML
+[![Build Status](https://amplab.cs.berkeley.edu/jenkins/job/KeystoneML/badge/icon)](https://amplab.cs.berkeley.edu/jenkins/job/KeystoneML/)
 
 KeystoneML is a [Scala](http://scala-lang.org/) software framework from the [UC Berkeley AMPLab](http://amplab.cs.berkeley.edu/) designed to simplify the construction of *large scale*, *end-to-end*, machine learning pipelines with [Apache Spark](http://spark.apache.org/).
 
-KeystoneML makes constructing even complicated machine learning pipelines easy. Here's an example text categorization pipeline which creates NGram features and handles stemming and stopword removal.
+KeystoneML makes constructing even complicated machine learning pipelines easy. Here's an example text categorization pipeline which creates bigram features and creates a Naive Bayes model based on the 100,000 most common features.
 
 {% highlight scala %}
-//Todo : include sample text pipeline.
-val pipeline = NGrams then Stuff
-def fun(f: Int): Stuff = f.toStuff
+val newsgroupsData = NewsGroupsDataLoader(sc, trainingDir, testingDir)
+
+val predictor = Trim.then(LowerCase())
+  .then(Tokenizer())
+  .then(new NGramsFeaturizer(1 to 2)).to[Seq[Any]]
+  .then(TermFrequency(x => 1))
+  .thenEstimator(CommonSparseFeatures(100000))
+  .fit(newsgroupsData.train.data).to[Vector[Double]]
+  .thenLabelEstimator(NaiveBayesEstimator(numClasses))
+  .fit(newsgroupsData.train.data, newsgroupsData.train.labels)
+  .then(MaxClassifier)
 {% endhighlight %}
 
-Once a pipeline is specified, it must be `fit()` on training data.
-{% highlight scala %}
-//Show pipeline.fit
-{% endhighlight %}
+Parallelization of the pipeline fitting process is handled automatically and pipeline nodes are designed to scale horizontally.
 
 Once the pipeline has been fit on training data, you can apply it to test data and evaluate its effectiveness.
 {% highlight scala %}
-//Show categorize(rdd)
-//And results of evaluator(rdd)
+val testLabels = newsgroupsData.test.labels
+val testResults = predictor(newsgroupsData.test.data)
+val eval = MulticlassClassifierEvaluator(testResults, testLabels, numClasses)
+
+println(eval.summary(newsgroupsData.classes))
+//Prints out:
+//Micro Precision: 0.8037705788635157
+//Micro Recall: 0.8037705788635157
+//Micro F1: 0.8037705788635157
 {% endhighlight %}
 
-Or you can run it in another system on new samples of text - just like any other function.
+This relatively simple pipeline predicts the right document category over 80% of the time on the test set.
+
+Of course, you can the pipeline in another system on new samples of text - just like any other function.
 {% highlight scala %}
-//Show categorize("Some text")
+println(newsgroupsData.classes(predictor("The Philadelphia Phillies win the World Series!")))
+
+//Prints out:
+//rec.sport.baseball
 {% endhighlight %}
 
-KeystoneML is built to do more than just work with text. Have a look at our [examples](examples.html) to see example pipelines in the domains of computer vision and speech.
+KeystoneML works with much more than just text. Have a look at our [examples](examples.html) to see pipelines in the domains of computer vision and speech.
 
 ## Downloading
 

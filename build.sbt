@@ -12,14 +12,6 @@ scalaVersion := "2.10.4"
 
 parallelExecution in Test := false
 
-lazy val execMakefile = taskKey[Unit]("Execute the makefile")
-
-execMakefile := {
-    "make" !
-}
-
-compile <<= (compile in Compile) dependsOn execMakefile
-
 {
   val excludeHadoop = ExclusionRule(organization = "org.apache.hadoop")
   libraryDependencies ++= Seq(

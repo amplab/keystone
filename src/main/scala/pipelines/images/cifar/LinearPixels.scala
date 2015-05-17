@@ -66,10 +66,10 @@ object LinearPixels extends Logging {
    * @param args
    */
   def main(args: Array[String]) = {
-    val conf = new SparkConf().setAppName(appName)
-    conf.setIfMissing("spark.master", "local[2]") // This is a fallback if things aren't set via spark submit.
     val appConfig = parse(args)
 
+    val conf = new SparkConf().setAppName(appName)
+    conf.setIfMissing("spark.master", "local[2]") // This is a fallback if things aren't set via spark submit.
     val sc = new SparkContext(conf)
     run(sc, appConfig)
 

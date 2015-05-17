@@ -1,6 +1,5 @@
  /** @internal
  ** @file     SIFTExtractor.cpp
- ** @author   Gylfi THor Gudmundsson
  ** @brief    Dense Scale Invariant Feature Transform (SIFT) - Driver, with JNI library support. 
  **/
 

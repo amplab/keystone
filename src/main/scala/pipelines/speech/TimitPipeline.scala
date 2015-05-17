@@ -123,6 +123,7 @@ object TimitPipeline extends Logging {
 
   def parse(args: Array[String]): TimitConfig = new OptionParser[TimitConfig](appName) {
     head(appName, "0.1")
+    help("help") text("prints this usage text")
     opt[String]("trainDataLocation") required() action { (x,c) => c.copy(trainDataLocation=x) }
     opt[String]("trainLabelsLocation") required() action { (x,c) => c.copy(trainLabelsLocation=x) }
     opt[String]("testDataLocation") required() action { (x,c) => c.copy(testDataLocation=x) }
@@ -141,12 +142,12 @@ object TimitPipeline extends Logging {
    * @param args
    */
   def main(args: Array[String]) = {
+    val appConfig = parse(args)
+
     val conf = new SparkConf().setAppName(appName)
     conf.setIfMissing("spark.master", "local[2]")
 
     val sc = new SparkContext(conf)
-
-    val appConfig = parse(args)
     run(sc, appConfig)
 
     sc.stop()

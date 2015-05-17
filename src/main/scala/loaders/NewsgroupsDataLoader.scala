@@ -6,10 +6,6 @@ import org.apache.spark.rdd.{RDD, UnionRDD}
 import scala.reflect.ClassTag
 
 
-
-/** A case class containing loaded 20 Newsgroups train & test data */
-case class NewsgroupsData(classes: Array[String], train: LabeledData[Int, String], test: LabeledData[Int, String])
-
 object NewsgroupsDataLoader {
   /** The 20 Newsgroups class labels (and directory names) **/
   val classes = Array(
@@ -43,19 +39,14 @@ object NewsgroupsDataLoader {
    * train_or_test_dir/class_label/docs_as_separate_plaintext_files
    *
    * @param sc  SparkContext to use
-   * @param trainDir  Directory of the training data
-   * @param testDir  Directory of the test data
+   * @param dataDir  Directory of the training data
    * @return  A NewsgroupsData object containing the loaded train & test data as RDDs
    */
-  def apply(sc: SparkContext, trainDir: String, testDir: String): NewsgroupsData = {
-    val trainData: RDD[(Int, String)] = new UnionRDD(sc, classes.zipWithIndex.map{ case (className, index) => {
-      sc.wholeTextFiles(s"$trainDir/$className").map(index -> _._2)
+  def apply(sc: SparkContext, dataDir: String): LabeledData[Int, String] = {
+    val data: RDD[(Int, String)] = new UnionRDD(sc, classes.zipWithIndex.map{ case (className, index) => {
+      sc.wholeTextFiles(s"$dataDir/$className").map(index -> _._2)
     }})
 
-    val testData: RDD[(Int, String)] = new UnionRDD(sc, classes.zipWithIndex.map{ case (className, index) => {
-      sc.wholeTextFiles(s"$testDir/$className").map(index -> _._2)
-    }})
-
-    NewsgroupsData(classes, LabeledData(trainData), LabeledData(testData))
+    LabeledData(data)
   }
 }

@@ -1,22 +1,21 @@
-# keystone
+# KeystoneML
 The biggest, baddest pipelines around.
 
 
 # Example pipeline
 
-### Build the Keystone project
+### Build the KeystoneML project
 
 ```
 ./sbt/sbt assembly
 ```
 
-### MNIST pipeline
-
+### Example: MNIST pipeline
 
 ```
 # Get the data from S3
-s3cmd get s3://mnist-data/train-mnist-dense-with-labels.data
-s3cmd get s3://mnist-data/test-mnist-dense-with-labels.data
+wget http://mnist-data.s3.amazonaws.com/train-mnist-dense-with-labels.data
+wget http://mnist-data.s3.amazonaws.com/test-mnist-dense-with-labels.data
 
 KEYSTONE_MEM=4g ./bin/run-pipeline.sh \
   pipelines.images.mnist.MnistRandomFFT \
@@ -28,7 +27,11 @@ KEYSTONE_MEM=4g ./bin/run-pipeline.sh \
 
 ## Running with spark-submit
 
-You need to export `SPARK_HOME` to run Keystone using spark-submit. Having done
+To run KeystoneML pipelines on large datasets you will need a [Spark](http://spark.apache.org) cluster. 
+KeystoneML pipelines run on the cluster using
+[spark-submit](http://spark.apache.org/docs/latest/submitting-applications.html).
+
+You need to export `SPARK_HOME` to run KeystoneML using spark-submit. Having done
 that you can similarly use run-pipeline.sh to launch your pipeline.
 
 ```

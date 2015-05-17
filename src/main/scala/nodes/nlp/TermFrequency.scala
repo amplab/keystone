@@ -1,6 +1,5 @@
-package nodes.misc
+package nodes.nlp
 
-import org.apache.spark.rdd.RDD
 import pipelines.Transformer
 
 /**

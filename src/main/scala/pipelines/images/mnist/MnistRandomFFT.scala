@@ -5,9 +5,8 @@ import breeze.linalg._
 import evaluation.MulticlassClassifierEvaluator
 import loaders.{CsvDataLoader, LabeledData}
 import nodes.learning.{BlockLinearMapper, BlockLeastSquaresEstimator}
-import nodes.misc.ZipVectors
 import nodes.stats.{LinearRectifier, PaddedFFT, RandomSignNode}
-import nodes.util.{ClassLabelIndicatorsFromIntLabels, MaxClassifier}
+import nodes.util.{ZipVectors, ClassLabelIndicatorsFromIntLabels, MaxClassifier}
 import org.apache.commons.math3.random.MersenneTwister
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.rdd.RDD

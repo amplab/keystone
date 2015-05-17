@@ -1,5 +1,6 @@
 package nodes.misc
 
+import nodes.nlp.TermFrequency
 import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
 import pipelines.LocalSparkContext

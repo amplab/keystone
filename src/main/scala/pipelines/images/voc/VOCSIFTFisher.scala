@@ -7,9 +7,8 @@ import loaders.{VOCDataPath, VOCLabelPath, VOCLoader}
 import nodes.images.external.{FisherVector, SIFTExtractor}
 import nodes.images.{GrayScaler, MultiLabelExtractor, MultiLabeledImageExtractor, PixelScaler}
 import nodes.learning._
-import nodes.misc.{FloatToDouble, MatrixVectorizer}
 import nodes.stats.{ColumnSampler, NormalizeRows, SignedHellingerMapper}
-import nodes.util.{Cacher, ClassLabelIndicatorsFromIntArrayLabels}
+import nodes.util.{FloatToDouble, MatrixVectorizer, Cacher, ClassLabelIndicatorsFromIntArrayLabels}
 import org.apache.spark.{SparkConf, SparkContext}
 import scopt.OptionParser
 import utils.{Image, MatrixUtils}

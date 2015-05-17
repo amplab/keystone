@@ -42,7 +42,9 @@ object RandomCifar extends Serializable with Logging {
         .thenEstimator(new StandardScaler).fit(trainImages)
         .then(new Cacher[DenseVector[Double]])
 
-    val labelExtractor = LabelExtractor then ClassLabelIndicatorsFromIntLabels(numClasses) then new Cacher[DenseVector[Double]]
+    val labelExtractor = LabelExtractor then
+      ClassLabelIndicatorsFromIntLabels(numClasses) then
+      new Cacher[DenseVector[Double]]
 
     val trainFeatures = featurizer(trainImages)
     val trainLabels = labelExtractor(trainData)
@@ -52,7 +54,8 @@ object RandomCifar extends Serializable with Logging {
     val predictionPipeline = featurizer then model then MaxClassifier
 
     // Calculate training error.
-    val trainEval = MulticlassClassifierEvaluator(predictionPipeline(trainImages), LabelExtractor(trainData), numClasses)
+    val trainEval = MulticlassClassifierEvaluator(
+      predictionPipeline(trainImages), LabelExtractor(trainData), numClasses)
 
     // Do testing.
     val testData = CifarLoader(sc, conf.testLocation)

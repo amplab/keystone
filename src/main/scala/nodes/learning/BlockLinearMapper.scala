@@ -4,9 +4,7 @@ import breeze.linalg._
 import edu.berkeley.cs.amplab.mlmatrix.{RowPartition, NormalEquations, BlockCoordinateDescent, RowPartitionedMatrix}
 import nodes.stats.{StandardScalerModel, StandardScaler}
 import org.apache.spark.rdd.RDD
-
-import nodes.misc.{VectorSplitter}
-import nodes.util.Identity
+import nodes.util.{VectorSplitter, Identity}
 import pipelines.{Transformer, LabelEstimator}
 import utils.{MatrixUtils, Stats}
 

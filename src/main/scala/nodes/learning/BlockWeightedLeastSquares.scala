@@ -1,5 +1,7 @@
 package nodes.learning
 
+import nodes.util.VectorSplitter
+
 import scala.collection.mutable.ArrayBuffer
 
 import breeze.linalg._
@@ -13,7 +15,6 @@ import edu.berkeley.cs.amplab.mlmatrix.{RowPartition, NormalEquations, BlockCoor
 import edu.berkeley.cs.amplab.mlmatrix.util.{Utils => MLMatrixUtils}
 
 import nodes.stats.StandardScaler
-import nodes.misc.VectorSplitter
 import pipelines.{Transformer, LabelEstimator, Logging}
 import utils.{MatrixUtils, Stats}
 

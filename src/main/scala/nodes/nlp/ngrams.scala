@@ -154,6 +154,8 @@ case class NGramsCounts[T: ClassTag](mode: NGramsCountsMode.Value = NGramsCounts
   // and we need the ngram representation to have sane .equals() and .hashCode().
   override def apply(rdd: RDD[Seq[Seq[T]]]): RDD[(NGram[T], Int)] = {
     val ngramCnts = rdd.mapPartitions { lines =>
+      // Java's HashMap is much faster than Scala's. It is still pretty slow; if performance is
+      // really crucial, a custom open-addressing hash map should be used c.f. Spark's OpenHashMap.
       val counts = new JHashMap[NGram[T], Int]().asScala
       var i = 0
       var ngram: NGram[T] = null

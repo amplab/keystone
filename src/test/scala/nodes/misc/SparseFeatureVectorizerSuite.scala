@@ -1,5 +1,6 @@
 package nodes.misc
 
+import nodes.util.{SparseFeatureVectorizer, AllSparseFeatures, CommonSparseFeatures}
 import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
 import pipelines.{LocalSparkContext, Logging}

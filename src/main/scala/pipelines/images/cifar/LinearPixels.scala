@@ -2,13 +2,12 @@ package pipelines.images.cifar
 
 import breeze.linalg.DenseVector
 import evaluation.MulticlassClassifierEvaluator
-import nodes.CifarLoader
-import nodes.images.{ImageVectorizer, LabelExtractor, ImageExtractor, GrayScaler}
+import loaders.CifarLoader
+import nodes.images.{GrayScaler, ImageExtractor, ImageVectorizer, LabelExtractor}
 import nodes.learning.LinearMapEstimator
-import nodes.util.{MaxClassifier, ClassLabelIndicatorsFromIntLabels, Cacher}
-import org.apache.spark.{SparkContext, SparkConf}
+import nodes.util.{Cacher, ClassLabelIndicatorsFromIntLabels, MaxClassifier}
+import org.apache.spark.{SparkConf, SparkContext}
 import pipelines.Logging
-import utils.Stats
 import scopt.OptionParser
 
 

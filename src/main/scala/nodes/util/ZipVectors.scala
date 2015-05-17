@@ -1,4 +1,4 @@
-package nodes.misc
+package nodes.util
 
 import breeze.linalg.DenseVector
 import org.apache.spark.rdd.RDD

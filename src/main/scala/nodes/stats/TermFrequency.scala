@@ -1,6 +1,5 @@
-package nodes.misc
+package nodes.stats
 
-import org.apache.spark.rdd.RDD
 import pipelines.Transformer
 
 /**

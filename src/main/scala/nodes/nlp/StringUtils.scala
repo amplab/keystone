@@ -23,7 +23,7 @@ object Trim extends Transformer[String, String] {
 
 /**
  * Transformer that converts a String to lower case
- * @param locale  The locale to use. Defaults to [[Locale.getDefault]]
+ * @param locale  The locale to use. Defaults to `Locale.getDefault`
  */
 case class LowerCase(locale: Locale = Locale.getDefault) extends Transformer[String, String] {
   override def apply(in: String): String = in.toLowerCase(locale)

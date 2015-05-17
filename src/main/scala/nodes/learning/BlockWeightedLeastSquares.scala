@@ -53,20 +53,18 @@ class BlockWeightedLeastSquaresEstimator(
 object BlockWeightedLeastSquaresEstimator extends Logging {
 
   /**
-   * Train a weighted block-coordinate descent model using least squares
+   * Returns a weighted block-coordinate descent model using least squares
    * NOTE: This function assumes that the trainingFeatures have been partitioned by
    * their class index. i.e. each partition of training data contains data for a single class
    *
-   * NOTE: This function makes multiple passes over the training data. Caching 
-   * @trainingFeatures and @trainingLabels before calling this function is recommended.
+   * NOTE: This function makes multiple passes over the training data.
+   * Caching @trainingFeatures and @trainingLabels before calling this function is recommended.
    * 
    * @param trainingFeatures Blocks of training data RDDs
    * @param trainingLabels training labels RDD
    * @param lambda regularization parameter
    * @param mixtureWeight how much should positive samples be weighted
-   * @param numPasses number of passes of co-ordinate descent to run
-   *
-   * @returns A BlockLinearMapper that contains the model, intercept
+   * @param numIter number of passes of co-ordinate descent to run
    */
   def trainWithL2(
       trainingFeatures: Seq[RDD[DenseVector[Double]]],

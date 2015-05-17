@@ -32,7 +32,7 @@ class BlockLinearMapper(
 
   /**
    * Applies the linear model to feature vectors large enough to have been split into several RDDs.
-   * @param ins RDD of vectors to apply the model to
+   * @param in RDD of vectors to apply the model to
    * @return the output vectors
    */
   override def apply(in: RDD[DenseVector[Double]]): RDD[DenseVector[Double]] = {

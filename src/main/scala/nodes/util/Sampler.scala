@@ -1,7 +1,5 @@
 package nodes.util
 
-package nodes
-
 import org.apache.spark.rdd.RDD
 import pipelines.{FunctionNode, Transformer}
 

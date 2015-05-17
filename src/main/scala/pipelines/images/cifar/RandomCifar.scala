@@ -3,15 +3,14 @@ package pipelines.images.cifar
 import breeze.linalg.{DenseMatrix, DenseVector}
 import breeze.stats.distributions.Rand
 import evaluation.MulticlassClassifierEvaluator
-import nodes.CifarLoader
+import loaders.CifarLoader
 import nodes.images._
 import nodes.learning.LinearMapEstimator
 import nodes.stats.StandardScaler
-import nodes.util.{MaxClassifier, Cacher, ClassLabelIndicatorsFromIntLabels}
+import nodes.util.{Cacher, ClassLabelIndicatorsFromIntLabels, MaxClassifier}
 import org.apache.spark.{SparkConf, SparkContext}
 import pipelines.Logging
 import scopt.OptionParser
-import utils.Stats
 
 
 object RandomCifar extends Serializable with Logging {

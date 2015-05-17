@@ -1,15 +1,15 @@
-package pipelines
+package pipelines.images.cifar
 
 import breeze.linalg._
 import breeze.numerics._
 import evaluation.MulticlassClassifierEvaluator
-import nodes._
+import loaders.CifarLoader
 import nodes.images._
-import nodes.learning.{ZCAWhitenerEstimator, ZCAWhitener, LinearMapEstimator}
+import nodes.learning.{LinearMapEstimator, ZCAWhitener, ZCAWhitenerEstimator}
 import nodes.stats.StandardScaler
-import nodes.util.nodes.Sampler
-import nodes.util.{MaxClassifier, Cacher, ClassLabelIndicatorsFromIntLabels}
+import nodes.util.{Sampler, Cacher, ClassLabelIndicatorsFromIntLabels, MaxClassifier}
 import org.apache.spark.{SparkConf, SparkContext}
+import pipelines.Logging
 import scopt.OptionParser
 import utils.{MatrixUtils, Stats}
 

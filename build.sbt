@@ -33,16 +33,16 @@ parallelExecution in Test := false
 }
 
 {
-  val defaultHadoopVersion = "1.0.4"
+  val defaultHadoopVersion = "2.0.0-mr1-cdh4.2.0"
   val hadoopVersion =
-    scala.util.Properties.envOrElse("SPARK_HADOOP_VERSION",
-defaultHadoopVersion)
+    scala.util.Properties.envOrElse("SPARK_HADOOP_VERSION", defaultHadoopVersion)
   libraryDependencies += "org.apache.hadoop" % "hadoop-client" % hadoopVersion
 }
 
 resolvers ++= Seq(
- "Local Maven Repository" at Path.userHome.asFile.toURI.toURL + ".m2/repository",
+  "Local Maven Repository" at Path.userHome.asFile.toURI.toURL + ".m2/repository",
   "Typesafe" at "http://repo.typesafe.com/typesafe/releases",
+  "Cloudera Repository" at "https://repository.cloudera.com/artifactory/cloudera-repos/",
   "Spray" at "http://repo.spray.cc"
 )
 
@@ -56,7 +56,7 @@ mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) =>
     case PathList(ps @ _*) if ps.last endsWith ".html"   => MergeStrategy.first
     case "application.conf"                              => MergeStrategy.concat
     case "reference.conf"                                => MergeStrategy.concat
-    case "log4j.properties"                              => MergeStrategy.discard
+    case "log4j.properties"                              => MergeStrategy.first
     case m if m.toLowerCase.endsWith("manifest.mf")      => MergeStrategy.discard
     case m if m.toLowerCase.matches("meta-inf.*\\.sf$")  => MergeStrategy.discard
     case _ => MergeStrategy.first

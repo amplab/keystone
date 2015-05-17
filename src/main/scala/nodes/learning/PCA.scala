@@ -39,7 +39,6 @@ class BatchPCATransformer(val pcaMat: DenseMatrix[Float]) extends Transformer[De
   }
 }
 
-
 /**
  * Estimates a PCA model for dimensionality reduction based on a sample of a larger input dataset.
  *

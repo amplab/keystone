@@ -1,17 +1,15 @@
 package pipelines.images.voc
 
 import breeze.linalg._
-import breeze.numerics._
 import breeze.stats._
 import evaluation.MeanAveragePrecisionEvaluator
 import loaders.{VOCDataPath, VOCLabelPath, VOCLoader}
 import nodes.images.external.{FisherVector, SIFTExtractor}
-import nodes.images.{GrayScaler, PixelScaler, MultiLabelExtractor, MultiLabeledImageExtractor}
+import nodes.images.{GrayScaler, MultiLabelExtractor, MultiLabeledImageExtractor, PixelScaler}
 import nodes.learning._
-import nodes.misc.{MatrixVectorizer, FloatToDouble}
-import nodes.stats.{NormalizeRows, SignedHellingerMapper}
+import nodes.misc.{FloatToDouble, MatrixVectorizer}
+import nodes.stats.{ColumnSampler, NormalizeRows, SignedHellingerMapper}
 import nodes.util.{Cacher, ClassLabelIndicatorsFromIntArrayLabels}
-import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkContext}
 import scopt.OptionParser
 import utils.{Image, MatrixUtils}
@@ -19,68 +17,44 @@ import utils.{Image, MatrixUtils}
 object VOCSIFTFisher extends Serializable {
   val appName = "VOCSIFTFisher"
 
-  def splitFeatures(
-      in: RDD[DenseVector[Double]],
-      blockSize: Int) = {
-    val numFeatures = in.first.length
-    val numBlocks = math.ceil(numFeatures.toDouble / blockSize).toInt
-    (0 until numBlocks).map { blockNum =>
-      in.map { vec =>
-        // For the evilness of breeze's slice
-        DenseVector(vec.slice(blockNum * blockSize, (blockNum + 1) * blockSize).toArray)
-      }
-    }
-  }
-
   def run(sc: SparkContext, conf: SIFTFisherConfig) {
-    //Set up some constants.
-    val numClasses = VOCLoader.NUM_CLASSES
-    val numPcaSamples = 1e6.toInt
-    val numGmmSamples = 1e6.toInt
 
-    //Load
+    // Load the data and extract training labels.
     val parsedRDD = VOCLoader(
       sc,
       VOCDataPath(conf.trainLocation, "VOCdevkit/VOC2007/JPEGImages/", Some(1)),
       VOCLabelPath(conf.labelPath)).repartition(conf.numParts)
 
-    //Part 1
+    val labelGrabber = MultiLabelExtractor then
+      ClassLabelIndicatorsFromIntArrayLabels(VOCLoader.NUM_CLASSES) then
+      new Cacher[DenseVector[Double]]
+
+    val trainingLabels = labelGrabber(parsedRDD)
+
+    // Part 1: Scale and convert images to grayscale.
     val grayscaler = MultiLabeledImageExtractor then PixelScaler then GrayScaler then new Cacher[Image]
     val grayRDD = grayscaler(parsedRDD)
 
-    def createSamples(in: RDD[DenseMatrix[Float]], numSamples: Int): RDD[DenseVector[Float]] = {
-      val numImgs = in.count.toInt
-      val imgsPerSample = numSamples/numImgs
-      in.flatMap(mat => {
-        (0 until imgsPerSample).map( x => {
-          mat(::, scala.util.Random.nextInt(mat.cols)).toDenseVector
-        })
-      })
-    }
-
-    //If necessary, calculate the PCA
+    // Part 1a: If necessary, perform PCA on samples of the SIFT features, or load a PCA matrix from disk.
     val pcaTransformer = conf.pcaFile match {
       case Some(fname) => new BatchPCATransformer(convert(MatrixUtils.loadCSVFile(fname), Float).t)
       case None => {
-        val se = SIFTExtractor(conf.scaleStep)
-        val siftSamples = se(grayRDD)
-        val pca = new PCAEstimator(conf.descDim).fit(createSamples(siftSamples, numPcaSamples))
+        val pcapipe = new SIFTExtractor(scaleStep = conf.scaleStep) then
+          new ColumnSampler(conf.numPcaSamples)
+        val pca = new PCAEstimator(conf.descDim).fit(pcapipe(grayRDD))
+
         new BatchPCATransformer(pca.pcaMat)
       }
     }
 
-    //Part 2 Compute dimensionality-reduced PCA features.
-    val featurizer =  new SIFTExtractor(conf.scaleStep) then pcaTransformer then new Cacher[DenseMatrix[Float]]
+    // Part 2: Compute dimensionality-reduced PCA features.
+    val featurizer =  new SIFTExtractor(conf.scaleStep) then
+      pcaTransformer then
+      new Cacher[DenseMatrix[Float]]
 
     val firstCachedRDD = featurizer(grayRDD)
 
-    val labelGrabber = ( MultiLabelExtractor
-      then ClassLabelIndicatorsFromIntArrayLabels(numClasses)
-      then new Cacher[DenseVector[Double]])
-
-    val labelsRDD = labelGrabber(parsedRDD)
-
-    //Now train a GMM based on the dimred'ed data.
+    // Part 2a: If necessary, compute a GMM based on the dimensionality-reduced features, or load from disk.
     val gmm = conf.gmmMeanFile match {
       case Some(f) =>
         new GaussianMixtureModel(
@@ -88,11 +62,12 @@ object VOCSIFTFisher extends Serializable {
           MatrixUtils.loadCSVFile(conf.gmmVarFile.get),
           MatrixUtils.loadCSVFile(conf.gmmWtsFile.get).toDenseVector)
       case None =>
+        val sampler = new ColumnSampler(conf.numGmmSamples)
         new GaussianMixtureModelEstimator(conf.vocabSize)
-          .fit(createSamples(firstCachedRDD, numGmmSamples).map(convert(_, Double)))
+          .fit(sampler(firstCachedRDD).map(convert(_, Double)))
     }
 
-    //Step 3
+    // Part 3: Compute Fisher Vectors and signed-square-root normalization.
     val fisherFeaturizer =  new FisherVector(gmm) then
         FloatToDouble then
         MatrixVectorizer then
@@ -103,10 +78,12 @@ object VOCSIFTFisher extends Serializable {
 
     val trainingFeatures = fisherFeaturizer(firstCachedRDD)
 
-    val model = BlockLinearMapper.trainWithL2(splitFeatures(trainingFeatures, 4096), labelsRDD, conf.lambda, 1)
+    // Part 4: Fit a linear model to the data.
+    val model = new BlockLeastSquaresEstimator(4096, 1, conf.lambda).fit(trainingFeatures, trainingLabels)
 
     trainingFeatures.unpersist()
 
+    // Now featurize and apply the model to test data.
     val testParsedRDD = VOCLoader(
       sc,
       VOCDataPath(conf.testLocation, "VOCdevkit/VOC2007/JPEGImages/", Some(1)),
@@ -119,9 +96,9 @@ object VOCSIFTFisher extends Serializable {
 
     val testActuals = MultiLabelExtractor(testParsedRDD)
 
-    val predictions = model(splitFeatures(testFeatures, 4096))
+    val predictions = model(testFeatures)
 
-    val map = MeanAveragePrecisionEvaluator(testActuals, predictions, numClasses)
+    val map = MeanAveragePrecisionEvaluator(testActuals, predictions, VOCLoader.NUM_CLASSES)
     println(s"TEST APs are: ${map.toArray.mkString(",")}")
     println(s"TEST MAP is: ${mean(map)}")
   }
@@ -138,7 +115,9 @@ object VOCSIFTFisher extends Serializable {
     pcaFile: Option[String] = None,
     gmmMeanFile: Option[String]= None,
     gmmVarFile: Option[String] = None,
-    gmmWtsFile: Option[String] = None)
+    gmmWtsFile: Option[String] = None,
+    numPcaSamples: Int = 1e6.toInt,
+    numGmmSamples: Int = 1e6.toInt)
 
   def parse(args: Array[String]): SIFTFisherConfig = new OptionParser[SIFTFisherConfig](appName) {
     head(appName, "0.1")
@@ -153,7 +132,9 @@ object VOCSIFTFisher extends Serializable {
     opt[String]("pcaFile") action { (x,c) => c.copy(pcaFile=Some(x)) }
     opt[String]("gmmMeanFile") action { (x,c) => c.copy(gmmMeanFile=Some(x)) }
     opt[String]("gmmVarFile") action { (x,c) => c.copy(gmmVarFile=Some(x)) }
-    opt[String]("gmmWtsFile") action { (x,c) => c.copy(gmmWtsFile=Some(x))}
+    opt[String]("gmmWtsFile") action { (x,c) => c.copy(gmmWtsFile=Some(x)) }
+    opt[Int]("numPcaSamples") action { (x,c) => c.copy(numPcaSamples=x) }
+    opt[Int]("numGmmSamples") action { (x,c) => c.copy(numGmmSamples=x) }
   }.parse(args, SIFTFisherConfig()).get
 
   /**

@@ -5,6 +5,7 @@ import evaluation.MulticlassClassifierEvaluator
 import loaders.NewsgroupsDataLoader
 import nodes.learning.NaiveBayesEstimator
 import nodes.nlp._
+import nodes.stats.TermFrequency
 import nodes.util.{CommonSparseFeatures, MaxClassifier}
 import org.apache.spark.{SparkConf, SparkContext}
 import pipelines.Logging

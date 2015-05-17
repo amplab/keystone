@@ -1,4 +1,4 @@
-package nodes.nlp
+package nodes.stats
 
 import pipelines.Transformer
 

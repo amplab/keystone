@@ -7,48 +7,70 @@ import nodes.learning.NaiveBayesEstimator
 import nodes.misc.{TermFrequency, CommonSparseFeatures}
 import nodes.nlp._
 import nodes.util.MaxClassifier
-import org.apache.spark.SparkContext
+import org.apache.spark.{SparkConf, SparkContext}
 import pipelines.Logging
+import scopt.OptionParser
 
 object NewsgroupsPipeline extends Logging {
+  val appName = "NewsgroupsPipeline"
 
-  def main(args : Array[String]) {
-    if (args.length < 4) {
-      println("Usage: NewsgroupsPipeline <master> <sparkHome> <trainingDir> <testingDir>")
-      System.exit(0)
-    }
+  def run(sc: SparkContext, conf: NewsgroupsConfig) {
 
-    val sparkMaster = args(0)
-    val sparkHome = args(1)
-    val trainingDir = args(2)
-    val testingDir = args(3)
-
-    // Set up all the contexts
-    val sc = new SparkContext(sparkMaster, "NewsgroupsPipeline", sparkHome, SparkContext.jarOfObject(this).toSeq)
-
-    val newsgroupsData = NewsgroupsDataLoader(sc, trainingDir, testingDir)
-    val numClasses = newsgroupsData.classes.length
+    val trainData = NewsgroupsDataLoader(sc, conf.trainLocation)
+    val numClasses = NewsgroupsDataLoader.classes.length
 
     // Build the classifier estimator
     logInfo("Training classifier")
     val predictor = Trim.then(LowerCase())
         .then(Tokenizer())
-        .then(new NGramsFeaturizer(1 to 2)).to[Seq[Any]]
+        .then(new NGramsFeaturizer(1 to conf.nGrams)).to[Seq[Any]]
         .then(TermFrequency(x => 1))
-        .thenEstimator(CommonSparseFeatures(100000))
-        .fit(newsgroupsData.train.data).to[Vector[Double]]
+        .thenEstimator(CommonSparseFeatures(conf.commonFeatures))
+        .fit(trainData.data).to[Vector[Double]]
         .thenLabelEstimator(NaiveBayesEstimator(numClasses))
-        .fit(newsgroupsData.train.data, newsgroupsData.train.labels)
+        .fit(trainData.data, trainData.labels)
         .then(MaxClassifier)
 
     // Evaluate the classifier
     logInfo("Evaluating classifier")
-    val testLabels = newsgroupsData.test.labels
-    val testResults = predictor(newsgroupsData.test.data)
+
+    val testData = NewsgroupsDataLoader(sc, conf.testLocation)
+    val testLabels = testData.labels
+    val testResults = predictor(testData.data)
     val eval = MulticlassClassifierEvaluator(testResults, testLabels, numClasses)
     sc.stop()
 
-    logInfo("\n" + eval.summary(newsgroupsData.classes))
+    logInfo("\n" + eval.summary(NewsgroupsDataLoader.classes))
+  }
+
+  case class NewsgroupsConfig(
+    trainLocation: String = "",
+    testLocation: String = "",
+    nGrams: Int = 2,
+    commonFeatures: Int = 100000)
+
+  def parse(args: Array[String]): NewsgroupsConfig = new OptionParser[NewsgroupsConfig](appName) {
+    head(appName, "0.1")
+    opt[String]("trainLocation") required() action { (x,c) => c.copy(trainLocation=x) }
+    opt[String]("testLocation") required() action { (x,c) => c.copy(testLocation=x) }
+    opt[Int]("nGrams") action { (x,c) => c.copy(nGrams=x) }
+    opt[Int]("commonFeatures") action { (x,c) => c.copy(commonFeatures=x) }
+  }.parse(args, NewsgroupsConfig()).get
+
+  /**
+   * The actual driver receives its configuration parameters from spark-submit usually.
+   * @param args
+   */
+  def main(args: Array[String]) = {
+    val conf = new SparkConf().setAppName(appName)
+    conf.setIfMissing("spark.master", "local[2]") // This is a fallback if things aren't set via spark submit.
+
+    val sc = new SparkContext(conf)
+
+    val appConfig = parse(args)
+    run(sc, appConfig)
+
+    sc.stop()
   }
 
 }

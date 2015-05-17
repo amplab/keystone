@@ -79,6 +79,7 @@ object RandomCifar extends Serializable with Logging {
 
   def parse(args: Array[String]): RandomCifarConfig = new OptionParser[RandomCifarConfig](appName) {
     head(appName, "0.1")
+    help("help") text("prints this usage text")
     opt[String]("trainLocation") required() action { (x,c) => c.copy(trainLocation=x) }
     opt[String]("testLocation") required() action { (x,c) => c.copy(testLocation=x) }
     opt[Int]("numFilters") action { (x,c) => c.copy(numFilters=x) }
@@ -94,12 +95,11 @@ object RandomCifar extends Serializable with Logging {
    * @param args
    */
   def main(args: Array[String]) = {
+    val appConfig = parse(args)
+
     val conf = new SparkConf().setAppName(appName)
     conf.setIfMissing("spark.master", "local[2]")
-
     val sc = new SparkContext(conf)
-
-    val appConfig = parse(args)
     run(sc, appConfig)
 
     sc.stop()

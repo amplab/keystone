@@ -121,6 +121,7 @@ object VOCSIFTFisher extends Serializable {
 
   def parse(args: Array[String]): SIFTFisherConfig = new OptionParser[SIFTFisherConfig](appName) {
     head(appName, "0.1")
+    help("help") text("prints this usage text")
     opt[String]("trainLocation") required() action { (x,c) => c.copy(trainLocation=x) }
     opt[String]("testLocation") required() action { (x,c) => c.copy(testLocation=x) }
     opt[String]("labelPath") required() action { (x,c) => c.copy(labelPath=x) }
@@ -142,12 +143,11 @@ object VOCSIFTFisher extends Serializable {
    * @param args
    */
   def main(args: Array[String]) = {
+    val appConfig = parse(args)
+
     val conf = new SparkConf().setAppName(appName)
     conf.setIfMissing("spark.master", "local[2]")
-
     val sc = new SparkContext(conf)
-
-    val appConfig = parse(args)
     run(sc, appConfig)
 
     sc.stop()

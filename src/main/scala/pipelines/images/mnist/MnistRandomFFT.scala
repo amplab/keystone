@@ -30,7 +30,7 @@ object MnistRandomFFT extends Serializable with Logging {
     // Because the mnistImageSize is 784, we get 512 PaddedFFT features per FFT.
     // So, calculate how many FFTs are needed per block to get the desired block size.
     val fftsPerBatch = conf.blockSize / 512
-    val numFFTBatches = conf.numFFTs/fftsPerBatch
+    val numFFTBatches = math.ceil(conf.numFFTs.toDouble/fftsPerBatch).toInt
 
     val startTime = System.nanoTime()
 
@@ -92,13 +92,14 @@ object MnistRandomFFT extends Serializable with Logging {
       trainLocation: String = "",
       testLocation: String = "",
       numFFTs: Int = 200,
-      blockSize: Int = 4096,
+      blockSize: Int = 2048,
       numPartitions: Int = 10,
       lambda: Option[Double] = None,
       seed: Long = 0)
 
   def parse(args: Array[String]): MnistRandomFFTConfig = new OptionParser[MnistRandomFFTConfig](appName) {
     head(appName, "0.1")
+    help("help") text("prints this usage text")
     opt[String]("trainLocation") required() action { (x,c) => c.copy(trainLocation=x) }
     opt[String]("testLocation") required() action { (x,c) => c.copy(testLocation=x) }
     opt[Int]("numFFTs") action { (x,c) => c.copy(numFFTs=x) }
@@ -120,12 +121,11 @@ object MnistRandomFFT extends Serializable with Logging {
    * @param args
    */
   def main(args: Array[String]) = {
+    val appConfig = parse(args)
+
     val conf = new SparkConf().setAppName(appName)
     conf.setIfMissing("spark.master", "local[2]")
-
     val sc = new SparkContext(conf)
-
-    val appConfig = parse(args)
     run(sc, appConfig)
 
     sc.stop()

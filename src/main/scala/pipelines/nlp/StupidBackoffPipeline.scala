@@ -4,20 +4,29 @@ import nodes.nlp._
 
 import org.apache.spark.{SparkContext, SparkConf}
 
+import scopt.OptionParser
+
 object StupidBackoffPipeline {
 
-  def main(args: Array[String]) {
-    if (args.length < 2) {
-      sys.error("usage: <sparkMaster> <trainData> <numParts>")
-    }
-    val sparkMaster = args(0)
-    val trainData = args(1)
-    val numParts = args(2).toInt
+  val appName = "StupidBackoffPipeline"
 
-    val conf = new SparkConf().setMaster(sparkMaster).setAppName("StupidBackoffPipeline")
+  case class StupidBackoffConfig(trainData: String = "", numParts: Int = 16, n: Int = 3)
+
+  def parse(args: Array[String]): StupidBackoffConfig =
+    new OptionParser[StupidBackoffConfig](appName) {
+      head(appName, "0.1")
+      opt[String]("trainData") required() action { (x, c) => c.copy(trainData = x) }
+      opt[String]("numParts") required() action { (x, c) => c.copy(numParts = x.toInt) }
+      opt[String]("n") optional() action { (x, c) => c.copy(n = x.toInt) }
+    }.parse(args, StupidBackoffConfig()).get
+
+  def main(args: Array[String]) {
+    val appConfig = parse(args)
+    val conf = new SparkConf().setAppName(appName)
+    conf.setIfMissing("spark.master", "local[4]")
     val sc = new SparkContext(conf)
 
-    val text = Tokenizer()(sc.textFile(trainData, numParts))
+    val text = Tokenizer()(sc.textFile(appConfig.trainData, appConfig.numParts))
 
     /** Vocab generation step */
     val frequencyEncode = WordFrequencyEncoder.fit(text)
@@ -25,7 +34,7 @@ object StupidBackoffPipeline {
 
     /** NGram (n >= 2) generation step */
     val makeNGrams = frequencyEncode then
-      NGramsFeaturizer[Int](2 to 5) then
+      NGramsFeaturizer[Int](2 to appConfig.n) then
       NGramsCounts[Int](NGramsCountsMode.NoAdd)
 
     val ngramCounts = makeNGrams(text)

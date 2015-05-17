@@ -8,6 +8,7 @@ The biggest, baddest pipelines around.
 
 ```
 ./sbt/sbt assembly
+make # This builds the native libraries used in KeystoneML
 ```
 
 ### Example: MNIST pipeline

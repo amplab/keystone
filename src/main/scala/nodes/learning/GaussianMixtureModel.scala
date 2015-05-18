@@ -1,5 +1,7 @@
 package nodes.learning
 
+import java.io.File
+
 import breeze.linalg._
 import org.apache.spark.rdd.RDD
 import pipelines._
@@ -80,9 +82,9 @@ class GaussianMixtureModelEstimator(k: Int) extends Estimator[DenseVector[Double
 object GaussianMixtureModel {
   def load(meanFile: String, varsFile: String, weightsFile: String): GaussianMixtureModel = {
 
-    val means = MatrixUtils.loadCSVFile(meanFile)
-    val variances = MatrixUtils.loadCSVFile(varsFile)
-    val weights = MatrixUtils.loadCSVFile(weightsFile).toDenseVector
+    val means = csvread(new File(meanFile))
+    val variances = csvread(new File(varsFile))
+    val weights = csvread(new File(weightsFile)).toDenseVector
 
     new GaussianMixtureModel(means, variances, weights)
   }

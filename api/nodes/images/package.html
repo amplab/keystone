@@ -1,0 +1,330 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html>
+        <head>
+          <title>images - nodes.images</title>
+          <meta name="description" content="images - nodes.images" />
+          <meta name="keywords" content="images nodes.images" />
+          <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+          
+      <link href="../../lib/template.css" media="screen" type="text/css" rel="stylesheet" />
+      <link href="../../lib/diagrams.css" media="screen" type="text/css" rel="stylesheet" id="diagrams-css" />
+      <script type="text/javascript">
+         if(top === self) {
+            var url = '../../index.html';
+            var hash = 'nodes.images.package';
+            var anchor = window.location.hash;
+            var anchor_opt = '';
+            if (anchor.length >= 1)
+              anchor_opt = '@' + anchor.substring(1);
+            window.location.href = url + '#' + hash + anchor_opt;
+         }
+   	  </script>
+    
+        </head>
+        <body class="value">
+      <div id="definition">
+        <img src="../../lib/package_big.png" />
+        <p id="owner"><a href="../package.html" class="extype" name="nodes">nodes</a></p>
+        <h1>images</h1>
+      </div>
+
+      <h4 id="signature" class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">package</span>
+      </span>
+      <span class="symbol">
+        <span class="name">images</span>
+      </span>
+      </h4>
+      
+          <div id="comment" class="fullcommenttop"></div>
+        
+
+      <div id="mbrsel">
+        <div id="textfilter"><span class="pre"></span><span class="input"><input id="mbrsel-input" type="text" accesskey="/" /></span><span class="post"></span></div>
+        
+        
+        <div id="visbl">
+            <span class="filtertype">Visibility</span>
+            <ol><li class="public in"><span>Public</span></li><li class="all out"><span>All</span></li></ol>
+          </div>
+      </div>
+
+      <div id="template">
+        <div id="allMembers">
+        
+
+        <div id="types" class="types members">
+              <h3>Type Members</h3>
+              <ol><li name="nodes.images.Convolver" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="ConvolverextendsTransformer[utils.Image,utils.Image]"></a>
+      <a id="Convolver:Convolver"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="Convolver.html"><span class="name">Convolver</span></a><span class="result"> extends <a href="../../pipelines/Transformer.html" class="extype" name="pipelines.Transformer">Transformer</a>[<a href="../../utils/Image.html" class="extype" name="utils.Image">Image</a>, <a href="../../utils/Image.html" class="extype" name="utils.Image">Image</a>]</span>
+      </span>
+      </h4>
+      <p class="comment cmt">Convolves images with a bank of convolution filters.</p>
+    </li><li name="nodes.images.DaisyExtractor" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="DaisyExtractorextendsTransformer[utils.Image,breeze.linalg.DenseMatrix[Float]]"></a>
+      <a id="DaisyExtractor:DaisyExtractor"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="DaisyExtractor.html"><span class="name">DaisyExtractor</span></a><span class="result"> extends <a href="../../pipelines/Transformer.html" class="extype" name="pipelines.Transformer">Transformer</a>[<a href="../../utils/Image.html" class="extype" name="utils.Image">Image</a>, <span class="extype" name="breeze.linalg.DenseMatrix">DenseMatrix</span>[<span class="extype" name="scala.Float">Float</span>]]</span>
+      </span>
+      </h4>
+      <p class="comment cmt">Computes DAISY feature descriptors as specified in [1].</p>
+    </li><li name="nodes.images.FisherVectorInterface" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="FisherVectorInterfaceextendsTransformer[breeze.linalg.DenseMatrix[Float],breeze.linalg.DenseMatrix[Float]]"></a>
+      <a id="FisherVectorInterface:FisherVectorInterface"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">trait</span>
+      </span>
+      <span class="symbol">
+        <a href="FisherVectorInterface.html"><span class="name">FisherVectorInterface</span></a><span class="result"> extends <a href="../../pipelines/Transformer.html" class="extype" name="pipelines.Transformer">Transformer</a>[<span class="extype" name="breeze.linalg.DenseMatrix">DenseMatrix</span>[<span class="extype" name="scala.Float">Float</span>], <span class="extype" name="breeze.linalg.DenseMatrix">DenseMatrix</span>[<span class="extype" name="scala.Float">Float</span>]]</span>
+      </span>
+      </h4>
+      <p class="comment cmt">Abstract interface for Fisher Vector.</p>
+    </li><li name="nodes.images.HogExtractor" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="HogExtractorextendsTransformer[utils.Image,breeze.linalg.DenseMatrix[Float]]"></a>
+      <a id="HogExtractor:HogExtractor"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="HogExtractor.html"><span class="name">HogExtractor</span></a><span class="result"> extends <a href="../../pipelines/Transformer.html" class="extype" name="pipelines.Transformer">Transformer</a>[<a href="../../utils/Image.html" class="extype" name="utils.Image">Image</a>, <span class="extype" name="breeze.linalg.DenseMatrix">DenseMatrix</span>[<span class="extype" name="scala.Float">Float</span>]]</span>
+      </span>
+      </h4>
+      <p class="comment cmt">Histogram of Gradients (HoG)</p>
+    </li><li name="nodes.images.LCSExtractor" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="LCSExtractorextendsTransformer[utils.Image,breeze.linalg.DenseMatrix[Float]]"></a>
+      <a id="LCSExtractor:LCSExtractor"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="LCSExtractor.html"><span class="name">LCSExtractor</span></a><span class="result"> extends <a href="../../pipelines/Transformer.html" class="extype" name="pipelines.Transformer">Transformer</a>[<a href="../../utils/Image.html" class="extype" name="utils.Image">Image</a>, <span class="extype" name="breeze.linalg.DenseMatrix">DenseMatrix</span>[<span class="extype" name="scala.Float">Float</span>]]</span>
+      </span>
+      </h4>
+      <p class="comment cmt">Computes the local color statistic of (LCS) on a regular spaced grid [1]:
+&quot;.</p>
+    </li><li name="nodes.images.Pooler" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="PoolerextendsTransformer[utils.Image,utils.Image]"></a>
+      <a id="Pooler:Pooler"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="Pooler.html"><span class="name">Pooler</span></a><span class="result"> extends <a href="../../pipelines/Transformer.html" class="extype" name="pipelines.Transformer">Transformer</a>[<a href="../../utils/Image.html" class="extype" name="utils.Image">Image</a>, <a href="../../utils/Image.html" class="extype" name="utils.Image">Image</a>]</span>
+      </span>
+      </h4>
+      <p class="comment cmt">This node takes an image and performs pooling on regions of the image.</p>
+    </li><li name="nodes.images.SIFTExtractorInterface" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="SIFTExtractorInterfaceextendsTransformer[utils.Image,breeze.linalg.DenseMatrix[Float]]"></a>
+      <a id="SIFTExtractorInterface:SIFTExtractorInterface"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">trait</span>
+      </span>
+      <span class="symbol">
+        <a href="SIFTExtractorInterface.html"><span class="name">SIFTExtractorInterface</span></a><span class="result"> extends <a href="../../pipelines/Transformer.html" class="extype" name="pipelines.Transformer">Transformer</a>[<a href="../../utils/Image.html" class="extype" name="utils.Image">Image</a>, <span class="extype" name="breeze.linalg.DenseMatrix">DenseMatrix</span>[<span class="extype" name="scala.Float">Float</span>]]</span>
+      </span>
+      </h4>
+      <p class="comment cmt">Abstract interface for SIFT extractor.</p>
+    </li><li name="nodes.images.SymmetricRectifier" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="SymmetricRectifierextendsTransformer[utils.Image,utils.Image]withProductwithSerializable"></a>
+      <a id="SymmetricRectifier:SymmetricRectifier"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="SymmetricRectifier.html"><span class="name">SymmetricRectifier</span></a><span class="params">(<span name="maxVal">maxVal: <span class="extype" name="scala.Double">Double</span> = <span class="symbol">0.0</span></span>, <span name="alpha">alpha: <span class="extype" name="scala.Double">Double</span> = <span class="symbol">0.0</span></span>)</span><span class="result"> extends <a href="../../pipelines/Transformer.html" class="extype" name="pipelines.Transformer">Transformer</a>[<a href="../../utils/Image.html" class="extype" name="utils.Image">Image</a>, <a href="../../utils/Image.html" class="extype" name="utils.Image">Image</a>] with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4>
+      
+    </li><li name="nodes.images.Windower" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="WindowerextendsFunctionNode[org.apache.spark.rdd.RDD[utils.Image],org.apache.spark.rdd.RDD[utils.Image]]"></a>
+      <a id="Windower:Windower"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="Windower.html"><span class="name">Windower</span></a><span class="result"> extends <a href="../../pipelines/FunctionNode.html" class="extype" name="pipelines.FunctionNode">FunctionNode</a>[<span class="extype" name="org.apache.spark.rdd.RDD">RDD</span>[<a href="../../utils/Image.html" class="extype" name="utils.Image">Image</a>], <span class="extype" name="org.apache.spark.rdd.RDD">RDD</span>[<a href="../../utils/Image.html" class="extype" name="utils.Image">Image</a>]]</span>
+      </span>
+      </h4>
+      <p class="comment cmt"></p>
+    </li></ol>
+            </div>
+
+        
+
+        <div id="values" class="values members">
+              <h3>Value Members</h3>
+              <ol><li name="nodes.images.Convolver" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Convolver"></a>
+      <a id="Convolver:Convolver"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="Convolver$.html"><span class="name">Convolver</span></a><span class="result"> extends <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4>
+      
+    </li><li name="nodes.images.GrayScaler" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="GrayScaler"></a>
+      <a id="GrayScaler:GrayScaler"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="GrayScaler$.html"><span class="name">GrayScaler</span></a><span class="result"> extends <a href="../../pipelines/Transformer.html" class="extype" name="pipelines.Transformer">Transformer</a>[<a href="../../utils/Image.html" class="extype" name="utils.Image">Image</a>, <a href="../../utils/Image.html" class="extype" name="utils.Image">Image</a>]</span>
+      </span>
+      </h4>
+      <p class="comment cmt">Converts an input images to NTSC-standard grayscale.</p>
+    </li><li name="nodes.images.ImageExtractor" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="ImageExtractor"></a>
+      <a id="ImageExtractor:ImageExtractor"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="ImageExtractor$.html"><span class="name">ImageExtractor</span></a><span class="result"> extends <a href="../../pipelines/Transformer.html" class="extype" name="pipelines.Transformer">Transformer</a>[<a href="../../utils/LabeledImage.html" class="extype" name="utils.LabeledImage">LabeledImage</a>, <a href="../../utils/Image.html" class="extype" name="utils.Image">Image</a>]</span>
+      </span>
+      </h4>
+      <p class="comment cmt">Extracts an image from a labeled image.</p>
+    </li><li name="nodes.images.ImageVectorizer" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="ImageVectorizer"></a>
+      <a id="ImageVectorizer:ImageVectorizer"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="ImageVectorizer$.html"><span class="name">ImageVectorizer</span></a><span class="result"> extends <a href="../../pipelines/Transformer.html" class="extype" name="pipelines.Transformer">Transformer</a>[<a href="../../utils/Image.html" class="extype" name="utils.Image">Image</a>, <span class="extype" name="breeze.linalg.DenseVector">DenseVector</span>[<span class="extype" name="scala.Double">Double</span>]]</span>
+      </span>
+      </h4>
+      <p class="comment cmt">Takes an image and converts it to a dense vector.</p>
+    </li><li name="nodes.images.LabelExtractor" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="LabelExtractor"></a>
+      <a id="LabelExtractor:LabelExtractor"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="LabelExtractor$.html"><span class="name">LabelExtractor</span></a><span class="result"> extends <a href="../../pipelines/Transformer.html" class="extype" name="pipelines.Transformer">Transformer</a>[<a href="../../utils/LabeledImage.html" class="extype" name="utils.LabeledImage">LabeledImage</a>, <span class="extype" name="scala.Int">Int</span>]</span>
+      </span>
+      </h4>
+      <p class="comment cmt">Extracts a label from a labeled image.</p>
+    </li><li name="nodes.images.MultiLabelExtractor" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="MultiLabelExtractor"></a>
+      <a id="MultiLabelExtractor:MultiLabelExtractor"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="MultiLabelExtractor$.html"><span class="name">MultiLabelExtractor</span></a><span class="result"> extends <a href="../../pipelines/Transformer.html" class="extype" name="pipelines.Transformer">Transformer</a>[<a href="../../utils/MultiLabeledImage.html" class="extype" name="utils.MultiLabeledImage">MultiLabeledImage</a>, <span class="extype" name="scala.Array">Array</span>[<span class="extype" name="scala.Int">Int</span>]]</span>
+      </span>
+      </h4>
+      <p class="comment cmt">Extracts a label from a multi-labeled image.</p>
+    </li><li name="nodes.images.MultiLabeledImageExtractor" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="MultiLabeledImageExtractor"></a>
+      <a id="MultiLabeledImageExtractor:MultiLabeledImageExtractor"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="MultiLabeledImageExtractor$.html"><span class="name">MultiLabeledImageExtractor</span></a><span class="result"> extends <a href="../../pipelines/Transformer.html" class="extype" name="pipelines.Transformer">Transformer</a>[<a href="../../utils/MultiLabeledImage.html" class="extype" name="utils.MultiLabeledImage">MultiLabeledImage</a>, <a href="../../utils/Image.html" class="extype" name="utils.Image">Image</a>]</span>
+      </span>
+      </h4>
+      <p class="comment cmt">Extracts an image from a multi-labeled image.</p>
+    </li><li name="nodes.images.PixelScaler" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="PixelScaler"></a>
+      <a id="PixelScaler:PixelScaler"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="PixelScaler$.html"><span class="name">PixelScaler</span></a><span class="result"> extends <a href="../../pipelines/Transformer.html" class="extype" name="pipelines.Transformer">Transformer</a>[<a href="../../utils/Image.html" class="extype" name="utils.Image">Image</a>, <a href="../../utils/Image.html" class="extype" name="utils.Image">Image</a>]</span>
+      </span>
+      </h4>
+      <p class="comment cmt">Rescales an input image from [0 .</p>
+    </li><li name="nodes.images.external" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="external"></a>
+      <a id="external:external"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">package</span>
+      </span>
+      <span class="symbol">
+        <a href="external/package.html"><span class="name">external</span></a>
+      </span>
+      </h4>
+      
+    </li></ol>
+            </div>
+
+        
+
+        
+        </div>
+
+        <div id="inheritedMembers">
+        
+        
+        </div>
+
+        <div id="groupedMembers">
+        <div class="group" name="Ungrouped">
+              <h3>Ungrouped</h3>
+              
+            </div>
+        </div>
+
+      </div>
+
+      <div id="tooltip"></div>
+
+      <div id="footer">  </div>
+      <script defer="defer" type="text/javascript" id="jquery-js" src="../../lib/jquery.js"></script><script defer="defer" type="text/javascript" id="jquery-ui-js" src="../../lib/jquery-ui.js"></script><script defer="defer" type="text/javascript" id="tools-tooltip-js" src="../../lib/tools.tooltip.js"></script><script defer="defer" type="text/javascript" id="template-js" src="../../lib/template.js"></script>
+    </body>
+      </html>

@@ -1,0 +1,164 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html>
+        <head>
+          <title>nlp - nodes.nlp</title>
+          <meta name="description" content="nlp - nodes.nlp" />
+          <meta name="keywords" content="nlp nodes.nlp" />
+          <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+          
+      <link href="../../lib/template.css" media="screen" type="text/css" rel="stylesheet" />
+      <link href="../../lib/diagrams.css" media="screen" type="text/css" rel="stylesheet" id="diagrams-css" />
+      <script type="text/javascript">
+         if(top === self) {
+            var url = '../../index.html';
+            var hash = 'nodes.nlp.package';
+            var anchor = window.location.hash;
+            var anchor_opt = '';
+            if (anchor.length >= 1)
+              anchor_opt = '@' + anchor.substring(1);
+            window.location.href = url + '#' + hash + anchor_opt;
+         }
+   	  </script>
+    
+        </head>
+        <body class="value">
+      <div id="definition">
+        <img src="../../lib/package_big.png" />
+        <p id="owner"><a href="../package.html" class="extype" name="nodes">nodes</a></p>
+        <h1>nlp</h1>
+      </div>
+
+      <h4 id="signature" class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">package</span>
+      </span>
+      <span class="symbol">
+        <span class="name">nlp</span>
+      </span>
+      </h4>
+      
+          <div id="comment" class="fullcommenttop"></div>
+        
+
+      <div id="mbrsel">
+        <div id="textfilter"><span class="pre"></span><span class="input"><input id="mbrsel-input" type="text" accesskey="/" /></span><span class="post"></span></div>
+        
+        
+        <div id="visbl">
+            <span class="filtertype">Visibility</span>
+            <ol><li class="public in"><span>Public</span></li><li class="all out"><span>All</span></li></ol>
+          </div>
+      </div>
+
+      <div id="template">
+        <div id="allMembers">
+        
+
+        <div id="types" class="types members">
+              <h3>Type Members</h3>
+              <ol><li name="nodes.nlp.CoreNLPFeatureExtractor" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="CoreNLPFeatureExtractorextendsTransformer[String,Seq[String]]withProductwithSerializable"></a>
+      <a id="CoreNLPFeatureExtractor:CoreNLPFeatureExtractor"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="CoreNLPFeatureExtractor.html"><span class="name">CoreNLPFeatureExtractor</span></a><span class="params">(<span name="orders">orders: <span class="extype" name="scala.Seq">Seq</span>[<span class="extype" name="scala.Int">Int</span>]</span>)</span><span class="result"> extends <a href="../../pipelines/Transformer.html" class="extype" name="pipelines.Transformer">Transformer</a>[<span class="extype" name="scala.Predef.String">String</span>, <span class="extype" name="scala.Seq">Seq</span>[<span class="extype" name="scala.Predef.String">String</span>]] with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4>
+      <p class="comment cmt">Transformer that uses CoreNLP to (in order):
+- Tokenize document
+- Lemmatize tokens
+- Replace entities w/ their type (e.</p>
+    </li><li name="nodes.nlp.LowerCase" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="LowerCaseextendsTransformer[String,String]withProductwithSerializable"></a>
+      <a id="LowerCase:LowerCase"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="LowerCase.html"><span class="name">LowerCase</span></a><span class="params">(<span name="locale">locale: <span class="extype" name="java.util.Locale">Locale</span> = <span class="symbol">java.util.Locale.getDefault()</span></span>)</span><span class="result"> extends <a href="../../pipelines/Transformer.html" class="extype" name="pipelines.Transformer">Transformer</a>[<span class="extype" name="scala.Predef.String">String</span>, <span class="extype" name="scala.Predef.String">String</span>] with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4>
+      <p class="comment cmt">Transformer that converts a String to lower case</p>
+    </li><li name="nodes.nlp.NGramsFeaturizer" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="NGramsFeaturizerextendsTransformer[Seq[String],Seq[Seq[String]]]"></a>
+      <a id="NGramsFeaturizer:NGramsFeaturizer"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="NGramsFeaturizer.html"><span class="name">NGramsFeaturizer</span></a><span class="result"> extends <a href="../../pipelines/Transformer.html" class="extype" name="pipelines.Transformer">Transformer</a>[<span class="extype" name="scala.Seq">Seq</span>[<span class="extype" name="scala.Predef.String">String</span>], <span class="extype" name="scala.Seq">Seq</span>[<span class="extype" name="scala.Seq">Seq</span>[<span class="extype" name="scala.Predef.String">String</span>]]]</span>
+      </span>
+      </h4>
+      <p class="comment cmt">An ngram featurizer.</p>
+    </li><li name="nodes.nlp.Tokenizer" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="TokenizerextendsTransformer[String,Seq[String]]withProductwithSerializable"></a>
+      <a id="Tokenizer:Tokenizer"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="Tokenizer.html"><span class="name">Tokenizer</span></a><span class="params">(<span name="sep">sep: <span class="extype" name="scala.Predef.String">String</span> = <span class="symbol">&quot;[\\p{Punct}\\s]+&quot;</span></span>)</span><span class="result"> extends <a href="../../pipelines/Transformer.html" class="extype" name="pipelines.Transformer">Transformer</a>[<span class="extype" name="scala.Predef.String">String</span>, <span class="extype" name="scala.Seq">Seq</span>[<span class="extype" name="scala.Predef.String">String</span>]] with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4>
+      <p class="comment cmt">Transformer that tokenizes a String into a Seq[String] by splitting on a regular expression.</p>
+    </li></ol>
+            </div>
+
+        
+
+        <div id="values" class="values members">
+              <h3>Value Members</h3>
+              <ol><li name="nodes.nlp.Trim" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Trim"></a>
+      <a id="Trim:Trim"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="Trim$.html"><span class="name">Trim</span></a><span class="result"> extends <a href="../../pipelines/Transformer.html" class="extype" name="pipelines.Transformer">Transformer</a>[<span class="extype" name="scala.Predef.String">String</span>, <span class="extype" name="scala.Predef.String">String</span>]</span>
+      </span>
+      </h4>
+      <p class="comment cmt">Transformer that trims a String of leading and trailing whitespace
+</p>
+    </li></ol>
+            </div>
+
+        
+
+        
+        </div>
+
+        <div id="inheritedMembers">
+        
+        
+        </div>
+
+        <div id="groupedMembers">
+        <div class="group" name="Ungrouped">
+              <h3>Ungrouped</h3>
+              
+            </div>
+        </div>
+
+      </div>
+
+      <div id="tooltip"></div>
+
+      <div id="footer">  </div>
+      <script defer="defer" type="text/javascript" id="jquery-js" src="../../lib/jquery.js"></script><script defer="defer" type="text/javascript" id="jquery-ui-js" src="../../lib/jquery-ui.js"></script><script defer="defer" type="text/javascript" id="tools-tooltip-js" src="../../lib/tools.tooltip.js"></script><script defer="defer" type="text/javascript" id="template-js" src="../../lib/template.js"></script>
+    </body>
+      </html>

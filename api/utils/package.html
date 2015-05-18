@@ -1,0 +1,322 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html>
+        <head>
+          <title>utils - utils</title>
+          <meta name="description" content="utils - utils" />
+          <meta name="keywords" content="utils utils" />
+          <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+          
+      <link href="../lib/template.css" media="screen" type="text/css" rel="stylesheet" />
+      <link href="../lib/diagrams.css" media="screen" type="text/css" rel="stylesheet" id="diagrams-css" />
+      <script type="text/javascript">
+         if(top === self) {
+            var url = '../index.html';
+            var hash = 'utils.package';
+            var anchor = window.location.hash;
+            var anchor_opt = '';
+            if (anchor.length >= 1)
+              anchor_opt = '@' + anchor.substring(1);
+            window.location.href = url + '#' + hash + anchor_opt;
+         }
+   	  </script>
+    
+        </head>
+        <body class="value">
+      <div id="definition">
+        <img src="../lib/package_big.png" />
+        
+        <h1>utils</h1>
+      </div>
+
+      <h4 id="signature" class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">package</span>
+      </span>
+      <span class="symbol">
+        <span class="name">utils</span>
+      </span>
+      </h4>
+      
+          <div id="comment" class="fullcommenttop"></div>
+        
+
+      <div id="mbrsel">
+        <div id="textfilter"><span class="pre"></span><span class="input"><input id="mbrsel-input" type="text" accesskey="/" /></span><span class="post"></span></div>
+        
+        
+        <div id="visbl">
+            <span class="filtertype">Visibility</span>
+            <ol><li class="public in"><span>Public</span></li><li class="all out"><span>All</span></li></ol>
+          </div>
+      </div>
+
+      <div id="template">
+        <div id="allMembers">
+        
+
+        <div id="types" class="types members">
+              <h3>Type Members</h3>
+              <ol><li name="utils.AbstractLabeledImage" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="AbstractLabeledImage[L]extendsAnyRef"></a>
+      <a id="AbstractLabeledImage[L]:AbstractLabeledImage[L]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">trait</span>
+      </span>
+      <span class="symbol">
+        <a href="AbstractLabeledImage.html"><span class="name">AbstractLabeledImage</span></a><span class="tparams">[<span name="L">L</span>]</span><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4>
+      <p class="comment cmt">Represents a labeled image.</p>
+    </li><li name="utils.ByteArrayVectorizedImage" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="ByteArrayVectorizedImageextendsVectorizedImagewithProductwithSerializable"></a>
+      <a id="ByteArrayVectorizedImage:ByteArrayVectorizedImage"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="ByteArrayVectorizedImage.html"><span class="name">ByteArrayVectorizedImage</span></a><span class="params">(<span name="vectorizedImage">vectorizedImage: <span class="extype" name="scala.Array">Array</span>[<span class="extype" name="scala.Byte">Byte</span>]</span>, <span name="metadata">metadata: <a href="ImageMetadata.html" class="extype" name="utils.ImageMetadata">ImageMetadata</a></span>)</span><span class="result"> extends <a href="VectorizedImage.html" class="extype" name="utils.VectorizedImage">VectorizedImage</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4>
+      <p class="comment cmt">Wraps a byte array, where a byte is a color channel value.</p>
+    </li><li name="utils.ChannelMajorArrayVectorizedImage" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="ChannelMajorArrayVectorizedImageextendsVectorizedImagewithProductwithSerializable"></a>
+      <a id="ChannelMajorArrayVectorizedImage:ChannelMajorArrayVectorizedImage"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="ChannelMajorArrayVectorizedImage.html"><span class="name">ChannelMajorArrayVectorizedImage</span></a><span class="params">(<span name="vectorizedImage">vectorizedImage: <span class="extype" name="scala.Array">Array</span>[<span class="extype" name="scala.Double">Double</span>]</span>, <span name="metadata">metadata: <a href="ImageMetadata.html" class="extype" name="utils.ImageMetadata">ImageMetadata</a></span>)</span><span class="result"> extends <a href="VectorizedImage.html" class="extype" name="utils.VectorizedImage">VectorizedImage</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4>
+      <p class="comment cmt">VectorizedImage that indexed as follows: The pixel value for
+(x, y, channelIdx) is at channelIdx + x*numChannels + y*numChannels*xDim.</p>
+    </li><li name="utils.ColumnMajorArrayVectorizedImage" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="ColumnMajorArrayVectorizedImageextendsVectorizedImagewithProductwithSerializable"></a>
+      <a id="ColumnMajorArrayVectorizedImage:ColumnMajorArrayVectorizedImage"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="ColumnMajorArrayVectorizedImage.html"><span class="name">ColumnMajorArrayVectorizedImage</span></a><span class="params">(<span name="vectorizedImage">vectorizedImage: <span class="extype" name="scala.Array">Array</span>[<span class="extype" name="scala.Double">Double</span>]</span>, <span name="metadata">metadata: <a href="ImageMetadata.html" class="extype" name="utils.ImageMetadata">ImageMetadata</a></span>)</span><span class="result"> extends <a href="VectorizedImage.html" class="extype" name="utils.VectorizedImage">VectorizedImage</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4>
+      <p class="comment cmt">VectorizedImage that is indexed as follows: The pixel value for (x, y, channelIdx)
+  is at y + x*yDim + channelIdx*yDim*xDim
+</p>
+    </li><li name="utils.Image" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="ImageextendsAnyRef"></a>
+      <a id="Image:Image"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">trait</span>
+      </span>
+      <span class="symbol">
+        <a href="Image.html"><span class="name">Image</span></a><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4>
+      <p class="comment cmt">A wrapper trait for images that might be stored in various ways.</p>
+    </li><li name="utils.ImageMetadata" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="ImageMetadataextendsProductwithSerializable"></a>
+      <a id="ImageMetadata:ImageMetadata"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="ImageMetadata.html"><span class="name">ImageMetadata</span></a><span class="params">(<span name="xDim">xDim: <span class="extype" name="scala.Int">Int</span></span>, <span name="yDim">yDim: <span class="extype" name="scala.Int">Int</span></span>, <span name="numChannels">numChannels: <span class="extype" name="scala.Int">Int</span></span>)</span><span class="result"> extends <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4>
+      <p class="comment cmt">Contains metadata about the storage format of an image.</p>
+    </li><li name="utils.LabeledImage" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="LabeledImageextendsAbstractLabeledImage[Int]withProductwithSerializable"></a>
+      <a id="LabeledImage:LabeledImage"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="LabeledImage.html"><span class="name">LabeledImage</span></a><span class="params">(<span name="image">image: <a href="Image.html" class="extype" name="utils.Image">Image</a></span>, <span name="label">label: <span class="extype" name="scala.Int">Int</span></span>, <span name="filename">filename: <span class="extype" name="scala.Option">Option</span>[<span class="extype" name="scala.Predef.String">String</span>] = <span class="symbol">scala.None</span></span>)</span><span class="result"> extends <a href="AbstractLabeledImage.html" class="extype" name="utils.AbstractLabeledImage">AbstractLabeledImage</a>[<span class="extype" name="scala.Int">Int</span>] with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4>
+      <p class="comment cmt">A labeled image.</p>
+    </li><li name="utils.MultiLabeledImage" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="MultiLabeledImageextendsAbstractLabeledImage[Array[Int]]withProductwithSerializable"></a>
+      <a id="MultiLabeledImage:MultiLabeledImage"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="MultiLabeledImage.html"><span class="name">MultiLabeledImage</span></a><span class="params">(<span name="image">image: <a href="Image.html" class="extype" name="utils.Image">Image</a></span>, <span name="label">label: <span class="extype" name="scala.Array">Array</span>[<span class="extype" name="scala.Int">Int</span>]</span>, <span name="filename">filename: <span class="extype" name="scala.Option">Option</span>[<span class="extype" name="scala.Predef.String">String</span>] = <span class="symbol">scala.None</span></span>)</span><span class="result"> extends <a href="AbstractLabeledImage.html" class="extype" name="utils.AbstractLabeledImage">AbstractLabeledImage</a>[<span class="extype" name="scala.Array">Array</span>[<span class="extype" name="scala.Int">Int</span>]] with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4>
+      <p class="comment cmt">A multilabeled image.</p>
+    </li><li name="utils.RowColumnMajorByteArrayVectorizedImage" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="RowColumnMajorByteArrayVectorizedImageextendsVectorizedImagewithProductwithSerializable"></a>
+      <a id="RowColumnMajorByteArrayVectorizedImage:RowColumnMajorByteArrayVectorizedImage"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="RowColumnMajorByteArrayVectorizedImage.html"><span class="name">RowColumnMajorByteArrayVectorizedImage</span></a><span class="params">(<span name="vectorizedImage">vectorizedImage: <span class="extype" name="scala.Array">Array</span>[<span class="extype" name="scala.Byte">Byte</span>]</span>, <span name="metadata">metadata: <a href="ImageMetadata.html" class="extype" name="utils.ImageMetadata">ImageMetadata</a></span>)</span><span class="result"> extends <a href="VectorizedImage.html" class="extype" name="utils.VectorizedImage">VectorizedImage</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4>
+      <p class="comment cmt">Wraps a double array.</p>
+    </li><li name="utils.RowMajorArrayVectorizedImage" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="RowMajorArrayVectorizedImageextendsVectorizedImagewithProductwithSerializable"></a>
+      <a id="RowMajorArrayVectorizedImage:RowMajorArrayVectorizedImage"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="RowMajorArrayVectorizedImage.html"><span class="name">RowMajorArrayVectorizedImage</span></a><span class="params">(<span name="vectorizedImage">vectorizedImage: <span class="extype" name="scala.Array">Array</span>[<span class="extype" name="scala.Double">Double</span>]</span>, <span name="metadata">metadata: <a href="ImageMetadata.html" class="extype" name="utils.ImageMetadata">ImageMetadata</a></span>)</span><span class="result"> extends <a href="VectorizedImage.html" class="extype" name="utils.VectorizedImage">VectorizedImage</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4>
+      <p class="comment cmt">VectorizedImage which is indexed as follows: The pixel value for
+(x, y, channelIdx) is at x + y*xDim + channelIdx*xDim*yDim.</p>
+    </li><li name="utils.VectorizedImage" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="VectorizedImageextendsImage"></a>
+      <a id="VectorizedImage:VectorizedImage"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">trait</span>
+      </span>
+      <span class="symbol">
+        <a href="VectorizedImage.html"><span class="name">VectorizedImage</span></a><span class="result"> extends <a href="Image.html" class="extype" name="utils.Image">Image</a></span>
+      </span>
+      </h4>
+      <p class="comment cmt">Helper trait for implementing Images that wrap vectorized representations
+of images.</p>
+    </li></ol>
+            </div>
+
+        
+
+        <div id="values" class="values members">
+              <h3>Value Members</h3>
+              <ol><li name="utils.ImageConversions" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="ImageConversions"></a>
+      <a id="ImageConversions:ImageConversions"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="ImageConversions$.html"><span class="name">ImageConversions</span></a>
+      </span>
+      </h4>
+      
+    </li><li name="utils.ImageUtils" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="ImageUtils"></a>
+      <a id="ImageUtils:ImageUtils"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="ImageUtils$.html"><span class="name">ImageUtils</span></a><span class="result"> extends <a href="../pipelines/Logging.html" class="extype" name="pipelines.Logging">Logging</a></span>
+      </span>
+      </h4>
+      
+    </li><li name="utils.MLlibUtils" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="MLlibUtils"></a>
+      <a id="MLlibUtils:MLlibUtils"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="MLlibUtils$.html"><span class="name">MLlibUtils</span></a>
+      </span>
+      </h4>
+      <p class="comment cmt">Provides conversions between MLlib vectors &amp; matrices, and Breeze vectors &amp; matrices
+</p>
+    </li><li name="utils.MatrixUtils" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="MatrixUtils"></a>
+      <a id="MatrixUtils:MatrixUtils"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="MatrixUtils$.html"><span class="name">MatrixUtils</span></a><span class="result"> extends <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4>
+      <p class="comment cmt">A collection of utilities useful for matrices.</p>
+    </li><li name="utils.Stats" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Stats"></a>
+      <a id="Stats:Stats"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="Stats$.html"><span class="name">Stats</span></a><span class="result"> extends <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4>
+      
+    </li><li name="utils.external" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="external"></a>
+      <a id="external:external"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">package</span>
+      </span>
+      <span class="symbol">
+        <a href="external/package.html"><span class="name">external</span></a>
+      </span>
+      </h4>
+      
+    </li></ol>
+            </div>
+
+        
+
+        
+        </div>
+
+        <div id="inheritedMembers">
+        
+        
+        </div>
+
+        <div id="groupedMembers">
+        <div class="group" name="Ungrouped">
+              <h3>Ungrouped</h3>
+              
+            </div>
+        </div>
+
+      </div>
+
+      <div id="tooltip"></div>
+
+      <div id="footer">  </div>
+      <script defer="defer" type="text/javascript" id="jquery-js" src="../lib/jquery.js"></script><script defer="defer" type="text/javascript" id="jquery-ui-js" src="../lib/jquery-ui.js"></script><script defer="defer" type="text/javascript" id="tools-tooltip-js" src="../lib/tools.tooltip.js"></script><script defer="defer" type="text/javascript" id="template-js" src="../lib/template.js"></script>
+    </body>
+      </html>

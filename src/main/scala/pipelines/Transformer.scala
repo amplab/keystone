@@ -64,7 +64,7 @@ abstract class Transformer[A, B : ClassTag] extends Serializable {
    * @param next The method to apply to each item output by this transformer
    * @return The output Transformer
    */
-  def then[C : ClassTag](next: B => C): Transformer[A, C] = this.then(Transformer(next))
+  def thenFunction[C : ClassTag](next: B => C): Transformer[A, C] = this.then(Transformer(next))
 }
 
 object Transformer {

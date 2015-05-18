@@ -31,7 +31,7 @@ struct DescSet {
 
 int* gloabalcount = 0;
 
-DescSet* getMultiScaleDSIFTs_f(VlPgmImage* pim, float* imgData, int step, int bin, int numScales);
+DescSet* getMultiScaleDSIFTs_f(VlPgmImage* pim, float* imgData, int step, int bin, int numScales, int scaleStep);
 
 
 DescSet* getMultiScaleDSIFTs_f(

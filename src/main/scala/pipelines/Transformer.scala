@@ -65,13 +65,6 @@ abstract class Transformer[A, B : ClassTag] extends Serializable {
    * @return The output Transformer
    */
   def then[C : ClassTag](next: B => C): Transformer[A, C] = this.then(Transformer(next))
-
-  /**
-   * Casts the output of this transformer to RDD[U] if each item can be cast to type U
-   * @tparam C  The type the cast RDD should hold
-   */
-  def to[C : ClassTag](implicit ev: B => C): Transformer[A, C] = this.then(ev)
-
 }
 
 object Transformer {

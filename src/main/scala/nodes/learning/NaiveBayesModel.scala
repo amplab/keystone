@@ -8,6 +8,8 @@ import pipelines.LabelEstimator
 import pipelines.Transformer
 import utils.MLlibUtils.breezeVectorToMLlib
 
+import scala.reflect.ClassTag
+
 /**
  * A Multinomial Naive Bayes model that transforms feature vectors to vectors containing
  * the log posterior probabilities of the different classes
@@ -17,10 +19,10 @@ import utils.MLlibUtils.breezeVectorToMLlib
  * @param theta log of class conditional probabilities, whose dimension is C-by-D,
  *              where D is number of features
  */
-class NaiveBayesModel(
+class NaiveBayesModel[T <: Vector[Double]](
     val labels: Array[Int],
     val pi: Array[Double],
-    val theta: Array[Array[Double]]) extends Transformer[Vector[Double], DenseVector[Double]] {
+    val theta: Array[Array[Double]]) extends Transformer[T, DenseVector[Double]] {
 
   private val brzPi = new DenseVector[Double](pi.length)
   private val brzTheta = new DenseMatrix[Double](theta.length, theta(0).length)
@@ -46,7 +48,7 @@ class NaiveBayesModel(
    * @param in The input feature vector
    * @return Log-posterior probabilites of the classes for the input features
    */
-  override def apply(in: Vector[Double]): DenseVector[Double] = {
+  override def apply(in: T): DenseVector[Double] = {
     brzPi + brzTheta * in
   }
 }
@@ -58,8 +60,9 @@ class NaiveBayesModel(
  *
  * @param lambda The lambda parameter to use for the naive bayes model
  */
-case class NaiveBayesEstimator(numClasses: Int, lambda: Double = 1.0)  extends LabelEstimator[Vector[Double], DenseVector[Double], Int] {
-  override def fit(in: RDD[Vector[Double]], labels: RDD[Int]): NaiveBayesModel = {
+case class NaiveBayesEstimator[T <: Vector[Double] : ClassTag](numClasses: Int, lambda: Double = 1.0)
+    extends LabelEstimator[T, DenseVector[Double], Int] {
+  override def fit(in: RDD[T], labels: RDD[Int]): NaiveBayesModel[T] = {
     val labeledPoints = labels.zip(in).map(x => LabeledPoint(x._1, breezeVectorToMLlib(x._2)))
     val model = NaiveBayes.train(labeledPoints, lambda)
 

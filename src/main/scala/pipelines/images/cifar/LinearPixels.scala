@@ -19,7 +19,7 @@ object LinearPixels extends Logging {
     val numClasses = 10
 
     // Load and cache the training data.
-    val trainData = CifarLoader(sc, config.trainLocation).cache
+    val trainData = CifarLoader(sc, config.trainLocation).cache()
 
     // A featurizer maps input images into vectors. For this pipeline, we'll also convert the image to grayscale.
     val featurizer = GrayScaler then ImageVectorizer

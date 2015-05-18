@@ -83,15 +83,17 @@ case class MulticlassMetrics(confusionMatrix: DenseMatrix[Double]) {
    * @return  the pretty-printed string
    */
   def summary(classes: Array[String]): String = {
-    pprintConfusionMatrix(classes) +
-    "\nAvg Accuracy: " + avgAccuracy
-    "\nMacro Precision: " + macroPrecision +
-    "\nMacro Recall: " + macroRecall +
-    "\nMacro F1: " + macroFScore() +
-    "\nTotal Accuracy: " + totalAccuracy
-    "\nMicro Precision: " + microPrecision +
-    "\nMicro Recall: " + microRecall +
-    "\nMicro F1: " + microFScore()
+    val fmt = "%2.3f"
+    s"""${pprintConfusionMatrix(classes)}
+       |Avg Accuracy:\t${fmt.format(avgAccuracy)}
+       |Macro Precision:\t${fmt.format(macroPrecision)}
+       |Macro Recall:\t${fmt.format(macroRecall)}
+       |Macro F1:\t${fmt.format(macroFScore())}
+       |Total Accuracy:\t${fmt.format(totalAccuracy)}
+       |Micro Precision:\t${fmt.format(microPrecision)}
+       |Micro Recall:\t${fmt.format(microRecall)}
+       |Micro F1:\t${fmt.format(microFScore())}
+     """.stripMargin
   }
 
   /**

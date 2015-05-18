@@ -80,7 +80,8 @@ object VOCSIFTFisher extends Serializable {
     val trainingFeatures = fisherFeaturizer(firstCachedRDD)
 
     // Part 4: Fit a linear model to the data.
-    val model = new BlockLeastSquaresEstimator(4096, 1, conf.lambda).fit(trainingFeatures, trainingLabels)
+    val model = new BlockLeastSquaresEstimator(4096, 1, conf.lambda).fit(
+      trainingFeatures, trainingLabels, Some(2 * conf.descDim * conf.vocabSize))
 
     firstCachedRDD.unpersist()
     trainingFeatures.unpersist()
@@ -113,7 +114,7 @@ object VOCSIFTFisher extends Serializable {
     lambda: Double = 0.5,
     descDim: Int = 80,
     vocabSize: Int = 256,
-    scaleStep: Int = 1,
+    scaleStep: Int = 0,
     pcaFile: Option[String] = None,
     gmmMeanFile: Option[String]= None,
     gmmVarFile: Option[String] = None,

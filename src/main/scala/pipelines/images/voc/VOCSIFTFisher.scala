@@ -49,7 +49,7 @@ object VOCSIFTFisher extends Serializable {
     }
 
     // Part 2: Compute dimensionality-reduced PCA features.
-    val featurizer =  new SIFTExtractor(conf.scaleStep) then
+    val featurizer =  new SIFTExtractor(scaleStep = conf.scaleStep) then
       pcaTransformer then
       new Cacher[DenseMatrix[Float]]
 

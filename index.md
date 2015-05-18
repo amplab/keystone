@@ -33,10 +33,43 @@ val testResults = predictor(newsgroupsData.test.data)
 val eval = MulticlassClassifierEvaluator(testResults, testLabels, numClasses)
 
 println(eval.summary(newsgroupsData.classes))
-//Prints out:
-//Micro Precision: 0.8037705788635157
-//Micro Recall: 0.8037705788635157
-//Micro F1: 0.8037705788635157
+{% endhighlight %}
+
+The result of this code is the following:
+{% highlight bash %}
+a    b    c    d    e    f    g    h    i    j    k    l    m    n    o    p    q    r    s    t    <-- Classified As             
+--   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --                            
+276  6    24   8    34   4    2    0    0    4    9    2    5    6    2    0    0    0    5    2    a = comp.graphics             
+44   158  109  16   23   3    1    6    0    5    3    3    8    3    7    1    0    0    1    3    b = comp.os.ms-windows.misc   
+16   5    304  18   6    6    0    0    0    1    25   0    3    6    1    0    0    0    1    0    c = comp.sys.ibm.pc.hardware  
+7    1    35   303  3    5    2    4    0    0    10   1    5    7    1    1    0    0    0    0    d = comp.sys.mac.hardware     
+38   5    16   2    320  0    1    1    0    2    1    3    4    1    0    0    0    0    0    1    e = comp.windows.x            
+2    0    6    4    0    358  4    2    0    0    9    1    2    6    1    1    0    0    0    0    f = rec.autos                 
+1    1    3    3    1    18   357  1    0    1    3    0    0    5    4    0    0    0    0    0    g = rec.motorcycles           
+7    0    1    2    0    4    1    350  19   0    3    0    0    3    2    1    0    0    2    2    h = rec.sport.baseball        
+1    1    1    0    1    1    1    9    379  0    1    1    0    0    0    0    0    0    0    3    i = rec.sport.hockey          
+11   1    3    7    1    1    0    1    0    354  7    3    0    1    0    4    0    0    2    0    j = sci.crypt                 
+21   1    34   17   4    10   3    0    1    9    281  6    2    3    0    0    0    0    0    1    k = sci.electronics           
+13   0    5    9    3    14   4    0    2    1    15   296  4    7    5    1    3    1    5    8    l = sci.med                   
+10   0    2    0    1    3    0    0    0    0    5    5    352  2    7    3    0    0    1    3    m = sci.space                 
+5    2    16   4    0    5    1    0    1    0    9    2    2    343  0    0    0    0    0    0    n = misc.forsale              
+2    0    0    2    0    3    1    0    1    4    1    0    9    0    194  84   1    2    1    5    o = talk.politics.misc        
+0    0    1    0    0    2    3    0    0    5    1    2    2    2    4    337  0    4    0    1    p = talk.politics.guns        
+1    0    0    1    1    0    3    1    1    2    1    0    1    1    12   2    333  0    7    9    q = talk.politics.mideast     
+3    0    0    0    1    3    0    1    0    0    1    5    4    2    7    11   1    127  45   40   r = talk.religion.misc        
+2    0    1    0    0    1    1    0    1    2    1    7    5    1    0    1    2    12   263  19   s = alt.atheism               
+5    0    3    0    3    0    0    0    1    0    1    2    2    1    2    0    1    4    4    369  t = soc.religion.christian    
+--   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --                            
+Avg Accuracy:	0.980
+Macro Precision:0.816
+Macro Recall:	0.797
+Macro F1:	0.797
+Total Accuracy:	0.804
+Micro Precision:0.804
+Micro Recall:	0.804
+Micro F1:	0.804
+     
+
 {% endhighlight %}
 
 This relatively simple pipeline predicts the right document category over 80% of the time on the test set.

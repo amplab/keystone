@@ -23,7 +23,7 @@ object NewsgroupsPipeline extends Logging {
     logInfo("Training classifier")
     val predictor = Trim.then(LowerCase())
         .then(Tokenizer())
-        .then(new NGramsFeaturizer(1 to conf.nGrams))
+        .then(new NGramsFeaturizer[String](1 to conf.nGrams))
         .then(TermFrequency(x => 1))
         .thenEstimator(CommonSparseFeatures(conf.commonFeatures))
         .fit(trainData.data)

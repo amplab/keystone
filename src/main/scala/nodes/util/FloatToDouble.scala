@@ -1,6 +1,6 @@
-package nodes.misc
+package nodes.util
 
-import breeze.linalg.{DenseMatrix, convert}
+import breeze.linalg._
 import pipelines.Transformer
 
 /**

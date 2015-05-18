@@ -11,25 +11,6 @@ import scala.util.Random
  * A collection of utilities useful for matrices.
  */
 object MatrixUtils extends Serializable {
-  /**
-   * Read a CSV file from disk.
-   *
-   * @param filename Local file name.
-   * @return A matrix of numbers contained in the file.
-   */
-  def loadCSVFile(filename: String): DenseMatrix[Double] = {
-    csvread(new File(filename))
-  }
-
-  /**
-   * Write a CSV file to disk.
-   *
-   * @param filename Local filename.
-   * @param matrix Matrix to write.
-   */
-  def writeCSVFile(filename: String, matrix: DenseMatrix[Double]) = {
-    csvwrite(new File(filename), matrix)
-  }
 
   /**
    * Converts a matrix to an array of row arrays.

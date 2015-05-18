@@ -1,17 +1,19 @@
 package utils.external
 
-import breeze.linalg.{max, min, DenseVector, shuffle}
+import java.io.File
+
+import breeze.linalg._
 import breeze.stats.distributions.Gaussian
-import nodes.learning.{GaussianMixtureModelEstimator, GaussianMixtureModel}
+import nodes.learning.{GaussianMixtureModel, GaussianMixtureModelEstimator}
 import org.scalatest.FunSuite
 import pipelines.Logging
-import utils.{MatrixUtils, Stats, TestUtils}
+import utils.{Stats, TestUtils}
 
 class EncEvalSuite extends FunSuite with Logging {
 
   test("Load SIFT Descriptors and compute Fisher Vector Features") {
 
-    val siftDescriptor = MatrixUtils.loadCSVFile(TestUtils.getTestResourceFileName("images/feats.csv").toString)
+    val siftDescriptor = csvread(new File(TestUtils.getTestResourceFileName("images/feats.csv")))
 
     val gmmMeans = TestUtils.getTestResourceFileName("images/voc_codebook/means.csv")
     val gmmVars = TestUtils.getTestResourceFileName("images/voc_codebook/variances.csv")

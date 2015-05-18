@@ -1,5 +1,7 @@
 package utils.external
 
+import java.io.File
+
 import breeze.linalg._
 import breeze.numerics.abs
 import org.scalatest.FunSuite
@@ -36,7 +38,7 @@ class VLFeatSuite extends FunSuite with Logging {
     // [frames feats] = featextr.compute(im);
     // csvwrite('images/feats128.csv', feats)
 
-    val testFeatures = MatrixUtils.loadCSVFile(TestUtils.getTestResourceFileName("images/feats128.csv"))
+    val testFeatures = csvread(new File(TestUtils.getTestResourceFileName("images/feats128.csv")))
 
     val diff = result - testFeatures
 

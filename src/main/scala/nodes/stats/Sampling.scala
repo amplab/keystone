@@ -2,7 +2,7 @@ package nodes.stats
 
 import breeze.linalg.{DenseVector, DenseMatrix}
 import org.apache.spark.rdd.RDD
-import pipelines.Transformer
+import pipelines.{FunctionNode, Transformer}
 
 /**
  * Given a collection of Dense Matrices, this will generate a sample of `numSamples` columns from the entire set.
@@ -21,4 +21,14 @@ class ColumnSampler(numSamples: Int) extends Transformer[DenseMatrix[Float], Den
   }
 
   def apply(in: DenseMatrix[Float]): DenseVector[Float] = ???
+}
+
+/**
+ * Takes a sample of an input RDD of size size.
+ * @param size Number of elements to return.
+ */
+class Sampler[T](val size: Int, val seed: Int = 42) extends FunctionNode[RDD[T], Array[T]] {
+  def apply(in: RDD[T]): Array[T] = {
+    in.takeSample(false, size, seed)
+  }
 }

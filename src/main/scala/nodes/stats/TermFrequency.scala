@@ -1,6 +1,5 @@
-package nodes.misc
+package nodes.stats
 
-import org.apache.spark.rdd.RDD
 import pipelines.Transformer
 
 /**
@@ -16,6 +15,6 @@ import pipelines.Transformer
  *
  * @param fun the weighting scheme to apply to the frequencies (defaults to identity)
  */
-case class TermFrequency(fun: Double => Double = identity) extends Transformer[Seq[Any], Seq[(Any, Double)]] {
-  override def apply(in: Seq[Any]): Seq[(Any, Double)] = in.groupBy(identity).mapValues(x => fun(x.size)).toSeq
+case class TermFrequency[T](fun: Double => Double = identity) extends Transformer[Seq[T], Seq[(T, Double)]] {
+  override def apply(in: Seq[T]): Seq[(T, Double)] = in.groupBy(identity).mapValues(x => fun(x.size)).toSeq
 }

@@ -4,9 +4,9 @@ import breeze.linalg.{Vector, argmax}
 import evaluation.MulticlassClassifierEvaluator
 import loaders.NewsgroupsDataLoader
 import nodes.learning.NaiveBayesEstimator
-import nodes.misc.{TermFrequency, CommonSparseFeatures}
 import nodes.nlp._
-import nodes.util.MaxClassifier
+import nodes.stats.TermFrequency
+import nodes.util.{CommonSparseFeatures, MaxClassifier}
 import org.apache.spark.{SparkConf, SparkContext}
 import pipelines.Logging
 import scopt.OptionParser
@@ -23,10 +23,10 @@ object NewsgroupsPipeline extends Logging {
     logInfo("Training classifier")
     val predictor = Trim.then(LowerCase())
         .then(Tokenizer())
-        .then(new NGramsFeaturizer[String](1 to conf.nGrams)).to[Seq[Any]]
+        .then(new NGramsFeaturizer[String](1 to conf.nGrams))
         .then(TermFrequency(x => 1))
         .thenEstimator(CommonSparseFeatures(conf.commonFeatures))
-        .fit(trainData.data).to[Vector[Double]]
+        .fit(trainData.data)
         .thenLabelEstimator(NaiveBayesEstimator(numClasses))
         .fit(trainData.data, trainData.labels)
         .then(MaxClassifier)

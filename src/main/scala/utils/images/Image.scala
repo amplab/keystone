@@ -256,8 +256,9 @@ trait VectorizedImage extends Image {
 /**
  * Wraps a double array.
  *
- * @vectorizedImage is indexed as follows: The pixel value for (x, y, channelIdx)
+ * @param vectorizedImage is indexed as follows: The pixel value for (x, y, channelIdx)
  *   is at y + x.metadata.yDim + channelIdx*metadata.yDim*metadata.xDim
+ * @param metadata Image metadata.
  */
 case class RowColumnMajorByteArrayVectorizedImage(
     vectorizedImage: Array[Byte],

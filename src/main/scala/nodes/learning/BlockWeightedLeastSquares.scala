@@ -45,7 +45,14 @@ class BlockWeightedLeastSquaresEstimator(
   override def fit(
       trainingFeatures: RDD[DenseVector[Double]],
       trainingLabels: RDD[DenseVector[Double]]): BlockLinearMapper = {
-    val trainingFeaturesSplit = new VectorSplitter(blockSize).apply(trainingFeatures)
+    fit(trainingFeatures, trainingLabels, None)
+  }
+
+  def fit(
+      trainingFeatures: RDD[DenseVector[Double]],
+      trainingLabels: RDD[DenseVector[Double]],
+      numFeaturesOpt: Option[Int]): BlockLinearMapper = {
+    val trainingFeaturesSplit = new VectorSplitter(blockSize, numFeaturesOpt).apply(trainingFeatures)
     fit(trainingFeaturesSplit, trainingLabels)
   }
 
@@ -99,7 +106,7 @@ object BlockWeightedLeastSquaresEstimator extends Logging {
     // Initialize models to zero here. Each model is a (W, b)
     // NOTE: We get first element from every training block here
     val models = trainingFeatures.map { block =>
-      val blockSize = block.first.length
+      // val blockSize = block.first.length
       DenseMatrix.zeros[Double](blockSize, nClasses)
     }.toArray
 

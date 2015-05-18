@@ -68,4 +68,20 @@ object MatrixUtils extends Serializable {
     (in(rows,::)).toDenseMatrix
   }
 
+  // In place deterministic shuffle
+  def shuffleArray[T](arr: Array[T]) = {
+    // Shuffle each row in the same fashion
+    val rnd = new java.util.Random(42)
+    var i = arr.length - 1
+    while (i > 0) {
+      val index = rnd.nextInt(i + 1)
+      // Simple swap
+      val a = arr(index)
+      arr(index) = arr(i)
+      arr(i) = a
+      i = i - 1
+    }
+    arr
+  }
+
 }

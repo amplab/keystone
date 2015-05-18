@@ -7,9 +7,13 @@ import pipelines.FunctionNode
 /**
  * This transformer splits the input vector into a number of blocks.
  */
-class VectorSplitter(blockSize: Int) extends FunctionNode[RDD[DenseVector[Double]], Seq[RDD[DenseVector[Double]]]] {
+class VectorSplitter(
+    blockSize: Int,
+    numFeaturesOpt: Option[Int] = None) 
+  extends FunctionNode[RDD[DenseVector[Double]], Seq[RDD[DenseVector[Double]]]] {
+
   override def apply(in: RDD[DenseVector[Double]]): Seq[RDD[DenseVector[Double]]] = {
-    val numFeatures = in.first.length
+    val numFeatures = numFeaturesOpt.getOrElse(in.first.length)
     val numBlocks = math.ceil(numFeatures.toDouble / blockSize).toInt
     (0 until numBlocks).map { blockNum =>
       in.map { vec =>
@@ -20,7 +24,7 @@ class VectorSplitter(blockSize: Int) extends FunctionNode[RDD[DenseVector[Double
   }
 
   def splitVector(in: DenseVector[Double]): Seq[DenseVector[Double]] = {
-    val numFeatures = in.length
+    val numFeatures = numFeaturesOpt.getOrElse(in.length)
     val numBlocks = math.ceil(numFeatures.toDouble / blockSize).toInt
     (0 until numBlocks).map { blockNum =>
       // Expliclity call toArray as breeze's slice is lazy

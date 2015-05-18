@@ -8,9 +8,11 @@ import pipelines.{FunctionNode, Transformer}
  * Given a collection of Dense Matrices, this will generate a sample of `numSamples` columns from the entire set.
  * @param numSamples
  */
-class ColumnSampler(numSamples: Int) extends Transformer[DenseMatrix[Float], DenseVector[Float]] {
+class ColumnSampler(
+    numSamples: Int,
+    numImgsOpt: Option[Int] = None) extends Transformer[DenseMatrix[Float], DenseVector[Float]] {
   override def apply(in: RDD[DenseMatrix[Float]]): RDD[DenseVector[Float]] = {
-    val numImgs = in.count.toInt
+    val numImgs = numImgsOpt.getOrElse(in.count.toInt)
     val samplesPerImage = numSamples/numImgs
 
     in.flatMap(mat => {

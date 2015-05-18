@@ -1,6 +1,6 @@
 package nodes.nlp
 
-import pipelines.Transformer
+import pipelines.{FunctionNode, Transformer}
 
 import org.apache.spark.rdd.RDD
 
@@ -148,7 +148,7 @@ object NGramsCountsMode extends Enumeration {
  * @param mode a control flag defined in [[NGramsCountsMode]]
  */
 case class NGramsCounts[T: ClassTag](mode: NGramsCountsMode.Value = NGramsCountsMode.Default)
-  extends Transformer[Seq[Seq[T]], (NGram[T], Int)] {
+  extends FunctionNode[RDD[Seq[Seq[T]]], RDD[(NGram[T], Int)]] {
 
   // Output uses NGram as key type, since aggregation of counts uses a hash map,
   // and we need the ngram representation to have sane .equals() and .hashCode().
@@ -179,8 +179,5 @@ case class NGramsCounts[T: ClassTag](mode: NGramsCountsMode.Value = NGramsCounts
       case _ => throw new IllegalArgumentException(s"`mode` must be `default` or `noAdd`")
     }
   }
-
-  def apply(line: Seq[Seq[T]]): (NGram[T], Int) = throw new UnsupportedOperationException(
-      "Doesn't make sense to call single-item apply() on this node")
 
 }

@@ -16,10 +16,13 @@ class StupidBackoffSuite extends FunSuite with LocalSparkContext {
     "Finals are coming",
     "Summer is coming really soon")
 
-  def featurizer(orders: Seq[Int], mode: NGramsCountsMode.Value = NGramsCountsMode.Default) =
-    Tokenizer() then
-      NGramsFeaturizer[String](orders) then
-      NGramsCounts[String](mode)
+  def featurizer(orders: Seq[Int], mode: NGramsCountsMode.Value = NGramsCountsMode.Default) = {
+    def feat(data: RDD[String]) = {
+      NGramsCounts[String](mode).apply(
+        (Tokenizer() then NGramsFeaturizer[String](orders)).apply(data))
+    }
+    feat _
+  }
 
   def requireNGramColocation[T, V](
       ngrams: RDD[(NGram[T], V)],

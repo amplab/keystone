@@ -6,8 +6,8 @@ import pipelines.{Estimator, Transformer}
 import org.apache.spark.rdd.RDD
 
 object WordFrequencyEncoder extends Estimator[Seq[String], Seq[Int]] {
-
-  private[this] val makeUnigrams = NGramsFeaturizer[String](1 to 1) then NGramsCounts[String]()
+  private[this] def makeUnigrams(data: RDD[Seq[String]]) =
+    NGramsCounts[String]().apply(NGramsFeaturizer[String](1 to 1).apply(data))
 
   // TODO: alternative approach: collectAsMap once, let driver do the work.
   def fit(data: RDD[Seq[String]]): WordFrequencyTransformer = {

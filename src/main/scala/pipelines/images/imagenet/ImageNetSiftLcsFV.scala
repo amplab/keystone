@@ -19,9 +19,9 @@ import nodes.images._
 import nodes.learning._
 import nodes.stats.{ColumnSampler, NormalizeRows, SignedHellingerMapper}
 import nodes.util.{FloatToDouble, MatrixVectorizer, Cacher}
-import nodes.util.{ClassLabelIndicatorsFromIntLabels, ZipVectors, MaxClassifier}
+import nodes.util.{ClassLabelIndicatorsFromIntLabels, ZipVectors, TopKClassifier}
 
-import utils.Image
+import utils.{Image, MatrixUtils, Stats}
 
 object ImageNetSiftLcsFV extends Serializable with Logging {
   val appName = "ImageNetSiftLcsFV"
@@ -34,14 +34,18 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
     val grayscaler = PixelScaler then GrayScaler
     val grayRDD = grayscaler(trainParsed)
 
+    val numImgs = trainParsed.count.toInt
+    var siftSamples: Option[RDD[DenseVector[Float]]] = None
+
     // Part 1a: If necessary, perform PCA on samples of the SIFT features, or load a PCA matrix from
     // disk.
     val pcaTransformer = conf.siftPcaFile match {
       case Some(fname) => new BatchPCATransformer(convert(csvread(new File(fname)), Float).t)
       case None => {
         val pcapipe = new SIFTExtractor(scaleStep = conf.siftScaleStep) then
-          new ColumnSampler(conf.numPcaSamples)
-        val pca = new PCAEstimator(conf.descDim).fit(pcapipe(grayRDD))
+          new ColumnSampler(conf.numPcaSamples, Some(numImgs))
+        siftSamples = Some(pcapipe(grayRDD).cache())
+        val pca = new PCAEstimator(conf.descDim).fit(siftSamples.get)
 
         new BatchPCATransformer(pca.pcaMat)
       }
@@ -61,9 +65,15 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
           csvread(new File(conf.siftGmmVarFile.get)),
           csvread(new File(conf.siftGmmWtsFile.get)).toDenseVector)
       case None =>
-        val sampler = new ColumnSampler(conf.numGmmSamples)
+        val samples = siftSamples.getOrElse { 
+          val siftSampler = new SIFTExtractor(scaleStep = conf.siftScaleStep) then
+            new ColumnSampler(conf.numGmmSamples, Some(numImgs))
+          siftSampler(grayRDD)
+        }
+        val vectorPCATransformer = new PCATransformer(pcaTransformer.pcaMat)
         new GaussianMixtureModelEstimator(conf.vocabSize)
-          .fit(sampler(pcaTransformedRDD).map(convert(_, Double)))
+          .fit(MatrixUtils.shuffleArray(
+            vectorPCATransformer(samples).map(convert(_, Double)).collect()).take(1e6.toInt))
     }
 
     // Part 3: Compute Fisher Vectors and signed-square-root normalization.
@@ -73,7 +83,7 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
         NormalizeRows then
         SignedHellingerMapper then
         NormalizeRows then
-        new Cacher[DenseVector[Double]]
+        new Cacher[DenseVector[Double]](Some("sift-fisher"))
 
     val trainingFeatures = fisherFeaturizer(pcaTransformedRDD)
 
@@ -85,14 +95,18 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
       conf: ImageNetSiftLcsFVConfig,
       trainParsed: RDD[Image],
       testParsed: RDD[Image]): (RDD[DenseVector[Double]], RDD[DenseVector[Double]]) = {
+
+    val numImgs = trainParsed.count.toInt
+    var lcsSamples: Option[RDD[DenseVector[Float]]] = None
     // Part 1a: If necessary, perform PCA on samples of the LCS features, or load a PCA matrix from
     // disk.
     val pcaTransformer = conf.lcsPcaFile match {
       case Some(fname) => new BatchPCATransformer(convert(csvread(new File(fname)), Float).t)
       case None => {
         val pcapipe = new LCSExtractor(conf.lcsStride, conf.lcsBorder, conf.lcsPatch) then
-          new ColumnSampler(conf.numPcaSamples)
-        val pca = new PCAEstimator(conf.descDim).fit(pcapipe(trainParsed))
+          new ColumnSampler(conf.numPcaSamples, Some(numImgs))
+        lcsSamples = Some(pcapipe(trainParsed).cache())
+        val pca = new PCAEstimator(conf.descDim).fit(lcsSamples.get)
 
         new BatchPCATransformer(pca.pcaMat)
       }
@@ -112,9 +126,15 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
           csvread(new File(conf.lcsGmmVarFile.get)),
           csvread(new File(conf.lcsGmmWtsFile.get)).toDenseVector)
       case None =>
-        val sampler = new ColumnSampler(conf.numGmmSamples)
+        val samples = lcsSamples.getOrElse { 
+          val lcsSampler = new LCSExtractor(conf.lcsStride, conf.lcsBorder, conf.lcsPatch) then
+            new ColumnSampler(conf.numPcaSamples, Some(numImgs))
+          lcsSampler(trainParsed)
+        }
+        val vectorPCATransformer = new PCATransformer(pcaTransformer.pcaMat)
         new GaussianMixtureModelEstimator(conf.vocabSize)
-          .fit(sampler(pcaTransformedRDD).map(convert(_, Double)))
+          .fit(MatrixUtils.shuffleArray(
+            vectorPCATransformer(samples).map(convert(_, Double)).collect()).take(1e6.toInt))
     }
 
     // Part 3: Compute Fisher Vectors and signed-square-root normalization.
@@ -124,7 +144,7 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
         NormalizeRows then
         SignedHellingerMapper then
         NormalizeRows then
-        new Cacher[DenseVector[Double]]
+        new Cacher[DenseVector[Double]](Some("lcs-fisher"))
 
     val trainingFeatures = fisherFeaturizer(pcaTransformedRDD)
 
@@ -137,53 +157,57 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
     val parsedRDD = ImageNetLoader(
       sc,
       conf.trainLocation,
-      conf.labelPath)
+      conf.labelPath).cache().setName("trainData")
 
     val labelGrabber = LabelExtractor then
       ClassLabelIndicatorsFromIntLabels(ImageNetLoader.NUM_CLASSES) then
       new Cacher[DenseVector[Double]]
     val trainingLabels = labelGrabber(parsedRDD)
+    trainingLabels.count
 
     // Load test data and get actual labels
     val testParsedRDD = ImageNetLoader(
       sc,
       conf.testLocation,
-      conf.labelPath)
-    val testActual = (LabelExtractor then new Cacher[Int]).apply(testParsedRDD)
+      conf.labelPath).cache().setName("testData")
+    val testActual = (labelGrabber then TopKClassifier(1)).apply(testParsedRDD)
+
+    val trainParsedImgs = (ImageExtractor).apply(parsedRDD) 
+    val testParsedImgs = (ImageExtractor).apply(testParsedRDD)
 
     // Get SIFT + FV features
-    val (trainSift, testSift) = getSiftFeatures(conf, ImageExtractor(parsedRDD),
-      ImageExtractor(testParsedRDD))
+    val (trainSift, testSift) = getSiftFeatures(conf, trainParsedImgs, testParsedImgs)
 
     // Get LCS + FV features
-    val (trainLcs, testLcs) = getLcsFeatures(conf, ImageExtractor(parsedRDD),
-      ImageExtractor(testParsedRDD))
+    val (trainLcs, testLcs) = getLcsFeatures(conf, trainParsedImgs, testParsedImgs)
 
     val trainingFeatures = ZipVectors(Seq(trainSift, trainLcs))
     val testFeatures = ZipVectors(Seq(testSift, testLcs))
 
+    trainingFeatures.count
+    val numTestImgs = testFeatures.count
+
     // Fit a weighted least squares model to the data.
     val model = new BlockWeightedLeastSquaresEstimator(
-      4096, 1, conf.lambda, conf.mixtureWeight).fit(trainingFeatures, trainingLabels)
+      4096, 1, conf.lambda, conf.mixtureWeight).fit(
+        trainingFeatures, trainingLabels, Some(2 * 2 * conf.descDim * conf.vocabSize))
 
     // Apply the model to test data and compute test error
     val testPredictedValues = model(testFeatures)
-    val testPredicted = MaxClassifier(testPredictedValues)
-    val evaluator = MulticlassClassifierEvaluator(testPredicted, testActual,
-      ImageNetLoader.NUM_CLASSES)
+    val testPredicted = TopKClassifier(5).apply(testPredictedValues)
 
-    logInfo("TEST Error is " + (100.0 * evaluator.totalError) + "%")
+    logInfo("TEST Error is " + Stats.getErrPercent(testPredicted, testActual, numTestImgs) + "%")
   }
 
   case class ImageNetSiftLcsFVConfig(
     trainLocation: String = "",
     testLocation: String = "",
     labelPath: String = "",
-    lambda: Double = 1e-4,
+    lambda: Double = 6e-5,
     mixtureWeight: Double = 0.25,
     descDim: Int = 64,
     vocabSize: Int = 16,
-    siftScaleStep: Int = 0,
+    siftScaleStep: Int = 1,
     lcsStride: Int = 4,
     lcsBorder: Int = 16,
     lcsPatch: Int = 6,
@@ -195,8 +219,8 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
     lcsGmmMeanFile: Option[String]= None,
     lcsGmmVarFile: Option[String] = None,
     lcsGmmWtsFile: Option[String] = None,
-    numPcaSamples: Int = 1e6.toInt,
-    numGmmSamples: Int = 1e6.toInt)
+    numPcaSamples: Int = 1e7.toInt,
+    numGmmSamples: Int = 1e7.toInt)
 
   def parse(args: Array[String]): ImageNetSiftLcsFVConfig = {
     new OptionParser[ImageNetSiftLcsFVConfig](appName) {

@@ -90,7 +90,7 @@ class LCSExtractor(
       c = c + 1
     }
 
-    val lcsValues = new DenseMatrix[Float](numPoolsX * numPoolsY, numLCSValues)
+    val lcsValues = new DenseMatrix[Float](numLCSValues, numPoolsX * numPoolsY)
 
     var lcsIdx = 0
     // Start at strideStart in (x, y) and  
@@ -114,10 +114,10 @@ class LCSExtractor(
         for (nx <- subPatchRange; 
              ny <- subPatchRange) {
           // lcsValues(lcsIdx) =  means(c).get((xPos + nx), (yPos + ny), 0)
-          lcsValues(xKeyPoint * numPoolsY + yKeyPoint, lcsIdx) =
+          lcsValues(lcsIdx, xKeyPoint * numPoolsY + yKeyPoint) =
             means(c).get((xPos + nx), (yPos + ny), 0).toFloat
           lcsIdx = lcsIdx + 1
-          lcsValues(xKeyPoint * numPoolsY + yKeyPoint, lcsIdx) =
+          lcsValues(lcsIdx, xKeyPoint * numPoolsY + yKeyPoint) =
             stds(c).get((xPos + nx), (yPos + ny), 0).toFloat
           lcsIdx = lcsIdx + 1
         }

@@ -10,8 +10,10 @@ import pipelines.{FunctionNode, Transformer}
  */
 class ColumnSampler(
     numSamples: Int,
-    numImgsOpt: Option[Int] = None) extends Transformer[DenseMatrix[Float], DenseVector[Float]] {
-  override def apply(in: RDD[DenseMatrix[Float]]): RDD[DenseVector[Float]] = {
+    numImgsOpt: Option[Int] = None)
+  extends FunctionNode[RDD[DenseMatrix[Float]], RDD[DenseVector[Float]]] {
+
+  def apply(in: RDD[DenseMatrix[Float]]): RDD[DenseVector[Float]] = {
     val numImgs = numImgsOpt.getOrElse(in.count.toInt)
     val samplesPerImage = numSamples/numImgs
 
@@ -22,7 +24,6 @@ class ColumnSampler(
     })
   }
 
-  def apply(in: DenseMatrix[Float]): DenseVector[Float] = ???
 }
 
 /**

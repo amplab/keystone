@@ -104,9 +104,9 @@ object BlockWeightedLeastSquaresEstimator extends Logging {
     }.collect():_*)
 
     // Initialize models to zero here. Each model is a (W, b)
-    // NOTE: We get first element from every training block here
     val models = trainingFeatures.map { block =>
-      // val blockSize = block.first.length
+      // TODO: This assumes uniform block sizes. We should check the number of columns
+      // in each block to ensure safety.
       DenseMatrix.zeros[Double](blockSize, nClasses)
     }.toArray
 

@@ -17,7 +17,7 @@ import pipelines.Logging
 import nodes.images.external.{FisherVector, SIFTExtractor}
 import nodes.images._
 import nodes.learning._
-import nodes.stats.{ColumnSampler, NormalizeRows, SignedHellingerMapper}
+import nodes.stats.{ColumnSampler, NormalizeRows, SignedHellingerMapper, BatchSignedHellingerMapper}
 import nodes.util.{FloatToDouble, MatrixVectorizer, Cacher}
 import nodes.util.{ClassLabelIndicatorsFromIntLabels, ZipVectors, TopKClassifier}
 
@@ -37,14 +37,16 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
     val numImgs = trainParsed.count.toInt
     var siftSamples: Option[RDD[DenseVector[Float]]] = None
 
+    val siftHellinger = (new SIFTExtractor(scaleStep = conf.siftScaleStep) then
+      BatchSignedHellingerMapper)
+
     // Part 1a: If necessary, perform PCA on samples of the SIFT features, or load a PCA matrix from
     // disk.
     val pcaTransformer = conf.siftPcaFile match {
       case Some(fname) => new BatchPCATransformer(convert(csvread(new File(fname)), Float).t)
       case None => {
-        val pcapipe = new SIFTExtractor(scaleStep = conf.siftScaleStep) then
-          new ColumnSampler(conf.numPcaSamples, Some(numImgs))
-        siftSamples = Some(pcapipe(grayRDD).cache())
+        siftSamples = Some(
+          new ColumnSampler(conf.numPcaSamples, Some(numImgs)).apply(siftHellinger(grayRDD)).cache())
         val pca = new PCAEstimator(conf.descDim).fit(siftSamples.get)
 
         new BatchPCATransformer(pca.pcaMat)
@@ -52,8 +54,7 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
     }
 
     // Part 2: Compute dimensionality-reduced PCA features.
-    val featurizer =  new SIFTExtractor(scaleStep = conf.siftScaleStep) then
-      pcaTransformer
+    val featurizer = siftHellinger then pcaTransformer
     val pcaTransformedRDD = featurizer(grayRDD)
 
     // Part 2a: If necessary, compute a GMM based on the dimensionality-reduced features, or load
@@ -66,9 +67,7 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
           csvread(new File(conf.siftGmmWtsFile.get)).toDenseVector)
       case None =>
         val samples = siftSamples.getOrElse { 
-          val siftSampler = new SIFTExtractor(scaleStep = conf.siftScaleStep) then
-            new ColumnSampler(conf.numGmmSamples, Some(numImgs))
-          siftSampler(grayRDD)
+          new ColumnSampler(conf.numGmmSamples, Some(numImgs)).apply(siftHellinger(grayRDD))
         }
         val vectorPCATransformer = new PCATransformer(pcaTransformer.pcaMat)
         new GaussianMixtureModelEstimator(conf.vocabSize)
@@ -103,9 +102,10 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
     val pcaTransformer = conf.lcsPcaFile match {
       case Some(fname) => new BatchPCATransformer(convert(csvread(new File(fname)), Float).t)
       case None => {
-        val pcapipe = new LCSExtractor(conf.lcsStride, conf.lcsBorder, conf.lcsPatch) then
-          new ColumnSampler(conf.numPcaSamples, Some(numImgs))
-        lcsSamples = Some(pcapipe(trainParsed).cache())
+        val pcapipe = new LCSExtractor(conf.lcsStride, conf.lcsBorder, conf.lcsPatch)
+        lcsSamples = Some(
+          new ColumnSampler(conf.numPcaSamples, Some(numImgs)).apply(
+            pcapipe(trainParsed)).cache())
         val pca = new PCAEstimator(conf.descDim).fit(lcsSamples.get)
 
         new BatchPCATransformer(pca.pcaMat)
@@ -127,9 +127,8 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
           csvread(new File(conf.lcsGmmWtsFile.get)).toDenseVector)
       case None =>
         val samples = lcsSamples.getOrElse { 
-          val lcsSampler = new LCSExtractor(conf.lcsStride, conf.lcsBorder, conf.lcsPatch) then
-            new ColumnSampler(conf.numPcaSamples, Some(numImgs))
-          lcsSampler(trainParsed)
+          val lcs = new LCSExtractor(conf.lcsStride, conf.lcsBorder, conf.lcsPatch)
+          new ColumnSampler(conf.numPcaSamples, Some(numImgs)).apply(lcs(trainParsed))
         }
         val vectorPCATransformer = new PCATransformer(pcaTransformer.pcaMat)
         new GaussianMixtureModelEstimator(conf.vocabSize)

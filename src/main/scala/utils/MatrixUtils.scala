@@ -69,9 +69,9 @@ object MatrixUtils extends Serializable {
   }
 
   // In place deterministic shuffle
-  def shuffleArray[T](arr: Array[T]) = {
+  def shuffleArray[T](arr: Array[T], seed: Int = 42) = {
     // Shuffle each row in the same fashion
-    val rnd = new java.util.Random(42)
+    val rnd = new java.util.Random(seed)
     var i = arr.length - 1
     while (i > 0) {
       val index = rnd.nextInt(i + 1)

@@ -40,9 +40,9 @@ object VOCSIFTFisher extends Serializable {
     val pcaTransformer = conf.pcaFile match {
       case Some(fname) => new BatchPCATransformer(convert(csvread(new File(fname)), Float).t)
       case None => {
-        val pcapipe = new SIFTExtractor(scaleStep = conf.scaleStep) then
-          new ColumnSampler(conf.numPcaSamples)
-        val pca = new PCAEstimator(conf.descDim).fit(pcapipe(grayRDD))
+        val pcapipe = new SIFTExtractor(scaleStep = conf.scaleStep)
+        val colSampler = new ColumnSampler(conf.numPcaSamples)
+        val pca = new PCAEstimator(conf.descDim).fit(colSampler(pcapipe(grayRDD)))
 
         new BatchPCATransformer(pca.pcaMat)
       }

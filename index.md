@@ -8,58 +8,40 @@ layout: default
 
 KeystoneML is a software framework, written in [Scala](http://scala-lang.org/), from the [UC Berkeley AMPLab](http://amplab.cs.berkeley.edu/) designed to simplify the construction of *large scale*, *end-to-end*, machine learning pipelines with [Apache Spark](http://spark.apache.org/).
 
+We contributed to the design of [spark.ml](https://spark.apache.org/docs/latest/ml-guide.html) during the development of KeystoneML, so if you're familiar with `spark.ml` then you'll recognize some shared concepts, but there are a few important differences, particularly around type safety and chaining, which lead to pipelines that are easier to construct and more robust.
+
+KeystoneML also presents a richer set of operators than those present in `spark.ml` including featurizers for images, text, and speech, and provides several example pipelines that reproduce state-of-the-art academic results on public data sets.
+
+
+## What is KeystoneML for?
 KeystoneML makes constructing even complicated machine learning pipelines easy. Here's an example text categorization pipeline which creates bigram features and creates a Naive Bayes model based on the 100,000 most common features.
 
 {% highlight scala %}
-val newsgroupsData = NewsGroupsDataLoader(sc, trainingDir, testingDir)
+val trainData = NewsGroupsDataLoader(sc, trainingDir)
 
-val predictor = Trim.then(LowerCase())
-  .then(Tokenizer())
-  .then(new NGramsFeaturizer(1 to 2)).to[Seq[Any]]
-  .then(TermFrequency(x => 1))
-  .thenEstimator(CommonSparseFeatures(100000))
-  .fit(newsgroupsData.train.data).to[Vector[Double]]
-  .thenLabelEstimator(NaiveBayesEstimator(numClasses))
-  .fit(newsgroupsData.train.data, newsgroupsData.train.labels)
-  .then(MaxClassifier)
+val predictor = Trim then
+	LowerCase() then
+	Tokenizer() then
+	new NGramsFeaturizer(1 to 2) then
+	TermFrequency(x => 1) thenEstimator
+	CommonSparseFeatures(100000).fit(newsgroupsData) thenLabelEstimator
+	NaiveBayesEstimator(numClasses).fit(trainData.data, trainData.labels) then
+	MaxClassifier()
 {% endhighlight %}
 
 Parallelization of the pipeline fitting process is handled automatically and pipeline nodes are designed to scale horizontally.
 
 Once the pipeline has been fit on training data, you can apply it to test data and evaluate its effectiveness.
 {% highlight scala %}
-val testLabels = newsgroupsData.test.labels
-val testResults = predictor(newsgroupsData.test.data)
-val eval = MulticlassClassifierEvaluator(testResults, testLabels, numClasses)
+val test = NewsGroupsDataLoader(sc, testingDir)
+val predictions = predictor(test.data)
+val eval = MulticlassClassifierEvaluator(predictions, test.labels, numClasses)
 
 println(eval.summary(newsgroupsData.classes))
 {% endhighlight %}
 
-The result of this code is the following:
-{% highlight bash %}
-a    b    c    d    e    f    g    h    i    j    k    l    m    n    o    p    q    r    s    t    <-- Classified As             
---   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --                            
-276  6    24   8    34   4    2    0    0    4    9    2    5    6    2    0    0    0    5    2    a = comp.graphics             
-44   158  109  16   23   3    1    6    0    5    3    3    8    3    7    1    0    0    1    3    b = comp.os.ms-windows.misc   
-16   5    304  18   6    6    0    0    0    1    25   0    3    6    1    0    0    0    1    0    c = comp.sys.ibm.pc.hardware  
-7    1    35   303  3    5    2    4    0    0    10   1    5    7    1    1    0    0    0    0    d = comp.sys.mac.hardware     
-38   5    16   2    320  0    1    1    0    2    1    3    4    1    0    0    0    0    0    1    e = comp.windows.x            
-2    0    6    4    0    358  4    2    0    0    9    1    2    6    1    1    0    0    0    0    f = rec.autos                 
-1    1    3    3    1    18   357  1    0    1    3    0    0    5    4    0    0    0    0    0    g = rec.motorcycles           
-7    0    1    2    0    4    1    350  19   0    3    0    0    3    2    1    0    0    2    2    h = rec.sport.baseball        
-1    1    1    0    1    1    1    9    379  0    1    1    0    0    0    0    0    0    0    3    i = rec.sport.hockey          
-11   1    3    7    1    1    0    1    0    354  7    3    0    1    0    4    0    0    2    0    j = sci.crypt                 
-21   1    34   17   4    10   3    0    1    9    281  6    2    3    0    0    0    0    0    1    k = sci.electronics           
-13   0    5    9    3    14   4    0    2    1    15   296  4    7    5    1    3    1    5    8    l = sci.med                   
-10   0    2    0    1    3    0    0    0    0    5    5    352  2    7    3    0    0    1    3    m = sci.space                 
-5    2    16   4    0    5    1    0    1    0    9    2    2    343  0    0    0    0    0    0    n = misc.forsale              
-2    0    0    2    0    3    1    0    1    4    1    0    9    0    194  84   1    2    1    5    o = talk.politics.misc        
-0    0    1    0    0    2    3    0    0    5    1    2    2    2    4    337  0    4    0    1    p = talk.politics.guns        
-1    0    0    1    1    0    3    1    1    2    1    0    1    1    12   2    333  0    7    9    q = talk.politics.mideast     
-3    0    0    0    1    3    0    1    0    0    1    5    4    2    7    11   1    127  45   40   r = talk.religion.misc        
-2    0    1    0    0    1    1    0    1    2    1    7    5    1    0    1    2    12   263  19   s = alt.atheism               
-5    0    3    0    3    0    0    0    1    0    1    2    2    1    2    0    1    4    4    369  t = soc.religion.christian    
---   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --                            
+The result of this code will contain the following:
+{% highlight bash %}              
 Avg Accuracy:	0.980
 Macro Precision:0.816
 Macro Recall:	0.797
@@ -68,8 +50,6 @@ Total Accuracy:	0.804
 Micro Precision:0.804
 Micro Recall:	0.804
 Micro F1:	0.804
-     
-
 {% endhighlight %}
 
 This relatively simple pipeline predicts the right document category over 80% of the time on the test set.
@@ -77,9 +57,11 @@ This relatively simple pipeline predicts the right document category over 80% of
 Of course, you can the pipeline in another system on new samples of text - just like any other function.
 {% highlight scala %}
 println(newsgroupsData.classes(predictor("The Philadelphia Phillies win the World Series!")))
+{% endhighlight %}
 
-//Prints out:
-//rec.sport.baseball
+Which prints the following:
+{% highlight bash %}
+rec.sport.baseball
 {% endhighlight %}
 
 KeystoneML works with much more than just text. Have a look at our [examples](examples.html) to see pipelines in the domains of computer vision and speech.

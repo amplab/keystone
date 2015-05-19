@@ -47,7 +47,6 @@ KEYSTONE_MEM=4g ./bin/run-pipeline.sh \
   pipelines.images.cifar.RandomPatchCifar \
   --trainLocation ./cifar_train.bin \
   --testLocation ./cifar_test.bin \
-  --labelPath src/test/resources/images/voclabels.csv \
   --numFilters 10000
   --lambda 3000
 {% endhighlight %}

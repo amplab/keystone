@@ -1,5 +1,5 @@
 ---
-title: KeystoneML - Large scale end-to-end machine pipelines.
+title: KeystoneML - Example Pipelines
 layout: default
 ---
 

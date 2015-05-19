@@ -19,8 +19,6 @@ By focusing on these principles, KeystoneML allows for the construction of compl
 
 We've done our best to adhere to these principles throughout the development of KeystoneML, and we hope that this translates to better applications that use it!
 
-We contributed to the design of [spark.ml](https://spark.apache.org/docs/latest/ml-guide.html) during the development of KeystoneML, so if you're familiar with `spark.ml` then you'll recognize some shared concepts, but there are a few important differences, particularly around type safety and chaining.
-
 ## Key API Concepts
 At the center of KeystoneML are a handful of core API concepts that allow us to build complex machine learning pipelines out of simple parts: `pipelines`, `nodes`, `transformers`, and `estimators`.
 

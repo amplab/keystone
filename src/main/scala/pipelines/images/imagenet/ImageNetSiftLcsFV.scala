@@ -26,6 +26,18 @@ import utils.{Image, MatrixUtils, Stats}
 object ImageNetSiftLcsFV extends Serializable with Logging {
   val appName = "ImageNetSiftLcsFV"
 
+  def constructFisherFeaturizer(gmm: GaussianMixtureModel, name: Option[String] = None) = {
+    // Part 3: Compute Fisher Vectors and signed-square-root normalization.
+    val fisherFeaturizer =  new FisherVector(gmm) then
+        FloatToDouble then
+        MatrixVectorizer then
+        NormalizeRows then
+        SignedHellingerMapper then
+        NormalizeRows then
+        new Cacher[DenseVector[Double]](name)
+    fisherFeaturizer
+  }
+
   def getSiftFeatures(
       conf: ImageNetSiftLcsFVConfig,
       trainParsed: RDD[Image],
@@ -74,19 +86,10 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
           .fit(MatrixUtils.shuffleArray(
             vectorPCATransformer(samples).map(convert(_, Double)).collect()).take(1e6.toInt))
     }
-
-    // Part 3: Compute Fisher Vectors and signed-square-root normalization.
-    val fisherFeaturizer =  new FisherVector(gmm) then
-        FloatToDouble then
-        MatrixVectorizer then
-        NormalizeRows then
-        SignedHellingerMapper then
-        NormalizeRows then
-        new Cacher[DenseVector[Double]](Some("sift-fisher"))
-
+    val fisherFeaturizer = constructFisherFeaturizer(gmm, Some("sift-fisher"))
     val trainingFeatures = fisherFeaturizer(pcaTransformedRDD)
-
     val testFeatures = (grayscaler then featurizer then fisherFeaturizer).apply(testParsed)
+
     (trainingFeatures, testFeatures)
   }
 
@@ -136,18 +139,11 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
             vectorPCATransformer(samples).map(convert(_, Double)).collect()).take(1e6.toInt))
     }
 
-    // Part 3: Compute Fisher Vectors and signed-square-root normalization.
-    val fisherFeaturizer =  new FisherVector(gmm) then
-        FloatToDouble then
-        MatrixVectorizer then
-        NormalizeRows then
-        SignedHellingerMapper then
-        NormalizeRows then
-        new Cacher[DenseVector[Double]](Some("lcs-fisher"))
+    val fisherFeaturizer = constructFisherFeaturizer(gmm, Some("lcs-fisher"))
 
     val trainingFeatures = fisherFeaturizer(pcaTransformedRDD)
-
     val testFeatures = (featurizer then fisherFeaturizer).apply(testParsed)
+
     (trainingFeatures, testFeatures)
   }
 

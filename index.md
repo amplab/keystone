@@ -19,14 +19,15 @@ KeystoneML makes constructing even complicated machine learning pipelines easy. 
 {% highlight scala %}
 val trainData = NewsGroupsDataLoader(sc, trainingDir)
 
-val predictor = Trim then
-	LowerCase() then
-	Tokenizer() then
-	new NGramsFeaturizer(1 to 2) then
-	TermFrequency(x => 1) thenEstimator
-	CommonSparseFeatures(100000).fit(newsgroupsData) thenLabelEstimator
-	NaiveBayesEstimator(numClasses).fit(trainData.data, trainData.labels) then
-	MaxClassifier()
+val predictor = Trim.then(LowerCase())
+  .then(Tokenizer())
+  .then(new NGramsFeaturizer(1 to conf.nGrams))
+  .then(TermFrequency(x => 1))
+  .thenEstimator(CommonSparseFeatures(conf.commonFeatures))
+  .fit(trainData.data)
+  .thenLabelEstimator(NaiveBayesEstimator(numClasses))
+  .fit(trainData.data, trainData.labels)
+  .then(MaxClassifier)
 {% endhighlight %}
 
 Parallelization of the pipeline fitting process is handled automatically and pipeline nodes are designed to scale horizontally.

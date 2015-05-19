@@ -13,7 +13,7 @@ class LCSExtractorSuite extends FunSuite with Logging {
     val lf = new LCSExtractor(stride=4, subPatchSize=6, strideStart=16)
     val lcsDescriptors = convert(lf.apply(testImage), Double)
 
-    val firstKeyPointSum = sum(lcsDescriptors(0, ::))
+    val firstKeyPointSum = sum(lcsDescriptors(::, 0))
     val fullFeatureSum = sum(lcsDescriptors)
 
     // Values found from running matlab code on same input file.

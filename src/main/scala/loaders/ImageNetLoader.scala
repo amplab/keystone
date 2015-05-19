@@ -9,6 +9,8 @@ import utils.LabeledImage
  */
 
 object ImageNetLoader {
+
+  val NUM_CLASSES = 1000
   
   /**
    * Loads images from @dataPath and associates images with the labels provided in @labelPath

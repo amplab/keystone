@@ -65,7 +65,7 @@ object RandomPatchCifar extends Serializable with Logging {
     val trainFeatures = featurizer(trainImages)
     val trainLabels = labelExtractor(trainData)
 
-    val model = new BlockLeastSquaresEstimator(4096, 1, conf.lambda.getOrElse(0.0)).fit(trainFeatures, trainData)
+    val model = new BlockLeastSquaresEstimator(4096, 1, conf.lambda.getOrElse(0.0)).fit(trainFeatures, trainLabels)
 
     val predictionPipeline = featurizer then model then MaxClassifier then new Cacher[Int]
 

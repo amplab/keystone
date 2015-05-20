@@ -5,7 +5,7 @@ import breeze.numerics._
 import evaluation.MulticlassClassifierEvaluator
 import loaders.CifarLoader
 import nodes.images._
-import nodes.learning.{LinearMapEstimator, ZCAWhitener, ZCAWhitenerEstimator}
+import nodes.learning.{BlockLeastSquaresEstimator, ZCAWhitener, ZCAWhitenerEstimator}
 import nodes.stats.{StandardScaler, Sampler}
 import nodes.util.{Cacher, ClassLabelIndicatorsFromIntLabels, MaxClassifier}
 import org.apache.spark.{SparkConf, SparkContext}
@@ -65,7 +65,7 @@ object RandomPatchCifar extends Serializable with Logging {
     val trainFeatures = featurizer(trainImages)
     val trainLabels = labelExtractor(trainData)
 
-    val model = LinearMapEstimator(conf.lambda).fit(trainFeatures, trainLabels)
+    val model = new BlockLeastSquaresEstimator(4096, 1, conf.lambda.getOrElse(0.0)).fit(trainFeatures, trainLabels)
 
     val predictionPipeline = featurizer then model then MaxClassifier then new Cacher[Int]
 

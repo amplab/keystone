@@ -107,8 +107,6 @@ DescSet* getMultiScaleDSIFTs_f(
     numDescPerScale[scale] = vl_dsift_get_keypoint_num( dfilt[scale] );
     retValSet->numDesc += numDescPerScale[scale];
 
-    // get the descriptors for this scale 
-    descSet[scale] = vl_dsift_get_descriptors( dfilt[scale] );
     // get the keypoints for the descriptors
     VlDsiftKeypoint const *dkeys = vl_dsift_get_keypoints( dfilt[scale] );
 

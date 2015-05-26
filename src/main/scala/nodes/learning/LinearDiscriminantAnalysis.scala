@@ -1,7 +1,7 @@
 package nodes.learning
 
 import breeze.linalg._
-import breeze.stats.mean
+import breeze.stats._
 import org.apache.spark.rdd.RDD
 import pipelines.LabelEstimator
 import utils.MatrixUtils

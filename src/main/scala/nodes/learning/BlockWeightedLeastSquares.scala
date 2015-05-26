@@ -1,5 +1,7 @@
 package nodes.learning
 
+import nodes.util.VectorSplitter
+
 import scala.collection.mutable.ArrayBuffer
 
 import breeze.linalg._
@@ -14,7 +16,6 @@ import edu.berkeley.cs.amplab.mlmatrix.{RowPartition, NormalEquations, BlockCoor
 import edu.berkeley.cs.amplab.mlmatrix.util.{Utils => MLMatrixUtils}
 
 import nodes.stats.StandardScaler
-import nodes.misc.VectorSplitter
 import pipelines.{Transformer, LabelEstimator, Logging}
 import utils.{MatrixUtils, Stats}
 
@@ -73,7 +74,14 @@ class BlockWeightedLeastSquaresEstimator(
   override def fit(
       trainingFeatures: RDD[DenseVector[Double]],
       trainingLabels: RDD[DenseVector[Double]]): BlockLinearMapper = {
-    val trainingFeaturesSplit = new VectorSplitter(blockSize).apply(trainingFeatures)
+    fit(trainingFeatures, trainingLabels, None)
+  }
+
+  def fit(
+      trainingFeatures: RDD[DenseVector[Double]],
+      trainingLabels: RDD[DenseVector[Double]],
+      numFeaturesOpt: Option[Int]): BlockLinearMapper = {
+    val trainingFeaturesSplit = new VectorSplitter(blockSize, numFeaturesOpt).apply(trainingFeatures)
     fit(trainingFeaturesSplit, trainingLabels)
   }
 
@@ -82,20 +90,18 @@ class BlockWeightedLeastSquaresEstimator(
 object BlockWeightedLeastSquaresEstimator extends Logging {
 
   /**
-   * Train a weighted block-coordinate descent model using least squares
+   * Returns a weighted block-coordinate descent model using least squares
    * NOTE: This function assumes that the trainingFeatures have been partitioned by
    * their class index. i.e. each partition of training data contains data for a single class
    *
-   * NOTE: This function makes multiple passes over the training data. Caching 
-   * @trainingFeatures and @trainingLabels before calling this function is recommended.
+   * NOTE: This function makes multiple passes over the training data.
+   * Caching @trainingFeatures and @trainingLabels before calling this function is recommended.
    * 
    * @param trainingFeatures Blocks of training data RDDs
    * @param trainingLabels training labels RDD
    * @param lambda regularization parameter
    * @param mixtureWeight how much should positive samples be weighted
-   * @param numPasses number of passes of co-ordinate descent to run
-   *
-   * @returns A BlockLinearMapper that contains the model, intercept
+   * @param numIter number of passes of co-ordinate descent to run
    */
   def trainWithL2(
       trainingFeatures: Seq[RDD[DenseVector[Double]]],
@@ -143,9 +149,9 @@ object BlockWeightedLeastSquaresEstimator extends Logging {
     }.collect():_*)
 
     // Initialize models to zero here. Each model is a (W, b)
-    // NOTE: We get first element from every training block here
-    val models = features.map { block =>
-      val blockSize = block.first.length
+    val models = trainingFeatures.map { block =>
+      // TODO: This assumes uniform block sizes. We should check the number of columns
+      // in each block to ensure safety.
       DenseMatrix.zeros[Double](blockSize, nClasses)
     }.toArray
 

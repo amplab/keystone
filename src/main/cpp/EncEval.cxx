@@ -1,6 +1,5 @@
  /** @internal
  ** @file     FisherExtractor.cxx
- ** @author   Evan Sparks
  ** @brief    JNI Wrapper for enceval GMM and Fisher Vector
  **/
 
@@ -167,8 +166,6 @@ JNIEXPORT jfloatArray JNICALL Java_utils_external_EncEval_computeGMM (
     float* componentvariance = gmmproc.get_variance(j);
 
     for (int i = 0; i < n_dim; ++i) {
-      printf("%d,", i);
-      fflush(stdout);
       meanRes[i+j*n_dim] = componentmean[i];
       varRes[i+j*n_dim] = componentvariance[i];
     }

@@ -4,9 +4,7 @@ import breeze.linalg._
 import edu.berkeley.cs.amplab.mlmatrix.{RowPartition, NormalEquations, BlockCoordinateDescent, RowPartitionedMatrix}
 import nodes.stats.{StandardScalerModel, StandardScaler}
 import org.apache.spark.rdd.RDD
-
-import nodes.misc.{VectorSplitter}
-import nodes.util.Identity
+import nodes.util.{VectorSplitter, Identity}
 import pipelines.{Transformer, LabelEstimator}
 import utils.{MatrixUtils, Stats}
 
@@ -34,7 +32,7 @@ class BlockLinearMapper(
 
   /**
    * Applies the linear model to feature vectors large enough to have been split into several RDDs.
-   * @param ins RDD of vectors to apply the model to
+   * @param in RDD of vectors to apply the model to
    * @return the output vectors
    */
   override def apply(in: RDD[DenseVector[Double]]): RDD[DenseVector[Double]] = {
@@ -163,7 +161,7 @@ class BlockLeastSquaresEstimator(blockSize: Int, numIter: Int, lambda: Double = 
     val b = RowPartitionedMatrix.fromArray(
       labelScaler.apply(trainingLabels).map(_.toArray)).cache()
     val numRows = Some(b.numRows())
-    val numCols = Some(trainingFeatures.head.first().length.toLong)
+    val numCols = Some(blockSize.toLong)
 
     // NOTE: This will cause trainingFeatures to be evaluated twice
     // which might not be optimal if its not cached ?
@@ -192,7 +190,14 @@ class BlockLeastSquaresEstimator(blockSize: Int, numIter: Int, lambda: Double = 
   override def fit(
       trainingFeatures: RDD[DenseVector[Double]],
       trainingLabels: RDD[DenseVector[Double]]): BlockLinearMapper = {
-    val vectorSplitter = new VectorSplitter(blockSize)
+    fit(trainingFeatures, trainingLabels, None)
+  }
+
+  def fit(
+      trainingFeatures: RDD[DenseVector[Double]],
+      trainingLabels: RDD[DenseVector[Double]],
+      numFeaturesOpt: Option[Int]): BlockLinearMapper = {
+    val vectorSplitter = new VectorSplitter(blockSize, numFeaturesOpt)
     val featureBlocks = vectorSplitter.apply(trainingFeatures)
     fit(featureBlocks, trainingLabels)
   }

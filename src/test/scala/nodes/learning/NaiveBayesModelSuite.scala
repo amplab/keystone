@@ -73,7 +73,7 @@ class NaiveBayesModelSuite extends FunSuite with LocalSparkContext {
   def validateModelFit(
       piData: Array[Double],
       thetaData: Array[Array[Double]],
-      model: NaiveBayesModel): Unit = {
+      model: NaiveBayesModel[Vector[Double]]): Unit = {
     def closeFit(d1: Double, d2: Double, precision: Double): Boolean = {
       (d1 - d2).abs <= precision
     }
@@ -104,7 +104,7 @@ class NaiveBayesModelSuite extends FunSuite with LocalSparkContext {
     val testRDD = sc.parallelize(testData, 2)
     testRDD.cache()
 
-    val model = NaiveBayesEstimator(3, 1.0).fit(testRDD.map(_._2), testRDD.map(_._1))
+    val model = NaiveBayesEstimator[Vector[Double]](3, 1.0).fit(testRDD.map(_._2), testRDD.map(_._1))
     validateModelFit(pi, theta, model)
 
     val validationData = NaiveBayesModelSuite.generateNaiveBayesInput(

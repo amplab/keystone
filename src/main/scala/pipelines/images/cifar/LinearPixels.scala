@@ -2,13 +2,12 @@ package pipelines.images.cifar
 
 import breeze.linalg.DenseVector
 import evaluation.MulticlassClassifierEvaluator
-import nodes.CifarLoader
-import nodes.images.{ImageVectorizer, LabelExtractor, ImageExtractor, GrayScaler}
+import loaders.CifarLoader
+import nodes.images.{GrayScaler, ImageExtractor, ImageVectorizer, LabelExtractor}
 import nodes.learning.LinearMapEstimator
-import nodes.util.{MaxClassifier, ClassLabelIndicatorsFromIntLabels, Cacher}
-import org.apache.spark.{SparkContext, SparkConf}
+import nodes.util.{Cacher, ClassLabelIndicatorsFromIntLabels, MaxClassifier}
+import org.apache.spark.{SparkConf, SparkContext}
 import pipelines.Logging
-import utils.Stats
 import scopt.OptionParser
 
 
@@ -20,7 +19,7 @@ object LinearPixels extends Logging {
     val numClasses = 10
 
     // Load and cache the training data.
-    val trainData = CifarLoader(sc, config.trainLocation).cache
+    val trainData = CifarLoader(sc, config.trainLocation).cache()
 
     // A featurizer maps input images into vectors. For this pipeline, we'll also convert the image to grayscale.
     val featurizer = GrayScaler then ImageVectorizer
@@ -56,6 +55,7 @@ object LinearPixels extends Logging {
 
   def parse(args: Array[String]): LinearPixelsConfig = new OptionParser[LinearPixelsConfig](appName) {
     head(appName, "0.1")
+    help("help") text("prints this usage text")
     opt[String]("trainLocation") required() action { (x,c) => c.copy(trainLocation=x) }
     opt[String]("testLocation") required() action { (x,c) => c.copy(testLocation=x) }
   }.parse(args, LinearPixelsConfig()).get
@@ -65,12 +65,11 @@ object LinearPixels extends Logging {
    * @param args
    */
   def main(args: Array[String]) = {
+    val appConfig = parse(args)
+
     val conf = new SparkConf().setAppName(appName)
     conf.setIfMissing("spark.master", "local[2]") // This is a fallback if things aren't set via spark submit.
-
     val sc = new SparkContext(conf)
-
-    val appConfig = parse(args)
     run(sc, appConfig)
 
     sc.stop()

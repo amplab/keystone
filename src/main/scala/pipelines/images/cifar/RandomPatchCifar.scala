@@ -1,15 +1,15 @@
-package pipelines
+package pipelines.images.cifar
 
 import breeze.linalg._
 import breeze.numerics._
 import evaluation.MulticlassClassifierEvaluator
-import nodes._
+import loaders.CifarLoader
 import nodes.images._
-import nodes.learning.{ZCAWhitenerEstimator, ZCAWhitener, LinearMapEstimator}
-import nodes.stats.StandardScaler
-import nodes.util.nodes.Sampler
-import nodes.util.{MaxClassifier, Cacher, ClassLabelIndicatorsFromIntLabels}
+import nodes.learning.{BlockLeastSquaresEstimator, ZCAWhitener, ZCAWhitenerEstimator}
+import nodes.stats.{StandardScaler, Sampler}
+import nodes.util.{Cacher, ClassLabelIndicatorsFromIntLabels, MaxClassifier}
 import org.apache.spark.{SparkConf, SparkContext}
+import pipelines.Logging
 import scopt.OptionParser
 import utils.{MatrixUtils, Stats}
 
@@ -58,17 +58,20 @@ object RandomPatchCifar extends Serializable with Logging {
         .thenEstimator(new StandardScaler).fit(trainImages)
         .then(new Cacher[DenseVector[Double]])
 
-    val labelExtractor = LabelExtractor then ClassLabelIndicatorsFromIntLabels(numClasses) then new Cacher[DenseVector[Double]]
+    val labelExtractor = LabelExtractor then
+      ClassLabelIndicatorsFromIntLabels(numClasses) then
+      new Cacher[DenseVector[Double]]
 
     val trainFeatures = featurizer(trainImages)
     val trainLabels = labelExtractor(trainData)
 
-    val model = LinearMapEstimator(conf.lambda).fit(trainFeatures, trainLabels)
+    val model = new BlockLeastSquaresEstimator(4096, 1, conf.lambda.getOrElse(0.0)).fit(trainFeatures, trainLabels)
 
     val predictionPipeline = featurizer then model then MaxClassifier then new Cacher[Int]
 
     // Calculate training error.
-    val trainEval = MulticlassClassifierEvaluator(predictionPipeline(trainImages), LabelExtractor(trainData), numClasses)
+    val trainEval = MulticlassClassifierEvaluator(
+      predictionPipeline(trainImages), LabelExtractor(trainData), numClasses)
 
     // Do testing.
     val testData = CifarLoader(sc, conf.testLocation)
@@ -95,6 +98,7 @@ object RandomPatchCifar extends Serializable with Logging {
 
   def parse(args: Array[String]): RandomCifarConfig = new OptionParser[RandomCifarConfig](appName) {
     head(appName, "0.1")
+    help("help") text("prints this usage text")
     opt[String]("trainLocation") required() action { (x,c) => c.copy(trainLocation=x) }
     opt[String]("testLocation") required() action { (x,c) => c.copy(testLocation=x) }
     opt[Int]("numFilters") action { (x,c) => c.copy(numFilters=x) }
@@ -111,12 +115,11 @@ object RandomPatchCifar extends Serializable with Logging {
    * @param args
    */
   def main(args: Array[String]) = {
+    val appConfig = parse(args)
+
     val conf = new SparkConf().setAppName(appName)
     conf.setIfMissing("spark.master", "local[2]")
-
     val sc = new SparkContext(conf)
-
-    val appConfig = parse(args)
     run(sc, appConfig)
 
     sc.stop()

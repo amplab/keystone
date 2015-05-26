@@ -138,7 +138,7 @@ class BlockLinearMapper(
 }
 
 /**
- * Fits a least squares model using block co-ordinate descent with provided
+ * Fits a least squares model using block coordinate descent with provided
  * training features and labels
  * @param blockSize size of block to use in the solver
  * @param numIter number of iterations of solver to run

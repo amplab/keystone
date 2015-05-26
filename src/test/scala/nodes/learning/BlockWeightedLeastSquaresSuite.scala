@@ -59,21 +59,25 @@ class BlockWeightedLeastSquaresSuite extends FunSuite with Logging with LocalSpa
     gradW
   }
 
+  def loadMatrixRDDs(aMatFile: String, bMatFile: String, numParts: Int, sc: SparkContext) = {
+    val aMat = csvread(new File(TestUtils.getTestResourceFileName("aMat.csv")))
+    val bMat = csvread(new File(TestUtils.getTestResourceFileName("bMat.csv")))
+
+    val fullARDD = sc.parallelize(MatrixUtils.matrixToRowArray(aMat), numParts).cache()
+    val bRDD = sc.parallelize(MatrixUtils.matrixToRowArray(bMat), numParts).cache()
+    (fullARDD, bRDD)
+  }
+
   test("BlockWeighted solver solution should have zero gradient") {
     val blockSize = 4
     val numIter = 10
     val lambda = 0.1
     val mixtureWeight = 0.3
-
     val numParts = 3
-
-    val aMat = csvread(new File(TestUtils.getTestResourceFileName("aMat.csv")))
-    val bMat = csvread(new File(TestUtils.getTestResourceFileName("bMat.csv")))
 
     sc = new SparkContext("local", "test")
 
-    val fullARDD = sc.parallelize(MatrixUtils.matrixToRowArray(aMat), numParts).cache()
-    val bRDD = sc.parallelize(MatrixUtils.matrixToRowArray(bMat), numParts).cache()
+    val (fullARDD, bRDD) = loadMatrixRDDs("aMat.csv", "bMat.csv", numParts, sc)
 
     val wsq = new BlockWeightedLeastSquaresEstimator(blockSize, numIter, lambda,
       mixtureWeight).fit(fullARDD, bRDD)
@@ -97,13 +101,9 @@ class BlockWeightedLeastSquaresSuite extends FunSuite with Logging with LocalSpa
     val numIter = 10
     val numParts = 3
 
-    val aMat = csvread(new File(TestUtils.getTestResourceFileName("aMatShuffled.csv")))
-    val bMat = csvread(new File(TestUtils.getTestResourceFileName("bMatShuffled.csv")))
-
     sc = new SparkContext("local", "test")
 
-    val fullARDD = sc.parallelize(MatrixUtils.matrixToRowArray(aMat), numParts).cache()
-    val bRDD = sc.parallelize(MatrixUtils.matrixToRowArray(bMat), numParts).cache()
+    val (fullARDD, bRDD) = loadMatrixRDDs("aMat.csv", "bMat.csv", numParts, sc)
 
     // To call computeGradient we again the rows grouped correctly
     val (shuffledA, shuffledB) = BlockWeightedLeastSquaresEstimator.groupByClasses(

@@ -327,15 +327,19 @@ object BlockWeightedLeastSquaresEstimator extends Logging {
     : (Seq[RDD[DenseVector[Double]]], RDD[DenseVector[Double]]) = {
 
     val nClasses = labels.first.length.toInt
-    val hp = new HashPartitioner(nClasses)
 
+    // NOTE(shivaram): We use two facts here
+    // a. That the hashCode of an integer is the value itself
+    // b. That the HashPartitioner in Spark works by computing (k mod nClasses)
+    // This ensures that we get a single class per partition.
+    val hp = new HashPartitioner(nClasses)
     val n = labels.partitions.length.toLong
 
     // Associate a unique id with each item
     // as Spark does not gaurantee two groupBy's will come out in the same order.
     val shuffledLabels = labels.mapPartitionsWithIndex { case (k, iter) =>
       iter.zipWithIndex.map { case (item, i) =>
-        val classIdx = item.toArray.indexOf(item.max)
+        val classIdx = argmax(item)
         (classIdx, (i * n + k, item))
       }
     }.partitionBy(hp).values.mapPartitions { part =>
@@ -345,7 +349,7 @@ object BlockWeightedLeastSquaresEstimator extends Logging {
     val shuffledFeatures = features.map { featureRDD =>
       featureRDD.zip(labels).mapPartitionsWithIndex { case (k, iter) =>
         iter.zipWithIndex.map { case (item, i) =>
-          val classIdx = item._2.toArray.indexOf(item._2.max)
+          val classIdx = argmax(item._2)
           (classIdx, (i * n + k, item._1))
         }
       }.partitionBy(hp).values.mapPartitions { part =>

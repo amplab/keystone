@@ -59,21 +59,25 @@ class BlockWeightedLeastSquaresSuite extends FunSuite with Logging with LocalSpa
     gradW
   }
 
+  def loadMatrixRDDs(aMatFile: String, bMatFile: String, numParts: Int, sc: SparkContext) = {
+    val aMat = csvread(new File(TestUtils.getTestResourceFileName("aMat.csv")))
+    val bMat = csvread(new File(TestUtils.getTestResourceFileName("bMat.csv")))
+
+    val fullARDD = sc.parallelize(MatrixUtils.matrixToRowArray(aMat), numParts).cache()
+    val bRDD = sc.parallelize(MatrixUtils.matrixToRowArray(bMat), numParts).cache()
+    (fullARDD, bRDD)
+  }
+
   test("BlockWeighted solver solution should have zero gradient") {
     val blockSize = 4
     val numIter = 10
     val lambda = 0.1
     val mixtureWeight = 0.3
-
     val numParts = 3
-
-    val aMat = csvread(new File(TestUtils.getTestResourceFileName("aMat.csv")))
-    val bMat = csvread(new File(TestUtils.getTestResourceFileName("bMat.csv")))
 
     sc = new SparkContext("local", "test")
 
-    val fullARDD = sc.parallelize(MatrixUtils.matrixToRowArray(aMat), numParts).cache()
-    val bRDD = sc.parallelize(MatrixUtils.matrixToRowArray(bMat), numParts).cache()
+    val (fullARDD, bRDD) = loadMatrixRDDs("aMat.csv", "bMat.csv", numParts, sc)
 
     val wsq = new BlockWeightedLeastSquaresEstimator(blockSize, numIter, lambda,
       mixtureWeight).fit(fullARDD, bRDD)
@@ -84,7 +88,37 @@ class BlockWeightedLeastSquaresSuite extends FunSuite with Logging with LocalSpa
 
     // norm(gradient) should be close to zero
     val gradient = computeGradient(fullARDD, bRDD, lambda, mixtureWeight, finalFullModel,
-      wsq.bOpt.get) 
+      wsq.bOpt.get)
+
+    println("norm of gradient is " + norm(gradient.toDenseVector))
+    assert(Stats.aboutEq(norm(gradient.toDenseVector), 0, 1e-2))
+  }
+
+  test("groupByClasses should work correctly") {
+    val lambda = 0.1
+    val mixtureWeight = 0.3
+    val blockSize = 4
+    val numIter = 10
+    val numParts = 3
+
+    sc = new SparkContext("local", "test")
+
+    val (fullARDD, bRDD) = loadMatrixRDDs("aMat.csv", "bMat.csv", numParts, sc)
+
+    // To call computeGradient we again the rows grouped correctly
+    val (shuffledA, shuffledB) = BlockWeightedLeastSquaresEstimator.groupByClasses(
+      Seq(fullARDD), bRDD)
+
+    val wsq = new BlockWeightedLeastSquaresEstimator(blockSize, numIter, lambda,
+      mixtureWeight).fit(fullARDD, bRDD)
+
+    val finalFullModel = wsq.xs.reduceLeft { (a, b) =>
+      DenseMatrix.vertcat(a, b)
+    }
+
+    // norm(gradient) should be close to zero
+    val gradient = computeGradient(shuffledA.head, shuffledB, lambda, mixtureWeight, finalFullModel,
+      wsq.bOpt.get)
 
     println("norm of gradient is " + norm(gradient.toDenseVector))
     assert(Stats.aboutEq(norm(gradient.toDenseVector), 0, 1e-2))

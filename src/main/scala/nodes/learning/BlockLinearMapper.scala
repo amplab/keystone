@@ -12,9 +12,11 @@ import utils.{MatrixUtils, Stats}
 /**
  * Transformer that applies a linear model to an input.
  * Different from [[LinearMapper]] in that the matrix representing the transformation
- * is split into a seq, and the vectors being transformed are likewise expected to have
- * been split into a Seq, matching the split of the transformation matrix.
+ * is split into a seq.
  * @param xs  The chunks of the matrix representing the linear model
+ * @param blockSize blockSize to split data before applying transformations
+ * @param bOpt optional intercept term to be added
+ * @param featureScalersOpt optional seq of transformers to be applied before transformation
  */
 class BlockLinearMapper(
     val xs: Seq[DenseMatrix[Double]],
@@ -37,6 +39,11 @@ class BlockLinearMapper(
     apply(vectorSplitter(in))
   }
 
+  /**
+   * Applies the linear model to feature vectors large enough to have been split into several RDDs.
+   * @param ins RDD of vectors to apply the model to, split into same size as model blocks
+   * @return the output vectors
+   */
   def apply(in: Seq[RDD[DenseVector[Double]]]): RDD[DenseVector[Double]] = {
     val res = in.zip(xs.zip(featureScalers)).map {
       case (rdd, xScaler) => {
@@ -83,12 +90,17 @@ class BlockLinearMapper(
   /**
    * Applies the linear model to feature vectors. After processing chunk i of every vector, applies
    * @param evaluator to the intermediate output vector.
-   * @param in 
+   * @param in input RDD
    */
   def applyAndEvaluate(in: RDD[DenseVector[Double]], evaluator: (RDD[DenseVector[Double]]) => Unit) {
     applyAndEvaluate(vectorSplitter(in), evaluator)
   }
 
+  /**
+   * Applies the linear model to feature vectors. After processing chunk i of every vector, applies
+   * @param evaluator to the intermediate output vector.
+   * @param in sequence of input RDD chunks
+   */
   def applyAndEvaluate(
       in: Seq[RDD[DenseVector[Double]]],
       evaluator: (RDD[DenseVector[Double]]) => Unit) {
@@ -125,9 +137,22 @@ class BlockLinearMapper(
   }
 }
 
+/**
+ * Fits a least squares model using block coordinate descent with provided
+ * training features and labels
+ * @param blockSize size of block to use in the solver
+ * @param numIter number of iterations of solver to run
+ * @param lambda L2-regularization to use
+ */
 class BlockLeastSquaresEstimator(blockSize: Int, numIter: Int, lambda: Double = 0.0)
   extends LabelEstimator[DenseVector[Double], DenseVector[Double], DenseVector[Double]] {
 
+  /**
+   * Fit a model using blocks of features and labels provided.
+   *
+   * @param trainingFeatures feature blocks to use in RDDs.
+   * @param trainingLabels RDD of labels to use.
+   */
   def fit(
       trainingFeatures: Seq[RDD[DenseVector[Double]]],
       trainingLabels: RDD[DenseVector[Double]]): BlockLinearMapper = {
@@ -156,6 +181,12 @@ class BlockLeastSquaresEstimator(blockSize: Int, numIter: Int, lambda: Double = 
     new BlockLinearMapper(models.head, blockSize, Some(labelScaler.mean), Some(featureScalers))
   }
 
+  /**
+   * Fit a model after splitting training data into appropriate blocks.
+   *
+   * @param trainingFeatures training data to use in one RDD.
+   * @param trainingLabels labels for training data in a RDD.
+   */
   override def fit(
       trainingFeatures: RDD[DenseVector[Double]],
       trainingLabels: RDD[DenseVector[Double]]): BlockLinearMapper = {

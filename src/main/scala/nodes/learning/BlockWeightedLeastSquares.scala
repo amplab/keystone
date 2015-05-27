@@ -10,6 +10,7 @@ import breeze.math._
 import breeze.stats._
 
 import org.apache.spark.rdd.RDD
+import org.apache.spark.HashPartitioner
 
 import edu.berkeley.cs.amplab.mlmatrix.{RowPartition, NormalEquations, BlockCoordinateDescent, RowPartitionedMatrix}
 import edu.berkeley.cs.amplab.mlmatrix.util.{Utils => MLMatrixUtils}
@@ -23,6 +24,14 @@ import utils.{MatrixUtils, Stats}
 case class BlockStatistics(popCov: DenseMatrix[Double], popMean: DenseVector[Double],
   jointMean: DenseMatrix[Double], jointMeanRDD: RDD[DenseVector[Double]])
 
+/**
+ * Train a weighted block-coordinate descent model using least squares
+ *
+ * @param blockSize size of blocks to use
+ * @param numIter number of passes of co-ordinate descent to run
+ * @param lambda regularization parameter
+ * @param mixtureWeight how much should positive samples be weighted
+ */
 class BlockWeightedLeastSquaresEstimator(
     blockSize: Int,
     numIter: Int,
@@ -30,6 +39,16 @@ class BlockWeightedLeastSquaresEstimator(
     mixtureWeight: Double)
   extends LabelEstimator[DenseVector[Double], DenseVector[Double], DenseVector[Double]] {
  
+  /**
+   * Fit a weighted least squares model using blocks of features provided.
+   * 
+   * NOTE: This function makes multiple passes over the training data. Caching
+   * @trainingFeatures and @trainingLabels before calling this function is recommended.
+   *
+   * @param trainingFeatures Blocks of training data RDDs
+   * @param trainingLabels training labels RDD
+   * @returns A BlockLinearMapper that contains the model, intercept
+   */
   def fit(
       trainingFeatures: Seq[RDD[DenseVector[Double]]],
       trainingLabels: RDD[DenseVector[Double]]): BlockLinearMapper = {
@@ -42,6 +61,16 @@ class BlockWeightedLeastSquaresEstimator(
       mixtureWeight)
   }
 
+  /**
+   * Split features into appropriate blocks and fit a weighted least squares model.
+   *
+   * NOTE: This function makes multiple passes over the training data. Caching
+   * @trainingFeatures and @trainingLabels before calling this function is recommended.
+   *
+   * @param trainingFeatures training data RDD
+   * @param trainingLabels training labels RDD
+   * @returns A BlockLinearMapper that contains the model, intercept
+   */
   override def fit(
       trainingFeatures: RDD[DenseVector[Double]],
       trainingLabels: RDD[DenseVector[Double]]): BlockLinearMapper = {
@@ -83,23 +112,39 @@ object BlockWeightedLeastSquaresEstimator extends Logging {
       mixtureWeight: Double): BlockLinearMapper = {
     val sc = trainingFeatures.head.context
 
-    // Check if all examples in a partition are of the same class
-    val sameClasses = trainingLabels.mapPartitions { iter =>
-      Iterator.single(iter.map(label => label.data.indexOf(label.max)).toSeq.distinct.length == 1)
-    }.collect()
-    require(sameClasses.forall(x => x), "partitions should contain elements of the same class")
+    val reshuffleData = {
+      // Check if all examples in a partition are of the same class
+      val sameClasses = trainingLabels.mapPartitions { iter =>
+        Iterator.single(iter.map(label => label.toArray.indexOf(label.max)).toSeq.distinct.length == 1)
+      }.collect()
+      if (sameClasses.forall(x => x)) {
+        val localClassIdxs = trainingLabels.mapPartitions { iter =>
+          Iterator.single(iter.map(label => label.toArray.indexOf(label.max)).toSeq.distinct.head)
+        }.collect()
+        localClassIdxs.distinct.size != localClassIdxs.size
+      } else {
+        true
+      }
+    }
 
-    val classIdxs = trainingLabels.mapPartitions { iter =>
-      Iterator.single(iter.map(label => label.toArray.indexOf(label.max)).toSeq.distinct.head)
-    }.cache().setName("classIdx")
+    val (features, labels) = if (reshuffleData) {
+      logWarning("Partitions do not contain elements of the same class. Re-shuffling")
+      groupByClasses(trainingFeatures, trainingLabels)
+    } else {
+      (trainingFeatures, trainingLabels)
+    }
     
-    val nTrain = trainingLabels.count
-    val nClasses = trainingLabels.first.length
+    val classIdxs = labels.mapPartitions { iter =>
+      Iterator.single(iter.map(label => label.toArray.indexOf(label.max)).toSeq.distinct.head)
+    }.cache().setName("classIdxs")
 
-    val trainingLabelsMat = trainingLabels.mapPartitions(part =>
+    val nTrain = labels.count
+    val nClasses = labels.first.length.toInt
+
+    val labelsMat = labels.mapPartitions(part =>
       Iterator.single(MatrixUtils.rowsToMatrix(part)))
 
-    val jointLabelMean = DenseVector(trainingLabelsMat.map { part =>
+    val jointLabelMean = DenseVector(labelsMat.map { part =>
       2*mixtureWeight + (2*(1.0-mixtureWeight) * part.rows/nTrain.toDouble) - 1
     }.collect():_*)
 
@@ -113,7 +158,7 @@ object BlockWeightedLeastSquaresEstimator extends Logging {
     val numBlocks = models.length
 
     // Initialize residual to labels - jointLabelMean
-    var residual = trainingLabelsMat.map { mat =>
+    var residual = labelsMat.map { mat =>
       mat(*, ::) :- jointLabelMean
     }.cache().setName("residual")
 
@@ -132,7 +177,7 @@ object BlockWeightedLeastSquaresEstimator extends Logging {
       while (blockIdx < numBlocks) {
         val block = randomBlocks(blockIdx)
         logInfo(s"Running pass $pass block $block")
-        val blockFeatures = trainingFeatures(block)
+        val blockFeatures = features(block)
 
         val blockFeaturesMat = blockFeatures.mapPartitions { part => 
           Iterator.single(MatrixUtils.rowsToMatrix(part))
@@ -274,6 +319,45 @@ object BlockWeightedLeastSquaresEstimator extends Logging {
     a._1 += b._1
     a._2 += b._2
     a
+  }
+
+  def groupByClasses(
+      features: Seq[RDD[DenseVector[Double]]],
+      labels: RDD[DenseVector[Double]])
+    : (Seq[RDD[DenseVector[Double]]], RDD[DenseVector[Double]]) = {
+
+    val nClasses = labels.first.length.toInt
+
+    // NOTE(shivaram): We use two facts here
+    // a. That the hashCode of an integer is the value itself
+    // b. That the HashPartitioner in Spark works by computing (k mod nClasses)
+    // This ensures that we get a single class per partition.
+    val hp = new HashPartitioner(nClasses)
+    val n = labels.partitions.length.toLong
+
+    // Associate a unique id with each item
+    // as Spark does not gaurantee two groupBy's will come out in the same order.
+    val shuffledLabels = labels.mapPartitionsWithIndex { case (k, iter) =>
+      iter.zipWithIndex.map { case (item, i) =>
+        val classIdx = argmax(item)
+        (classIdx, (i * n + k, item))
+      }
+    }.partitionBy(hp).values.mapPartitions { part =>
+      part.toArray.sortBy(_._1).map(_._2).iterator
+    }
+
+    val shuffledFeatures = features.map { featureRDD =>
+      featureRDD.zip(labels).mapPartitionsWithIndex { case (k, iter) =>
+        iter.zipWithIndex.map { case (item, i) =>
+          val classIdx = argmax(item._2)
+          (classIdx, (i * n + k, item._1))
+        }
+      }.partitionBy(hp).values.mapPartitions { part =>
+        part.toArray.sortBy(_._1).map(_._2).iterator
+      }
+    }
+
+    (shuffledFeatures, shuffledLabels)
   }
 
 }

@@ -1,6 +1,7 @@
 package pipelines.images.imagenet
 
 import java.io.File
+import scala.reflect.ClassTag
 
 import breeze.linalg._
 import breeze.stats._
@@ -25,6 +26,10 @@ import utils.{Image, MatrixUtils, Stats}
 
 object ImageNetSiftLcsFV extends Serializable with Logging {
   val appName = "ImageNetSiftLcsFV"
+
+  def makeDoubleArrayCsv[T: ClassTag](filenames: RDD[String], data: RDD[Array[T]]): RDD[String] = {
+    filenames.zip(data).map { case (x,y) => x + ","+ y.mkString(",") }
+  }
 
   def constructFisherFeaturizer(gmm: GaussianMixtureModel, name: Option[String] = None) = {
     // Part 3: Compute Fisher Vectors and signed-square-root normalization.
@@ -154,6 +159,8 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
       conf.trainLocation,
       conf.labelPath).cache().setName("trainData")
 
+    val filenamesRDD = parsedRDD.map(_.filename.get)
+
     val labelGrabber = LabelExtractor then
       ClassLabelIndicatorsFromIntLabels(ImageNetLoader.NUM_CLASSES) then
       new Cacher[DenseVector[Double]]
@@ -167,6 +174,8 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
       conf.labelPath).cache().setName("testData")
     val testActual = (labelGrabber then TopKClassifier(1)).apply(testParsedRDD)
 
+    val testFilenamesRDD = testParsedRDD.map(_.filename.get)
+
     val trainParsedImgs = (ImageExtractor).apply(parsedRDD) 
     val testParsedImgs = (ImageExtractor).apply(testParsedRDD)
 
@@ -178,6 +187,13 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
 
     val trainingFeatures = ZipVectors(Seq(trainSift, trainLcs))
     val testFeatures = ZipVectors(Seq(testSift, testLcs))
+
+    conf.featuresSaveDir.foreach { dir =>
+      makeDoubleArrayCsv(filenamesRDD, trainingFeatures.map(_.toArray)).saveAsTextFile(dir + "/featuresTrain")
+      makeDoubleArrayCsv(testFilenamesRDD, testFeatures.map(_.toArray)).saveAsTextFile(dir + "/featuresTest")
+      makeDoubleArrayCsv(filenamesRDD, trainingLabels.map(_.toArray)).saveAsTextFile(dir + "/trainLabels")
+      makeDoubleArrayCsv(testFilenamesRDD, testActual).saveAsTextFile(dir + "/testActual")
+    }
 
     trainingFeatures.count
     val numTestImgs = testFeatures.count
@@ -215,7 +231,8 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
     lcsGmmVarFile: Option[String] = None,
     lcsGmmWtsFile: Option[String] = None,
     numPcaSamples: Int = 1e7.toInt,
-    numGmmSamples: Int = 1e7.toInt)
+    numGmmSamples: Int = 1e7.toInt,
+    featuresSaveDir: Option[String] = None)
 
   def parse(args: Array[String]): ImageNetSiftLcsFVConfig = {
     new OptionParser[ImageNetSiftLcsFVConfig](appName) {
@@ -251,6 +268,8 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
       opt[String]("lcsGmmMeanFile") action { (x,c) => c.copy(lcsGmmMeanFile=Some(x)) }
       opt[String]("lcsGmmVarFile") action { (x,c) => c.copy(lcsGmmVarFile=Some(x)) }
       opt[String]("lcsGmmWtsFile") action { (x,c) => c.copy(lcsGmmWtsFile=Some(x)) }
+
+      opt[String]("featuresSaveDir") action { (x, c) => c.copy(featuresSaveDir=Some(x)) }
     }.parse(args, ImageNetSiftLcsFVConfig()).get
   }
 

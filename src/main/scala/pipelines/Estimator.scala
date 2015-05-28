@@ -16,6 +16,10 @@ abstract class Estimator[A, B] extends Serializable {
    * @return A PipelineNode (Transformer) which can be called on new data.
    */
   def fit(data: RDD[A]): Transformer[A, B]
+
+  final def unsafeFit(data: RDD[_]) = fit(data.asInstanceOf[RDD[A]])
+
+  def withData(data: RDD[A]): Node[A, B] = EstimatorWithData(this, data)
 }
 
 object Estimator extends Serializable {

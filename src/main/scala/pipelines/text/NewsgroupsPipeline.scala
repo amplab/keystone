@@ -6,7 +6,7 @@ import loaders.NewsgroupsDataLoader
 import nodes.learning.NaiveBayesEstimator
 import nodes.nlp._
 import nodes.stats.TermFrequency
-import nodes.util.{CommonSparseFeatures, MaxClassifier}
+import nodes.util.{Identity, CommonSparseFeatures, MaxClassifier}
 import org.apache.spark.{SparkConf, SparkContext}
 import pipelines.Logging
 import scopt.OptionParser
@@ -21,15 +21,16 @@ object NewsgroupsPipeline extends Logging {
 
     // Build the classifier estimator
     logInfo("Training classifier")
-    val predictor = Trim.then(LowerCase())
+    val predictorPipeline = Trim.then(LowerCase())
         .then(Tokenizer())
-        .then(new NGramsFeaturizer[String](1 to conf.nGrams))
+        .then(new NGramsFeaturizer(1 to conf.nGrams))
         .then(TermFrequency(x => 1))
         .thenEstimator(CommonSparseFeatures(conf.commonFeatures))
-        .fit(trainData.data)
+        .withData(trainData.data)
         .thenLabelEstimator(NaiveBayesEstimator(numClasses))
-        .fit(trainData.data, trainData.labels)
+        .withData(trainData.data, trainData.labels)
         .then(MaxClassifier)
+    val predictor = predictorPipeline.fit()
 
     // Evaluate the classifier
     logInfo("Evaluating classifier")

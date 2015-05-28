@@ -18,6 +18,10 @@ abstract class LabelEstimator[I, O, L] extends Serializable {
    * @return A PipelineNode which can be called on new data.
    */
   def fit(data: RDD[I], labels: RDD[L]): Transformer[I, O]
+
+  final def unsafeFit(data: RDD[_], labels: RDD[_]) = fit(data.asInstanceOf[RDD[I]], labels.asInstanceOf[RDD[L]])
+
+  def withData(data: RDD[I], labels: RDD[L]): Node[I, O] = LabelEstimatorWithData(this, data, labels)
 }
 
 object LabelEstimator extends Serializable {

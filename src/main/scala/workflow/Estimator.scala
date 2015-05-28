@@ -1,4 +1,4 @@
-package pipelines
+package workflow
 
 import java.io.Serializable
 
@@ -17,7 +17,7 @@ abstract class Estimator[A, B] extends Serializable {
    */
   def fit(data: RDD[A]): Transformer[A, B]
 
-  final def unsafeFit(data: RDD[_]) = fit(data.asInstanceOf[RDD[A]])
+  private[workflow] final def unsafeFit(data: RDD[_]) = fit(data.asInstanceOf[RDD[A]])
 
   def withData(data: RDD[A]): Node[A, B] = EstimatorWithData(this, data)
 }

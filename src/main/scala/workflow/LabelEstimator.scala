@@ -1,4 +1,4 @@
-package pipelines
+package workflow
 
 import java.io.Serializable
 
@@ -19,7 +19,7 @@ abstract class LabelEstimator[I, O, L] extends Serializable {
    */
   def fit(data: RDD[I], labels: RDD[L]): Transformer[I, O]
 
-  final def unsafeFit(data: RDD[_], labels: RDD[_]) = fit(data.asInstanceOf[RDD[I]], labels.asInstanceOf[RDD[L]])
+  private[workflow] final def unsafeFit(data: RDD[_], labels: RDD[_]) = fit(data.asInstanceOf[RDD[I]], labels.asInstanceOf[RDD[L]])
 
   def withData(data: RDD[I], labels: RDD[L]): Node[I, O] = LabelEstimatorWithData(this, data, labels)
 }

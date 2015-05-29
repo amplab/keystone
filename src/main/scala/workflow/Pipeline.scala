@@ -22,6 +22,11 @@ case class Pipeline[A, B : ClassTag] private[workflow] (nodes: Seq[Node[_, _]]) 
    */
   def thenLabelEstimator[C : ClassTag, L : ClassTag](est: LabelEstimator[B, C, L]): LabelEstimator[A, C, L] = new NodeAndLabelEstimator(this, est)
 
+  /**
+   * Chains another Transformer onto this one, producing a new Transformer that applies both in sequence
+   * @param next The Transformer to attach to the end of this one
+   * @return The output Transformer
+   */
   def then[C : ClassTag](next: Node[B, C]): Pipeline[A, C] = {
     Pipeline(nodes.flatMap(_.rewrite) ++ next.rewrite)
   }

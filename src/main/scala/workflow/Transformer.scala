@@ -30,7 +30,23 @@ abstract class Transformer[A, B : ClassTag] extends Node[A, B] {
   private[workflow] final def unsafeSingleApply(x: Any) = apply(x.asInstanceOf[A])
   private[workflow] final def unsafeRDDApply(x: Any) = apply(x.asInstanceOf[RDD[A]])
 
-  def fit(): Transformer[A, B] = this
+  /**
+   * Chains another Transformer onto this one, producing a new Transformer that applies both in sequence
+   * @param next The Transformer to attach to the end of this one
+   * @return The output Transformer
+   */
+  def then[C : ClassTag](next: Transformer[B, C]): Transformer[A, C] = {
+    PipelineModel(this.rewrite ++ next.rewrite)
+  }
+
+  /**
+   * Chains a method, producing a new Transformer that applies the method to each
+   * output item after applying this Transformer first.
+   * @param next The method to apply to each item output by this transformer
+   * @return The output Transformer
+   */
+  def thenFunction[C : ClassTag](next: B => C): Transformer[A, C] = this.then(Transformer(next))
+
   def rewrite: Seq[Transformer[_, _]] = Seq(this)
   def canElevate: Boolean = true
 }

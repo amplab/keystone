@@ -7,7 +7,7 @@ import scala.reflect.ClassTag
 /**
  * Created by tomerk11 on 5/28/15.
  */
-class NodeAndLabelEstimator[A, B, C : ClassTag, L] private[workflow] (node: Node[A, B], estimator: LabelEstimator[B, C, L]) extends LabelEstimator[A, C, L] {
+class NodeAndLabelEstimator[A, B : ClassTag, C : ClassTag, L] private[workflow] (node: Node[A, B], estimator: LabelEstimator[B, C, L]) extends LabelEstimator[A, C, L] {
   override def withData(data: RDD[A], labels: RDD[L]) = {
     node then LabelEstimatorWithData(estimator, data, labels)
   }

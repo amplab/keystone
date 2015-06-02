@@ -8,14 +8,13 @@ import pipelines.{Logging, Estimator}
 import utils.MatrixUtils
 
 /**
- * Created by tomerk11 on 6/1/15.
- */
-/**
  * Fit a Gaussian Mixture model to Data.
  *
  * @param k Number of centers to estimate.
  */
-case class BensGMMEstimator(k: Int, maxIterations: Int = 100, minClusterSize: Int = 40, stopTolerance: Double = 1e-4, weightThreshold: Double = 1e-4, smallVarianceThreshold: Double = 1e-2) extends Estimator[DenseVector[Double], DenseVector[Double]] with Logging {
+case class BensGMMEstimator(k: Int, maxIterations: Int = 100, minClusterSize: Int = 40, stopTolerance: Double = 1e-4, weightThreshold: Double = 1e-4, smallVarianceThreshold: Double = 1e-2, absoluteVarianceThreshold: Double = 1e-8) extends Estimator[DenseVector[Double], DenseVector[Double]] with Logging {
+  require(minClusterSize > 0, "Minimum cluster size must be positive")
+  require(maxIterations > 0, "maxIterations must be positive")
 
   /**
    * Currently this model works on items that fit in local memory.
@@ -33,6 +32,8 @@ case class BensGMMEstimator(k: Int, maxIterations: Int = 100, minClusterSize: In
    * @return A Gaussian Mixture Model.
    */
   def fit(samples: Array[DenseVector[Double]]): GaussianMixtureModel = {
+    require(samples.length > 0, "Must have training points")
+
     // gather data statistics
     val X = MatrixUtils.rowsToMatrix(samples)
     val numSamples = X.rows
@@ -42,7 +43,7 @@ case class BensGMMEstimator(k: Int, maxIterations: Int = 100, minClusterSize: In
     val varianceGlobal = mean(XSq(::, *)) - (meanGlobal :* meanGlobal)
 
     // set the lower bound for the gmm_variance
-    val gmmVarLB = smallVarianceThreshold * varianceGlobal
+    val gmmVarLB = max(smallVarianceThreshold * varianceGlobal, absoluteVarianceThreshold)
 
     // Use KMeans++ initialization to get the GMM center initializations
     val kMeansModel = KMeansPlusPlusEstimator(k, 1).fit(samples)
@@ -62,7 +63,6 @@ case class BensGMMEstimator(k: Int, maxIterations: Int = 100, minClusterSize: In
     var costImproving = true
     var largeEnoughClusters = true
     while ((iter < maxIterations) && costImproving && largeEnoughClusters) {
-      // TODO: RUN EM!!
       /* E-STEP */
 
       /*
@@ -73,7 +73,7 @@ case class BensGMMEstimator(k: Int, maxIterations: Int = 100, minClusterSize: In
       val sqMahlist = (XSq * gmmVars.map(0.5 / _).t) - (X * (gmmMeans :/ gmmVars).t) + (DenseMatrix.ones[Double](numSamples, 1) * (sum(gmmMeans :* gmmMeans :/ gmmVars, Axis._1).t :* 0.5))
 
       // compute the log likelihood of the approximate posterior
-      var llh = DenseMatrix.ones[Double](numSamples, 1)*(-0.5 * numFeatures * math.log(2*math.Pi) - 0.5 * sum(bLog(gmmVars), Axis._1).t + bLog(gmmWeights)) - sqMahlist
+      val llh = DenseMatrix.ones[Double](numSamples, 1) * (-0.5 * numFeatures * math.log(2 * math.Pi) - 0.5 * sum(bLog(gmmVars), Axis._1).t + bLog(gmmWeights)) - sqMahlist
 
       /*
       compute the log likelihood of the model using the incremental
@@ -103,15 +103,17 @@ case class BensGMMEstimator(k: Int, maxIterations: Int = 100, minClusterSize: In
         by shifting the llh to be peaked at 0, we avoid nasty numerical
         overflows.
         */
-        llh = llh - (max(llh(*, ::)) * DenseMatrix.ones[Double](1, k))
-        var q = exp(llh) :* (sum(exp(llh), Axis._1).map(1.0 / _) * DenseMatrix.ones[Double](1, k))
+        llh(::, *) -= max(llh(*, ::))
+        exp.inPlace(llh)
+        llh(::, *) :/= sum(llh, Axis._1)
+        var q = llh
 
         /*
         aggressive posterior thresholding: suggested by Xerox.  Thresholds
         the really small weights to sparsify the assignments.
         */
         q = q.map(x => if (x > weightThreshold) x else 0.0)
-        q :*= (sum(q, Axis._1).map(1.0 / _) * DenseMatrix.ones[Double](1, k))
+        q(::, *) :/= sum(q, Axis._1)
 
         /* M-STEP */
         val qSum = sum(q, Axis._0).toDenseVector
@@ -131,6 +133,6 @@ case class BensGMMEstimator(k: Int, maxIterations: Int = 100, minClusterSize: In
       iter += 1
     }
 
-    new GaussianMixtureModel(gmmMeans, gmmVars, gmmWeights.toDenseVector)
+    GaussianMixtureModel(gmmMeans.t, gmmVars.t, gmmWeights.toDenseVector)
   }
 }

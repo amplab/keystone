@@ -12,7 +12,7 @@ import utils.MatrixUtils
  */
 case class KMeansModel(means: DenseMatrix[Double]) extends Transformer[DenseVector[Double], DenseVector[Double]] {
   def apply(in: DenseVector[Double]): DenseVector[Double] = {
-    // TODO: Could do more efficient single-item implementation
+    // TODO: Could maybe do more efficient single-item implementation
     apply(in.asDenseMatrix).toDenseVector
   }
 
@@ -52,6 +52,8 @@ case class KMeansPlusPlusEstimator(numMeans: Int, maxIterations: Int, stopTolera
   }
 
   def fit(samples: Array[DenseVector[Double]]): KMeansModel = {
+    require(samples.length > 0, "Must have training points")
+
     val X = MatrixUtils.rowsToMatrix(samples)
     val numSamples = X.rows
     val numFeatures = X.cols
@@ -103,7 +105,6 @@ case class KMeansPlusPlusEstimator(numMeans: Int, maxIterations: Int, stopTolera
       val assignMass = sum(centerAssign, Axis._0).toDenseVector
       kMeans = centerAssign.t * X
       kMeans(::, *) :/= assignMass
-      //kMeans = diag(assignMass.map(1.0 / _).toDenseVector) * (centerAssign.t * X)
 
       if (iter > 0) {
         costImproving = (curCost(iter - 1) - curCost(iter)) >= stopTolerance * math.abs(curCost(iter - 1))

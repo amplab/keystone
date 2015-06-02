@@ -3,6 +3,8 @@ package nodes.learning
 import java.io.File
 
 import breeze.linalg._
+import breeze.numerics._
+import breeze.stats._
 import org.apache.spark.rdd.RDD
 import pipelines._
 import utils.MatrixUtils
@@ -15,11 +17,16 @@ import utils.external.EncEval
  * @param variances Cluster variances (diagonal)
  * @param weights Cluster weights.
  */
-class GaussianMixtureModel(
-    val means: DenseMatrix[Double],
-    val variances: DenseMatrix[Double],
-    val weights: DenseVector[Double])
-  extends Transformer[DenseVector[Double],DenseVector[Double]] with Logging {
+case class GaussianMixtureModel(
+    means: DenseMatrix[Double],
+    variances: DenseMatrix[Double],
+    weights: DenseVector[Double],
+    weightThreshold: Double = 1e-4)
+  extends Transformer[DenseVector[Double],DenseVector[Double]] {
+
+  private val gmmMeans = means.t
+  private val gmmVars = variances.t
+  private val gmmWeights = weights.toDenseMatrix
 
   val k = means.cols
   val dim = means.rows
@@ -28,11 +35,57 @@ class GaussianMixtureModel(
   require(weights.length == k, "Every GMM center must have a weight.")
 
   /**
-   * For now this is unimplemented. It should return the soft assignment to each cluster.
+   * Returns (thresholded) assignments to each cluster.
    * @param in A Vector
-   * @return The soft assignments of the vector according to the mixture model.
+   * @return The thresholded assignments of the vector according to the mixture model.
    */
-  override def apply(in: DenseVector[Double]): DenseVector[Double] = ???
+  def apply(in: DenseVector[Double]): DenseVector[Double] = {
+    // TODO: Could maybe do more efficient single-item implementation
+    apply(in.asDenseMatrix).toDenseVector
+  }
+
+  def apply(X: DenseMatrix[Double]): DenseMatrix[Double] = {
+    // gather data statistics
+    val numSamples = X.rows
+    val numFeatures = X.cols
+    val XSq = X :* X
+
+    /*
+    compute the squared malhanobis distance for each gaussian.
+    sq_mal_dist(i,j) || x_i - mu_j||_Lambda^2.  I am the master of
+    computing Euclidean distances without for loops.
+    */
+    val sqMahlist = (XSq * gmmVars.map(0.5 / _).t) - (X * (gmmMeans :/ gmmVars).t) + (DenseMatrix.ones[Double](numSamples, 1) * (sum(gmmMeans :* gmmMeans :/ gmmVars, Axis._1).t :* 0.5))
+
+    // compute the log likelihood of the approximate posterior
+    val llh = DenseMatrix.ones[Double](numSamples, 1) * (-0.5 * numFeatures * math.log(2 * math.Pi) - 0.5 * sum(log(gmmVars), Axis._1).t + log(gmmWeights)) - sqMahlist
+
+    /*
+    if we make progress, update our pseudo-likelihood for the E-step.
+    by shifting the llh to be peaked at 0, we avoid nasty numerical
+    overflows.
+    */
+    llh(::, *) -= max(llh(*, ::))
+    exp.inPlace(llh)
+    llh(::, *) :/= sum(llh, Axis._1)
+    var q = llh
+
+    /*
+    aggressive posterior thresholding: suggested by Xerox.  Thresholds
+    the really small weights to sparsify the assignments.
+    */
+    q = q.map(x => if (x > weightThreshold) x else 0.0)
+    q(::, *) :/= sum(q, Axis._1)
+
+    q
+  }
+
+  override def apply(in: RDD[DenseVector[Double]]): RDD[DenseVector[Double]] = {
+    in.mapPartitions { partition =>
+      val assignments = apply(MatrixUtils.rowsToMatrix(partition))
+      MatrixUtils.matrixToRowArray(assignments).iterator
+    }
+  }
 }
 
 

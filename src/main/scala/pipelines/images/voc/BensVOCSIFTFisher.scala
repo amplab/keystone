@@ -48,9 +48,6 @@ object BensVOCSIFTFisher extends Serializable {
           .map(MatrixUtils.rowsToMatrix)
           .map(x => convert(x.t, Float))
 
-    // Extract the SIFT features
-    val siftFeaturizer = new SIFTExtractor(scaleStep = conf.scaleStep)
-
     // Part 1a: If necessary, perform PCA on samples of the SIFT features, or load a PCA matrix from disk.
     val pcaTransformer = conf.pcaFile match {
       case Some(fname) => new BatchPCATransformer(convert(csvread(new File(fname)), Float).t)

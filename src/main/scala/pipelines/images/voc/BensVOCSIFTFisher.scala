@@ -13,7 +13,7 @@ import nodes.stats.{ColumnSampler, NormalizeRows, SignedHellingerMapper}
 import nodes.util.{Cacher, ClassLabelIndicatorsFromIntArrayLabels, FloatToDouble, MatrixVectorizer}
 import org.apache.spark.{SparkConf, SparkContext}
 import scopt.OptionParser
-import utils.Image
+import utils.{MatrixUtils, Image}
 
 object BensVOCSIFTFisher extends Serializable {
   val appName = "VOCSIFTFisher"
@@ -32,28 +32,41 @@ object BensVOCSIFTFisher extends Serializable {
 
     val trainingLabels = labelGrabber(parsedRDD)
 
-    // Part 1: Scale and convert images to grayscale.
-    val grayscaler = MultiLabeledImageExtractor then PixelScaler then GrayScaler then new Cacher[Image]
-    val grayRDD = grayscaler(parsedRDD)
+    // Part 1: Scale and convert images to grayscale, and extract the sifts
+    val grayscalerAndSift = MultiLabeledImageExtractor then
+        PixelScaler then
+        GrayScaler then
+        new Cacher[Image] then
+        new SIFTExtractor(scaleStep = conf.scaleStep)
+
+    // Also throws out the 0 sifts
+    val descTol = 1e-6 // Throw away a SIFT descriptor if it has norm smaller than this tolerance
+    val siftRDD = grayscalerAndSift(parsedRDD)
+          .map(x => convert(x.t, Double))
+          .map(MatrixUtils.matrixToRowArray)
+          .map(_.filter(sift => norm(sift, 2) > descTol))
+          .map(MatrixUtils.rowsToMatrix)
+          .map(x => convert(x.t, Float))
+
+    // Extract the SIFT features
+    val siftFeaturizer = new SIFTExtractor(scaleStep = conf.scaleStep)
 
     // Part 1a: If necessary, perform PCA on samples of the SIFT features, or load a PCA matrix from disk.
     val pcaTransformer = conf.pcaFile match {
       case Some(fname) => new BatchPCATransformer(convert(csvread(new File(fname)), Float).t)
       case None => {
-        val pcapipe = new SIFTExtractor(scaleStep = conf.scaleStep)
         val colSampler = new ColumnSampler(conf.numPcaSamples)
-        val pca = new PCAEstimator(conf.descDim).fit(colSampler(pcapipe(grayRDD)))
+        val pca = new PCAEstimator(conf.descDim).fit(colSampler(siftRDD))
 
         new BatchPCATransformer(pca.pcaMat)
       }
     }
 
     // Part 2: Compute dimensionality-reduced PCA features.
-    val featurizer =  new SIFTExtractor(scaleStep = conf.scaleStep) then
-      pcaTransformer then
+    val featurizer = pcaTransformer then
       new Cacher[DenseMatrix[Float]]
 
-    val firstCachedRDD = featurizer(grayRDD)
+    val firstCachedRDD = featurizer(siftRDD)
 
     // Part 2a: If necessary, compute a GMM based on the dimensionality-reduced features, or load from disk.
     val gmm = conf.gmmMeanFile match {
@@ -92,7 +105,7 @@ object BensVOCSIFTFisher extends Serializable {
       VOCDataPath(conf.testLocation, "VOCdevkit/VOC2007/JPEGImages/", Some(1)),
       VOCLabelPath(conf.labelPath)).repartition(conf.numParts)
 
-    val testCachedRDD = featurizer(grayscaler(testParsedRDD))
+    val testCachedRDD = featurizer(grayscalerAndSift(testParsedRDD))
 
     println("Test Cached RDD has: " + testCachedRDD.count)
     val testFeatures = fisherFeaturizer(testCachedRDD)

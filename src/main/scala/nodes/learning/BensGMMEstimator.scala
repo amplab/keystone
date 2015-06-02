@@ -115,7 +115,7 @@ case class BensGMMEstimator(k: Int, numIters: Int = 100, minClusterSize: Int = 4
 
         /* M-STEP */
         val qSum = sum(q, Axis._0)
-        if (qSum.toArray.exists(_ < 40.0)) {
+        if (qSum.toArray.exists(_ < minClusterSize)) {
           logWarning("Unbalanced clustering, try less centers")
           largeEnoughClusters = false
         } else {

@@ -7,13 +7,34 @@ import org.apache.spark.rdd.RDD
 import pipelines.{Estimator, Transformer}
 import utils.MatrixUtils
 
+/**
+ * Returns the assignment of each vector to the nearest cluster.
+ */
 case class KMeansModel(means: DenseMatrix[Double]) extends Transformer[DenseVector[Double], DenseVector[Double]] {
-  /**
-   * For now this is unimplemented. It should return the hard assignment to each cluster.
-   * @param in A Vector
-   * @return The assignment of the vector according to the kmeans model.
-   */
-  def apply(in: DenseVector[Double]): DenseVector[Double] = ???
+  def apply(in: DenseVector[Double]): DenseVector[Double] = {
+    // TODO: Could do more efficient single-item implementation
+    apply(in.asDenseMatrix).toDenseVector
+  }
+
+  def apply(in: DenseMatrix[Double]): DenseMatrix[Double] = {
+    val XSqNormHlf: DenseVector[Double] = sum(in :* in, Axis._1) / 2.0
+    /* compute the distance to all of the centers and assign each point to its nearest center. */
+    val sqDistToCenters = (XSqNormHlf * DenseMatrix.ones[Double](1, means.rows)) - (in * means.t) + (DenseMatrix.ones[Double](in.rows, 1) * (0.5 * sum(means :* means, Axis._1)).t)
+    val nearestCenter = argmin(sqDistToCenters(*, ::))
+
+    DenseMatrix.tabulate(in.rows, means.rows) {
+      case (row: Int, col: Int) => {
+        if (nearestCenter(row) == col) 1.0 else 0.0
+      }
+    }
+  }
+
+  override def apply(in: RDD[DenseVector[Double]]): RDD[DenseVector[Double]] = {
+    in.mapPartitions { partition =>
+      val assignments = apply(MatrixUtils.rowsToMatrix(partition))
+      MatrixUtils.matrixToRowArray(assignments).iterator
+    }
+  }
 }
 
 /**
@@ -22,10 +43,10 @@ case class KMeansModel(means: DenseMatrix[Double]) extends Transformer[DenseVect
  * algorithm with the k-means++ initialization scheme.
  *
  * @param numMeans
- * @param numRounds
+ * @param numIters
  * @param stopTolerance Tolerance used to decide when to terminate Lloyd's algorithm
  */
-case class KMeansPlusPlusEstimator(numMeans: Int, numRounds: Int, stopTolerance: Double = 1e-3) extends Estimator[DenseVector[Double], DenseVector[Double]] {
+case class KMeansPlusPlusEstimator(numMeans: Int, numIters: Int, stopTolerance: Double = 1e-3) extends Estimator[DenseVector[Double], DenseVector[Double]] {
   def fit(data: RDD[DenseVector[Double]]): KMeansModel = {
     fit(data.collect())
   }
@@ -49,22 +70,22 @@ case class KMeansPlusPlusEstimator(numMeans: Int, numRounds: Int, stopTolerance:
       val sqDistToNewCenter = XSqNormHlf - (X * curCenter.t) + (0.5 * curCenterNorm * curCenterNorm)
 
       curSqDistanceToClusters = if (k > 0) {
-        DenseVector((0 until numSamples).map(i => math.min(sqDistToNewCenter(i), curSqDistanceToClusters(i))).toArray)
+        min(sqDistToNewCenter, curSqDistanceToClusters)
       } else {
         sqDistToNewCenter
       }
 
       // add a new center by the k-means++ rule
-      centers(k + 1) = Multinomial(curSqDistanceToClusters.map(math.max(0, _))).draw()
+      centers(k + 1) = Multinomial(max(curSqDistanceToClusters, 0.0)).draw()
 
       k += 1
     }
 
     var kMeans = X(centers.toSeq, ::).toDenseMatrix
-    val curCost = DenseVector.zeros[Double](numRounds)
+    val curCost = DenseVector.zeros[Double](numIters)
     var iter = 0
     var costImproving = true
-    while ((iter < numRounds) && costImproving) {
+    while ((iter < numIters) && costImproving) {
       /* compute the distance to all of the centers and assign each point to its
          nearest center. (Again, mad slick and vectorized). */
       val sqDistToCenters = (XSqNormHlf * DenseMatrix.ones[Double](1, numMeans)) - (X * kMeans.t) + (DenseMatrix.ones[Double](numSamples, 1) * (0.5 * sum(kMeans :* kMeans, Axis._1)).t)
@@ -84,7 +105,7 @@ case class KMeansPlusPlusEstimator(numMeans: Int, numRounds: Int, stopTolerance:
 
       iter += 1
       if (iter > 0) {
-        costImproving = (curCost(iter - 1) - curCost(iter)) < stopTolerance * math.abs(curCost(iter - 1))
+        costImproving = (curCost(iter - 1) - curCost(iter)) >= stopTolerance * math.abs(curCost(iter - 1))
       }
     }
 

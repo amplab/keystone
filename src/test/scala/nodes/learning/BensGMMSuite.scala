@@ -21,7 +21,11 @@ class BensGMMSuite extends FunSuite with LocalSparkContext with Logging {
 
     val center = DenseVector[Double](1.0, 3.0, 4.0).asDenseMatrix
     val gmm = BensGMMEstimator(k, minClusterSize = 1).fit(data)
-    logInfo("Sup")
+
+    assert(gmm.means.t === center)
+
+    // TODO: TEST Variances!
+    gmm.apply(data)
   }
 
   test("GMM Two Centers") {
@@ -42,6 +46,8 @@ class BensGMMSuite extends FunSuite with LocalSparkContext with Logging {
     )
 
     val gmm = BensGMMEstimator(k, minClusterSize = 1).fit(data)
+    // TODO: TEST Means & Variances!
+
     /*val fitCenters = MatrixUtils.matrixToRowArray(kMeans.means).toSet
     assert(fitCenters === centers )
 
@@ -53,7 +59,7 @@ class BensGMMSuite extends FunSuite with LocalSparkContext with Logging {
     logInfo("sup")
   }
 
-  test("GMM Transformer") {
+  test("GaussianMixtureModel test") {
     sc = new SparkContext("local", "test")
 
     val data = Array(
@@ -63,27 +69,34 @@ class BensGMMSuite extends FunSuite with LocalSparkContext with Logging {
       DenseVector[Double](1.0, 1.0, 0.0)
     )
 
-    val centers = MatrixUtils.rowsToMatrix(Array(
+    val means = MatrixUtils.rowsToMatrix(Array(
       DenseVector[Double](1.0, 2.0, 0.0),
       DenseVector[Double](1.0, 3.0, 6.0)
-    ))
+    )).t
+
+    val variances = MatrixUtils.rowsToMatrix(Array(
+      DenseVector[Double](1e-8, 1.0, 0.09),
+      DenseVector[Double](1e-8, 1.0, 0.09)
+    )).t
+
+    val weights = DenseVector[Double](0.5, 0.5)
 
     val clusterOne = DenseVector[Double](1.0, 0.0)
     val clusterTwo = DenseVector[Double](0.0, 1.0)
 
     val assignments = Seq(clusterTwo, clusterOne, clusterTwo, clusterOne)
-    val kMeans = KMeansModel(centers)
+    val gmm = GaussianMixtureModel(means, variances, weights)
 
     // Test Single Apply
-    assert(kMeans.apply(DenseVector[Double](1.0, 3.0, 0.0)) === clusterOne)
-    assert(kMeans.apply(DenseVector[Double](1.0, 1.0, 0.0)) === clusterOne)
-    assert(kMeans.apply(DenseVector[Double](1.0, 2.0, 6.0)) === clusterTwo)
-    assert(kMeans.apply(DenseVector[Double](1.0, 4.0, 6.0)) === clusterTwo)
+    assert(gmm.apply(DenseVector[Double](1.0, 3.0, 0.0)) === clusterOne)
+    assert(gmm.apply(DenseVector[Double](1.0, 1.0, 0.0)) === clusterOne)
+    assert(gmm.apply(DenseVector[Double](1.0, 2.0, 6.0)) === clusterTwo)
+    assert(gmm.apply(DenseVector[Double](1.0, 4.0, 6.0)) === clusterTwo)
 
     // Test Matrix Apply
-    assert(kMeans.apply(MatrixUtils.rowsToMatrix(data)) === MatrixUtils.rowsToMatrix(assignments))
+    assert(gmm.apply(MatrixUtils.rowsToMatrix(data)) === MatrixUtils.rowsToMatrix(assignments))
 
     // Test RDD Apply
-    assert(kMeans.apply(sc.parallelize(data)).collect().toSeq === assignments)
+    assert(gmm.apply(sc.parallelize(data)).collect().toSeq === assignments)
   }
 }

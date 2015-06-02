@@ -43,10 +43,10 @@ case class KMeansModel(means: DenseMatrix[Double]) extends Transformer[DenseVect
  * algorithm with the k-means++ initialization scheme.
  *
  * @param numMeans
- * @param numIters
+ * @param maxIterations
  * @param stopTolerance Tolerance used to decide when to terminate Lloyd's algorithm
  */
-case class KMeansPlusPlusEstimator(numMeans: Int, numIters: Int, stopTolerance: Double = 1e-3) extends Estimator[DenseVector[Double], DenseVector[Double]] {
+case class KMeansPlusPlusEstimator(numMeans: Int, maxIterations: Int, stopTolerance: Double = 1e-3) extends Estimator[DenseVector[Double], DenseVector[Double]] {
   def fit(data: RDD[DenseVector[Double]]): KMeansModel = {
     fit(data.collect())
   }
@@ -82,10 +82,10 @@ case class KMeansPlusPlusEstimator(numMeans: Int, numIters: Int, stopTolerance: 
     }
 
     var kMeans = X(centers.toSeq, ::).toDenseMatrix
-    val curCost = DenseVector.zeros[Double](numIters)
+    val curCost = DenseVector.zeros[Double](maxIterations)
     var iter = 0
     var costImproving = true
-    while ((iter < numIters) && costImproving) {
+    while ((iter < maxIterations) && costImproving) {
       /* compute the distance to all of the centers and assign each point to its
          nearest center. (Again, mad slick and vectorized). */
       val sqDistToCenters = (XSqNormHlf * DenseMatrix.ones[Double](1, numMeans)) - (X * kMeans.t) + (DenseMatrix.ones[Double](numSamples, 1) * (0.5 * sum(kMeans :* kMeans, Axis._1)).t)
@@ -100,13 +100,16 @@ case class KMeansPlusPlusEstimator(numMeans: Int, numIters: Int, stopTolerance: 
         }
       }
 
-      val assignMass = sum(centerAssign, Axis._0)
-      kMeans = diag(assignMass.map(1.0 / _)) * (centerAssign.t * X)
+      val assignMass = sum(centerAssign, Axis._0).toDenseVector
+      kMeans = centerAssign.t * X
+      kMeans(::, *) :/= assignMass
+      //kMeans = diag(assignMass.map(1.0 / _).toDenseVector) * (centerAssign.t * X)
 
-      iter += 1
       if (iter > 0) {
         costImproving = (curCost(iter - 1) - curCost(iter)) >= stopTolerance * math.abs(curCost(iter - 1))
       }
+
+      iter += 1
     }
 
     KMeansModel(kMeans)

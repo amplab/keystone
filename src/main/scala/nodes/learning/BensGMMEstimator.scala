@@ -15,7 +15,7 @@ import utils.MatrixUtils
  *
  * @param k Number of centers to estimate.
  */
-case class BensGMMEstimator(k: Int, numIters: Int = 100, minClusterSize: Int = 40, stopTolerance: Double = 1e-4, weightThreshold: Double = 1e-4, smallVarianceThreshold: Double = 1e-2) extends Estimator[DenseVector[Double], DenseVector[Double]] with Logging {
+case class BensGMMEstimator(k: Int, maxIterations: Int = 100, minClusterSize: Int = 40, stopTolerance: Double = 1e-4, weightThreshold: Double = 1e-4, smallVarianceThreshold: Double = 1e-2) extends Estimator[DenseVector[Double], DenseVector[Double]] with Logging {
 
   /**
    * Currently this model works on items that fit in local memory.
@@ -45,11 +45,11 @@ case class BensGMMEstimator(k: Int, numIters: Int = 100, minClusterSize: Int = 4
     val gmmVarLB = smallVarianceThreshold * varianceGlobal
 
     // Use KMeans++ initialization to get the GMM center initializations
-    val kMeansModel = KMeansPlusPlusEstimator(k, 0).fit(samples)
+    val kMeansModel = KMeansPlusPlusEstimator(k, 1).fit(samples)
     val centerAssignment = kMeansModel.apply(X)
-    val assignMass = sum(centerAssignment, Axis._0)
+    val assignMass = sum(centerAssignment, Axis._0).toDenseVector
 
-    var gmmWeights = assignMass / numSamples.toDouble
+    var gmmWeights = assignMass.asDenseMatrix / numSamples.toDouble
     var gmmMeans = diag(assignMass.map(1.0 / _)) * (centerAssignment.t * X)
     var gmmVars = diag(assignMass.map(1.0 / _)) * (centerAssignment.t * XSq) - (gmmMeans :* gmmMeans)
 
@@ -57,11 +57,11 @@ case class BensGMMEstimator(k: Int, numIters: Int = 100, minClusterSize: Int = 4
     gmmVars = max(gmmVars, DenseMatrix.ones[Double](k, 1) * gmmVarLB)
 
     // Run EM!
-    val curCost = DenseVector.zeros[Double](numIters)
+    val curCost = DenseVector.zeros[Double](maxIterations)
     var iter = 0
     var costImproving = true
     var largeEnoughClusters = true
-    while ((iter < numIters) && costImproving && largeEnoughClusters) {
+    while ((iter < maxIterations) && costImproving && largeEnoughClusters) {
       // TODO: RUN EM!!
       /* E-STEP */
 
@@ -114,12 +114,12 @@ case class BensGMMEstimator(k: Int, numIters: Int = 100, minClusterSize: Int = 4
         q :*= (sum(q, Axis._1).map(1.0 / _) * DenseMatrix.ones[Double](1, k))
 
         /* M-STEP */
-        val qSum = sum(q, Axis._0)
+        val qSum = sum(q, Axis._0).toDenseVector
         if (qSum.toArray.exists(_ < minClusterSize)) {
           logWarning("Unbalanced clustering, try less centers")
           largeEnoughClusters = false
         } else {
-          gmmWeights = qSum / numSamples.toDouble
+          gmmWeights = qSum.asDenseMatrix / numSamples.toDouble
           gmmMeans = diag(qSum.map(1.0 / _)) * (q.t * X)
           gmmVars = diag(qSum.map(1.0 / _)) * (q.t * XSq) - (gmmMeans :* gmmMeans)
 

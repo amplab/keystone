@@ -37,8 +37,6 @@ case class BensGMMEstimator(k: Int, maxIterations: Int = 100, minClusterSize: In
     require(samples.length > 0, "Must have training points")
 
     val X = MatrixUtils.rowsToMatrix(samples)
-    csvwrite(new File("/root/keystone/gmm_samples.csv"), X)
-
 
     // Use KMeans++ initialization to get the GMM center initializations
     val kMeansModel = KMeansPlusPlusEstimator(k, 1).fit(samples)

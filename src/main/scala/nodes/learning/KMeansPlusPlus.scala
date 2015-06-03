@@ -8,9 +8,13 @@ import pipelines.{Estimator, Transformer}
 import utils.MatrixUtils
 
 /**
- * Returns the assignment of each vector to the nearest cluster.
+ *
+ * @param means matrix of dimension numClusters by numFeatures
  */
 case class KMeansModel(means: DenseMatrix[Double]) extends Transformer[DenseVector[Double], DenseVector[Double]] {
+  /**
+   * Returns the assignment of each vector to the nearest cluster.
+   */
   def apply(in: DenseVector[Double]): DenseVector[Double] = {
     // TODO: Could maybe do more efficient single-item implementation
     apply(in.asDenseMatrix).toDenseVector
@@ -19,14 +23,28 @@ case class KMeansModel(means: DenseMatrix[Double]) extends Transformer[DenseVect
   def apply(in: DenseMatrix[Double]): DenseMatrix[Double] = {
     val XSqNormHlf: DenseVector[Double] = sum(in :* in, Axis._1) / 2.0
     /* compute the distance to all of the centers and assign each point to its nearest center. */
-    val sqDistToCenters = (XSqNormHlf * DenseMatrix.ones[Double](1, means.rows)) - (in * means.t) + (DenseMatrix.ones[Double](in.rows, 1) * (0.5 * sum(means :* means, Axis._1)).t)
+    val sqDistToCenters = in * means.t
+    sqDistToCenters :*= -1.0
+    sqDistToCenters(::, *) += XSqNormHlf
+    sqDistToCenters(*, ::) += (sum(means :* means, Axis._1) :*= 0.5)
+
     val nearestCenter = argmin(sqDistToCenters(*, ::))
 
-    DenseMatrix.tabulate(in.rows, means.rows) {
-      case (row: Int, col: Int) => {
-        if (nearestCenter(row) == col) 1.0 else 0.0
+    // reuse the previous (potentially large) matrix to keep memory usage down
+    val centerAssign = sqDistToCenters
+    var row: Int = 0
+    while (row < in.rows) {
+      var col: Int = 0
+      while (col < means.rows) {
+        centerAssign(row, col) = 0.0
+        col += 1
       }
+
+      centerAssign(row, nearestCenter(row)) = 1.0
+      row += 1
     }
+
+    centerAssign
   }
 
   override def apply(in: RDD[DenseVector[Double]]): RDD[DenseVector[Double]] = {
@@ -69,7 +87,7 @@ case class KMeansPlusPlusEstimator(numMeans: Int, maxIterations: Int, stopTolera
       val curCenter = X(centers(k), ::)
       val curCenterNorm = norm(curCenter, 2)
       // slick vectorized code to compute the distance to the current center
-      val sqDistToNewCenter = XSqNormHlf - (X * curCenter.t) + (0.5 * curCenterNorm * curCenterNorm)
+      val sqDistToNewCenter = (XSqNormHlf - (X * curCenter.t)) += (0.5 * curCenterNorm * curCenterNorm)
 
       curSqDistanceToClusters = if (k > 0) {
         min(sqDistToNewCenter, curSqDistanceToClusters)
@@ -90,16 +108,28 @@ case class KMeansPlusPlusEstimator(numMeans: Int, maxIterations: Int, stopTolera
     while ((iter < maxIterations) && costImproving) {
       /* compute the distance to all of the centers and assign each point to its
          nearest center. (Again, mad slick and vectorized). */
-      val sqDistToCenters = (XSqNormHlf * DenseMatrix.ones[Double](1, numMeans)) - (X * kMeans.t) + (DenseMatrix.ones[Double](numSamples, 1) * (0.5 * sum(kMeans :* kMeans, Axis._1)).t)
+      val sqDistToCenters = X * kMeans.t
+      sqDistToCenters :*= -1.0
+      sqDistToCenters(::, *) += XSqNormHlf
+      sqDistToCenters(*, ::) += (sum(kMeans :* kMeans, Axis._1) :*= 0.5)
+
       val bestDist = min(sqDistToCenters(*, ::))
       curCost(iter) = mean(bestDist)
 
       val nearestCenter = argmin(sqDistToCenters(*, ::))
 
-      val centerAssign = DenseMatrix.tabulate(numSamples, numMeans) {
-        case (row: Int, col: Int) => {
-          if (nearestCenter(row) == col) 1.0 else 0.0
+      // For memory efficiency reuse the big sqDistToCenters matrix
+      val centerAssign = sqDistToCenters
+      var row: Int = 0
+      while (row < numSamples) {
+        var col: Int = 0
+        while (col < numMeans) {
+          centerAssign(row, col) = 0.0
+          col += 1
         }
+
+        centerAssign(row, nearestCenter(row)) = 1.0
+        row += 1
       }
 
       val assignMass = sum(centerAssign, Axis._0).toDenseVector

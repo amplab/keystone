@@ -34,8 +34,14 @@ case class BensGMMEstimator(k: Int, maxIterations: Int = 100, minClusterSize: In
   def fit(samples: Array[DenseVector[Double]]): GaussianMixtureModel = {
     require(samples.length > 0, "Must have training points")
 
-    // gather data statistics
     val X = MatrixUtils.rowsToMatrix(samples)
+
+    // Use KMeans++ initialization to get the GMM center initializations
+    val kMeansModel = KMeansPlusPlusEstimator(k, 1).fit(samples)
+    val centerAssignment = kMeansModel.apply(X)
+    val assignMass = sum(centerAssignment, Axis._0).toDenseVector
+
+    // gather data statistics
     val numSamples = X.rows
     val numFeatures = X.cols
     val meanGlobal = mean(X(::, *))
@@ -44,11 +50,6 @@ case class BensGMMEstimator(k: Int, maxIterations: Int = 100, minClusterSize: In
 
     // set the lower bound for the gmm_variance
     val gmmVarLB = max(smallVarianceThreshold * varianceGlobal, absoluteVarianceThreshold)
-
-    // Use KMeans++ initialization to get the GMM center initializations
-    val kMeansModel = KMeansPlusPlusEstimator(k, 1).fit(samples)
-    val centerAssignment = kMeansModel.apply(X)
-    val assignMass = sum(centerAssignment, Axis._0).toDenseVector
 
     var gmmWeights = assignMass.asDenseMatrix / numSamples.toDouble
     var gmmMeans = diag(assignMass.map(1.0 / _)) * (centerAssignment.t * X)

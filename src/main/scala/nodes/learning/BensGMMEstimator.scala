@@ -12,7 +12,7 @@ import utils.MatrixUtils
  *
  * @param k Number of centers to estimate.
  */
-case class BensGMMEstimator(k: Int, maxIterations: Int = 100, minClusterSize: Int = 40, stopTolerance: Double = 1e-4, weightThreshold: Double = 1e-4, smallVarianceThreshold: Double = 1e-2, absoluteVarianceThreshold: Double = 1e-8) extends Estimator[DenseVector[Double], DenseVector[Double]] with Logging {
+case class BensGMMEstimator(k: Int, maxIterations: Int = 100, minClusterSize: Int = 40, stopTolerance: Double = 1e-4, weightThreshold: Double = 1e-4, smallVarianceThreshold: Double = 1e-2, absoluteVarianceThreshold: Double = 0) extends Estimator[DenseVector[Double], DenseVector[Double]] with Logging {
   require(minClusterSize > 0, "Minimum cluster size must be positive")
   require(maxIterations > 0, "maxIterations must be positive")
 
@@ -92,11 +92,12 @@ case class BensGMMEstimator(k: Int, maxIterations: Int = 100, minClusterSize: In
         cluster += 1
       }
       curCost(iter) = mean(lseLLH)
-
+      logInfo(s"iter=$iter, llh=${curCost(iter)}")
       // Check if we're making progress
       if (iter > 0) {
-        costImproving = (curCost(iter - 1) - curCost(iter)) >= stopTolerance * math.abs(curCost(iter - 1))
+        costImproving = (curCost(iter) - curCost(iter - 1)) >= stopTolerance * math.abs(curCost(iter - 1))
       }
+      logInfo(s"cost improving: $costImproving")
 
       if (costImproving) {
         /*

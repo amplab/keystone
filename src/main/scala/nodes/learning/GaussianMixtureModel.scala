@@ -112,6 +112,8 @@ class GaussianMixtureModelEstimator(k: Int) extends Estimator[DenseVector[Double
    * @return A Gaussian Mixture Model.
    */
   def fit(samples: Array[DenseVector[Double]]): GaussianMixtureModel = {
+    csvwrite(new File("gmm_samples.csv"), MatrixUtils.rowsToMatrix(samples))
+
     val extLib = new EncEval
     val nDim = samples(0).length
 

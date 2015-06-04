@@ -2,6 +2,7 @@ package nodes.images
 
 import pipelines._
 import utils.{MultiLabeledImage, Image, LabeledImage}
+import workflow.Transformer
 
 /**
  * Extracts a label from a labeled image.

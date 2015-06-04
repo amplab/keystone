@@ -1,5 +1,7 @@
 package workflow
 
+import breeze.linalg.DenseVector
+
 import scala.reflect.ClassTag
 
 /**
@@ -22,6 +24,11 @@ case class Pipeline[A, B : ClassTag] private[workflow] (nodes: Seq[Node[_, _]]) 
    */
   def thenLabelEstimator[C : ClassTag, L : ClassTag](est: LabelEstimator[B, C, L]): LabelEstimator[A, C, L] = new NodeAndLabelEstimator(this, est)
 
+  def thenConcat(nodeBuilders: (Node[A, B] => Node[A, DenseVector[Double]])*): Pipeline[A, DenseVector[Double]] = {
+    // Implicit conversion takes care of rewriting ConcatNode
+    ConcatNode[A](nodeBuilders.map(_.apply(this).rewrite))
+  }
+
   /**
    * Chains another Transformer onto this one, producing a new Transformer that applies both in sequence
    * @param next The Transformer to attach to the end of this one
@@ -39,26 +46,36 @@ case class Pipeline[A, B : ClassTag] private[workflow] (nodes: Seq[Node[_, _]]) 
    */
   def thenFunction[C : ClassTag](next: B => C): Pipeline[A, C] = this.then(Transformer(next))
 
-  def fit(): PipelineModel[A, B] = {
+  def fit(): PipelineModel[A, B] = PipelineModel(fit(nodes, Seq()))
+
+  private def fit(pipeline: Seq[Node[_, _]], prefix: Seq[Transformer[_, _]]): Seq[Transformer[_, _]] = {
     var transformers: Seq[Transformer[_, _]] = Seq()
     nodes.flatMap(_.rewrite).foreach { node =>
       val nextTransformer = node match {
         case EstimatorWithData(est, data) => {
-          est.unsafeFit(PipelineModel(transformers).unsafeRDDApply(data))
+          est.unsafeFit(PipelineModel(prefix ++ transformers).unsafeRDDApply(data))
         }
         case LabelEstimatorWithData(est, data, labels) => {
-          est.unsafeFit(PipelineModel(transformers).unsafeRDDApply(data), labels)
+          est.unsafeFit(PipelineModel(prefix ++ transformers).unsafeRDDApply(data), labels)
         }
+        case ConcatNode(branches) => {
+          ConcatTransformer(branches.map(branch => fit(branch, transformers)))
+        }
+        case pipeline: Pipeline[_, _] => pipeline.fit()
         case node: Transformer[_, _] => node
       }
       transformers = transformers ++ nextTransformer.rewrite
     }
 
-    PipelineModel[A, B](transformers)
+    transformers
   }
 
   override def rewrite: Seq[Node[_, _]] = {
-    val rewrittenNodes = nodes.flatMap(_.rewrite)
+    val rewrittenNodes = nodes.flatMap(_.rewrite) match {
+      case Pipeline(`nodes`) +: tail => `nodes` ++ tail
+      case rewritten => rewritten
+    }
+
     if (rewrittenNodes.forall(_.canElevate)) {
       rewrittenNodes
     } else {

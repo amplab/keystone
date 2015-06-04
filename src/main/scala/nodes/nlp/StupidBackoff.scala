@@ -1,11 +1,11 @@
 package nodes.nlp
 
-import pipelines.{Transformer, Estimator}
-
 import org.apache.spark.Partitioner
 import org.apache.spark.rdd.RDD
 
 import java.util.{HashMap => JHashMap}
+
+import workflow.{Transformer, Estimator}
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._

@@ -2,7 +2,7 @@ package nodes.stats
 
 import breeze.linalg.DenseVector
 import breeze.math.Complex
-import pipelines.Transformer
+import workflow.Transformer
 
 /**
  * This transformer pads input vectors to the nearest power of two,

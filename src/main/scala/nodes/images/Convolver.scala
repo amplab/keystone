@@ -6,6 +6,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import pipelines._
 import utils.{ChannelMajorArrayVectorizedImage, ImageMetadata, _}
+import workflow.Transformer
 
 /**
  * Convolves images with a bank of convolution filters. Convolution filters must be square.

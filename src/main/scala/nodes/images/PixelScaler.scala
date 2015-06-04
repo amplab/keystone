@@ -1,6 +1,6 @@
 package nodes.images
 
-import pipelines.Transformer
+import workflow.Transformer
 import utils.{ImageUtils, Image}
 
 

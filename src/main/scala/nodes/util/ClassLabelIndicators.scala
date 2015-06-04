@@ -3,6 +3,7 @@ package nodes.util
 import breeze.linalg.DenseVector
 import org.apache.spark.rdd.RDD
 import pipelines._
+import workflow.Transformer
 
 /**
  * Given a class label, returns a binary vector that indicates when that class is present.

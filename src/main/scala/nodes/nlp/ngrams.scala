@@ -1,10 +1,12 @@
 package nodes.nlp
 
-import pipelines.{FunctionNode, Transformer}
+import pipelines.FunctionNode
 
 import org.apache.spark.rdd.RDD
 
 import java.util.{HashMap => JHashMap}
+
+import workflow.Transformer
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer

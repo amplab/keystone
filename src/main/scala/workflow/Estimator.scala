@@ -17,7 +17,7 @@ abstract class Estimator[A, B : ClassTag] extends Serializable {
    * @param data Input data.
    * @return A PipelineNode (Transformer) which can be called on new data.
    */
-  def fit(data: RDD[A]): Transformer[A, B]
+  protected def fit(data: RDD[A]): Transformer[A, B]
 
   private[workflow] final def unsafeFit(data: RDD[_]) = fit(data.asInstanceOf[RDD[A]])
 

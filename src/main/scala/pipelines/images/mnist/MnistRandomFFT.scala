@@ -6,12 +6,13 @@ import evaluation.MulticlassClassifierEvaluator
 import loaders.{CsvDataLoader, LabeledData}
 import nodes.learning.{BlockLinearMapper, BlockLeastSquaresEstimator}
 import nodes.stats.{LinearRectifier, PaddedFFT, RandomSignNode}
-import nodes.util.{ZipVectors, ClassLabelIndicatorsFromIntLabels, MaxClassifier}
+import nodes.util.{Identity, ZipVectors, ClassLabelIndicatorsFromIntLabels, MaxClassifier}
 import org.apache.commons.math3.random.MersenneTwister
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.rdd.RDD
 import pipelines._
 import scopt.OptionParser
+import workflow.Transformer
 
 
 object MnistRandomFFT extends Serializable with Logging {
@@ -24,12 +25,8 @@ object MnistRandomFFT extends Serializable with Logging {
     val randomSignSource = new RandBasis(new ThreadLocalRandomGenerator(new MersenneTwister(conf.seed)))
 
     // The number of pixels in an MNIST image (28 x 28 = 784)
-    val mnistImageSize = 784
-
     // Because the mnistImageSize is 784, we get 512 PaddedFFT features per FFT.
-    // So, calculate how many FFTs are needed per block to get the desired block size.
-    val fftsPerBatch = conf.blockSize / 512
-    val numFFTBatches = math.ceil(conf.numFFTs.toDouble/fftsPerBatch).toInt
+    val mnistImageSize = 784
 
     val startTime = System.nanoTime()
 
@@ -40,48 +37,27 @@ object MnistRandomFFT extends Serializable with Logging {
         .cache())
     val labels = ClassLabelIndicatorsFromIntLabels(numClasses).apply(train.labels)
 
-    val batchFeaturizer = (0 until numFFTBatches).map { batch =>
-      (0 until fftsPerBatch).map { x =>
-        RandomSignNode(mnistImageSize, randomSignSource) then PaddedFFT then LinearRectifier(0.0)
-      }
-    }
-
-    val trainingBatches = batchFeaturizer.map { x =>
-      ZipVectors(x.map(y => y.apply(train.data))).cache()
-    }
+    val pipeline = (new Identity[DenseVector[Double]] thenConcat Seq.fill(conf.numFFTs) {
+      _ then RandomSignNode(mnistImageSize, randomSignSource) then PaddedFFT then LinearRectifier(0.0)
+    } thenLabelEstimator new BlockLeastSquaresEstimator(conf.blockSize, 1, conf.lambda.getOrElse(0)))
+        .withData(train.data, labels) then MaxClassifier
 
     // Train the model
-    val blockLinearMapper = new BlockLeastSquaresEstimator(
-      conf.blockSize, 1, conf.lambda.getOrElse(0)).fit(trainingBatches, labels)
+    val model = pipeline.fit()
 
     val test = LabeledData(
       CsvDataLoader(sc, conf.testLocation, conf.numPartitions)
         // The pipeline expects 0-indexed class labels, but the labels in the file are 1-indexed
         .map(x => (x(0).toInt - 1, x(1 until x.length)))
         .cache())
-    val actual = test.labels
-
-    val testBatches = batchFeaturizer.map { x =>
-      ZipVectors(x.map(y => y.apply(test.data))).cache()
-    }
 
     // Calculate train error
-    blockLinearMapper.applyAndEvaluate(trainingBatches,
-      (trainPredictedValues: RDD[DenseVector[Double]]) => {
-        val predicted = MaxClassifier(trainPredictedValues)
-        val evaluator = MulticlassClassifierEvaluator(predicted, train.labels, numClasses)
-        logInfo("Train Error is " + (100 * evaluator.totalError) + "%")
-      }
-    )
+    val trainEval = MulticlassClassifierEvaluator(model(train.data), train.labels, numClasses)
+    logInfo("TRAIN Error is " + (100 * trainEval.totalError) + "%")
 
     // Calculate test error
-    blockLinearMapper.applyAndEvaluate(testBatches,
-      (testPredictedValues: RDD[DenseVector[Double]]) => {
-        val predicted = MaxClassifier(testPredictedValues)
-        val evaluator = MulticlassClassifierEvaluator(predicted, actual, numClasses)
-        logInfo("TEST Error is " + (100 * evaluator.totalError) + "%")
-      }
-    )
+    val testEval = MulticlassClassifierEvaluator(model(test.data), test.labels, numClasses)
+    logInfo("TEST Error is " + (100 * testEval.totalError) + "%")
 
     val endTime = System.nanoTime()
     logInfo(s"Pipeline took ${(endTime - startTime)/1e9} s")

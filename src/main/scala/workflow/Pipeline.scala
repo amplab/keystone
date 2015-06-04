@@ -24,7 +24,7 @@ case class Pipeline[A, B : ClassTag] private[workflow] (nodes: Seq[Node[_, _]]) 
    */
   def thenLabelEstimator[C : ClassTag, L : ClassTag](est: LabelEstimator[B, C, L]): LabelEstimator[A, C, L] = new NodeAndLabelEstimator(this, est)
 
-  def thenConcat(nodeBuilders: (Node[A, B] => Node[A, DenseVector[Double]])*): Pipeline[A, DenseVector[Double]] = {
+  def thenConcat(nodeBuilders: Seq[Node[A, B] => Node[A, DenseVector[Double]]]): Pipeline[A, DenseVector[Double]] = {
     // Implicit conversion takes care of rewriting ConcatNode
     ConcatNode[A](nodeBuilders.map(_.apply(this).rewrite))
   }

@@ -40,7 +40,6 @@ object BensVOCSIFTFisher extends Serializable {
         new SIFTExtractor(scaleStep = conf.scaleStep)
 
     // Also throws out the 0 sifts
-    val descTol = 1e-6 // Throw away a SIFT descriptor if it has norm smaller than this tolerance
     val siftRDD = grayscalerAndSift(parsedRDD)
 
     // Part 1a: If necessary, perform PCA on samples of the SIFT features, or load a PCA matrix from disk.
@@ -48,7 +47,7 @@ object BensVOCSIFTFisher extends Serializable {
       case Some(fname) => new BatchPCATransformer(convert(csvread(new File(fname)), Float).t)
       case None => {
         val colSampler = new ColumnSampler(conf.numPcaSamples)
-        val pca = new PCAEstimator(conf.descDim).fit(colSampler(siftRDD).filter(sift => norm(sift, 2) > math.sqrt(descTol)))
+        val pca = new PCAEstimator(conf.descDim).fit(colSampler(siftRDD))
 
         new BatchPCATransformer(pca.pcaMat)
       }
@@ -69,7 +68,7 @@ object BensVOCSIFTFisher extends Serializable {
           csvread(new File(conf.gmmWtsFile.get)).toDenseVector)
       case None =>
         val sampler = new ColumnSampler(conf.numGmmSamples)
-        val gmmFitData = new PCATransformer(pcaTransformer.pcaMat).apply(sampler(siftRDD).filter(sift => norm(sift, 2) > math.sqrt(descTol)))
+        val gmmFitData = new PCATransformer(pcaTransformer.pcaMat).apply(sampler(siftRDD))
         new BensGMMEstimator(conf.vocabSize)
           .fit(gmmFitData.map(convert(_, Double)))
     }

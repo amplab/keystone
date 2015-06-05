@@ -55,8 +55,8 @@ object RandomPatchCifar extends Serializable with Logging {
         .then(new Pooler(conf.poolStride, conf.poolSize, identity, _.sum))
         .then(ImageVectorizer)
         .then(new Cacher[DenseVector[Double]])
-        .thenEstimator(new StandardScaler).fit(trainImages)
-        .then(new Cacher[DenseVector[Double]])
+        .thenEstimator(new StandardScaler).withData(trainImages)
+        .then(new Cacher[DenseVector[Double]]).fit()
 
     val labelExtractor = LabelExtractor then
       ClassLabelIndicatorsFromIntLabels(numClasses) then
@@ -65,9 +65,9 @@ object RandomPatchCifar extends Serializable with Logging {
     val trainFeatures = featurizer(trainImages)
     val trainLabels = labelExtractor(trainData)
 
-    val model = new BlockLeastSquaresEstimator(4096, 1, conf.lambda.getOrElse(0.0)).fit(trainFeatures, trainLabels)
+    val model = new BlockLeastSquaresEstimator(4096, 1, conf.lambda.getOrElse(0.0)).withData(trainFeatures, trainLabels).fit()
 
-    val predictionPipeline = featurizer then model then MaxClassifier then new Cacher[Int]
+    val predictionPipeline = (featurizer then model then MaxClassifier then new Cacher[Int]).fit()
 
     // Calculate training error.
     val trainEval = MulticlassClassifierEvaluator(

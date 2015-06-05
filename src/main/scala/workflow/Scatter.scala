@@ -1,20 +1,17 @@
 package workflow
 
-import breeze.linalg.DenseVector
-import nodes.util.Identity
-import org.apache.spark.rdd.RDD
+import scala.reflect.ClassTag
 
-case class ConcatTransformer[A] private[workflow] (branches: Seq[Seq[Transformer[_, _]]]) extends Transformer[A, DenseVector[Double]] {
+case class ScatterTransformer[A, B : ClassTag] private[workflow] (branches: Seq[Seq[Transformer[_, _]]]) extends Transformer[A, Seq[B]] {
   require(branches.nonEmpty, "Concat must have at least one branch")
 
-  def apply(in: A): DenseVector[Double] = {
-    DenseVector.vertcat(branches.map(branch => {
-      // Unsafely apply the branch
-      PipelineModel[A, DenseVector[Double]](branch).unsafeSingleApply(in)
-    }): _*)
+  def apply(in: A): Seq[B] = {
+    branches.map(branch => {
+      PipelineModel[A, B](branch).apply(in)
+    })
   }
   
-  // Rewrites all the internal transformers, todo: flatten any nested Concats?
+  // Rewrites all the internal transformers
   private def flattenedBranches: Seq[Seq[Transformer[_, _]]] = {
     branches.map(_.flatMap(_.rewrite))
   }
@@ -28,19 +25,19 @@ case class ConcatTransformer[A] private[workflow] (branches: Seq[Seq[Transformer
       // If all the branches start with the same prefix, it can be moved out of the Concat
       case ((prefix: Transformer[a, b]) +: firstBranchTail) +: otherBranches
         if otherBranches.forall(_.headOption == Some(prefix)) => {
-        prefix +: ConcatTransformer(firstBranchTail +: otherBranches.map(_.tail)).rewrite
+        prefix +: ScatterTransformer(firstBranchTail +: otherBranches.map(_.tail)).rewrite
       }
 
       // Otherwise, just return a Concat with the rewritten branches
-      case `branches` => Seq(ConcatTransformer(`branches`))
+      case `branches` => Seq(ScatterTransformer(`branches`))
     }
   }
 }
 
-case class ConcatNode[A] private[workflow] (branches: Seq[Seq[Node[_, _]]]) extends Node[A, DenseVector[Double]] {
+case class ScatterNode[A, B] private[workflow] (branches: Seq[Seq[Node[_, _]]]) extends Node[A, Seq[B]] {
   require(branches.nonEmpty, "Concat must have at least one branch")
 
-  // Rewrites all the internal transformers, todo: flatten any nested Concats?
+  // Rewrites all the internal transformers
   private def flattenedBranches: Seq[Seq[Node[_, _]]] = {
     branches.map(_.flatMap(_.rewrite))
   }
@@ -54,7 +51,7 @@ case class ConcatNode[A] private[workflow] (branches: Seq[Seq[Node[_, _]]]) exte
       // If all the branches start with the same prefix, it can be moved out of the Concat
       case ((prefix: Node[a, b]) +: firstBranchTail) +: otherBranches
         if otherBranches.forall(_.headOption == Some(prefix)) => {
-        prefix +: ConcatNode(firstBranchTail +: otherBranches.map(_.tail)).rewrite
+        prefix +: ScatterNode(firstBranchTail +: otherBranches.map(_.tail)).rewrite
       }
 
       // If any pipeline is nested as the first node inside any branch,
@@ -67,14 +64,25 @@ case class ConcatNode[A] private[workflow] (branches: Seq[Seq[Node[_, _]]]) exte
           case Pipeline(head) +: tail => head ++ tail
           case branch => branch
         }
-        Seq(Pipeline(ConcatNode(rewrittenBranches).rewrite))
+        Seq(Pipeline(ScatterNode(rewrittenBranches).rewrite))
       }
 
       // Otherwise, just return a Concat with the rewritten branches
-      case `branches` => Seq(ConcatNode(`branches`))
+      case `branches` => Seq(ScatterNode(`branches`))
     }
 
   }
 
   def canElevate: Boolean = branches.forall(_.forall(_.canElevate))
+}
+
+object Scatter {
+  def apply[A, B : ClassTag](branches: Seq[Transformer[A, B]]): ScatterTransformer[A, B] = {
+    ScatterTransformer[A, B](branches.map(_.rewrite))
+  }
+
+  def apply[A, B : ClassTag](branches: Seq[Node[A, B]]): ScatterNode[A, B] = {
+    ScatterNode[A, B](branches.map(_.rewrite))
+  }
+
 }

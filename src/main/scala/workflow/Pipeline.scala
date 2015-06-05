@@ -24,11 +24,6 @@ case class Pipeline[A, B : ClassTag] private[workflow] (nodes: Seq[Node[_, _]]) 
    */
   def thenLabelEstimator[C : ClassTag, L : ClassTag](est: LabelEstimator[B, C, L]): LabelEstimator[A, C, L] = new NodeAndLabelEstimator(this, est)
 
-  def thenConcat(nodeBuilders: Seq[Node[A, B] => Node[A, DenseVector[Double]]]): Pipeline[A, DenseVector[Double]] = {
-    // Implicit conversion takes care of rewriting ConcatNode
-    ConcatNode[A](nodeBuilders.map(_.apply(this).rewrite))
-  }
-
   /**
    * Chains another Transformer onto this one, producing a new Transformer that applies both in sequence
    * @param next The Transformer to attach to the end of this one
@@ -58,8 +53,8 @@ case class Pipeline[A, B : ClassTag] private[workflow] (nodes: Seq[Node[_, _]]) 
         case LabelEstimatorWithData(est, data, labels) => {
           est.unsafeFit(PipelineModel(prefix ++ transformers).unsafeRDDApply(data), labels)
         }
-        case ConcatNode(branches) => {
-          ConcatTransformer(branches.map(branch => fit(branch, transformers)))
+        case ScatterNode(branches) => {
+          ScatterTransformer(branches.map(branch => fit(branch, transformers)))
         }
         case pipeline: Pipeline[_, _] => pipeline.fit()
         case node: Transformer[_, _] => node

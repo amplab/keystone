@@ -40,10 +40,6 @@ abstract class Transformer[A, B : ClassTag] extends Node[A, B] {
     PipelineModel(this.rewrite ++ next.rewrite)
   }
 
-  def thenConcat(nodeBuilders: Seq[Transformer[A, B] => Transformer[A, DenseVector[Double]]]): Transformer[A, DenseVector[Double]] = {
-    PipelineModel(ConcatTransformer[A](nodeBuilders.map(_.apply(this).rewrite)).rewrite)
-  }
-
   /**
    * Chains a method, producing a new Transformer that applies the method to each
    * output item after applying this Transformer first.

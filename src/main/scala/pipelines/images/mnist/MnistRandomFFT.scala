@@ -6,13 +6,13 @@ import evaluation.MulticlassClassifierEvaluator
 import loaders.{CsvDataLoader, LabeledData}
 import nodes.learning.{BlockLinearMapper, BlockLeastSquaresEstimator}
 import nodes.stats.{LinearRectifier, PaddedFFT, RandomSignNode}
-import nodes.util.{Identity, ZipVectors, ClassLabelIndicatorsFromIntLabels, MaxClassifier}
+import nodes.util._
 import org.apache.commons.math3.random.MersenneTwister
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.rdd.RDD
 import pipelines._
 import scopt.OptionParser
-import workflow.Transformer
+import workflow.{Scatter, Node, Transformer}
 
 
 object MnistRandomFFT extends Serializable with Logging {
@@ -37,9 +37,14 @@ object MnistRandomFFT extends Serializable with Logging {
         .cache())
     val labels = ClassLabelIndicatorsFromIntLabels(numClasses).apply(train.labels)
 
-    val pipeline = (new Identity[DenseVector[Double]] thenConcat Seq.fill(conf.numFFTs) {
-      _ then RandomSignNode(mnistImageSize, randomSignSource) then PaddedFFT then LinearRectifier(0.0)
-    } thenLabelEstimator new BlockLeastSquaresEstimator(conf.blockSize, 1, conf.lambda.getOrElse(0)))
+    val featurizer = Scatter {
+      Seq.fill(conf.numFFTs) {
+        RandomSignNode(mnistImageSize, randomSignSource) then PaddedFFT() then LinearRectifier(0.0)
+      }
+    }
+
+    val pipeline = (featurizer then VectorCombiner() thenLabelEstimator
+        new BlockLeastSquaresEstimator(conf.blockSize, 1, conf.lambda.getOrElse(0)))
         .withData(train.data, labels) then MaxClassifier
 
     // Train the model

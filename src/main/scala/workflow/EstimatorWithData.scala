@@ -10,5 +10,5 @@ import scala.reflect.ClassTag
 case class EstimatorWithData[A, B : ClassTag] private[workflow] (estimator: Estimator[A, B], data: RDD[_]) extends Node[A, B] {
   def rewrite: Seq[Node[_, _]] = Seq(this)
 
-  def canElevate: Boolean = false
+  def canSafelyPrependExtraNodes: Boolean = false
 }

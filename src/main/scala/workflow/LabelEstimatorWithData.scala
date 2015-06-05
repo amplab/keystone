@@ -10,5 +10,5 @@ import scala.reflect.ClassTag
 case class LabelEstimatorWithData[A, B : ClassTag, L] private[workflow] (estimator: LabelEstimator[A, B, L], data: RDD[_], labels: RDD[_]) extends Node[A, B] {
   def rewrite: Seq[Node[_, _]] = Seq(this)
 
-  def canElevate: Boolean = false
+  def canSafelyPrependExtraNodes: Boolean = false
 }

@@ -73,7 +73,7 @@ case class ScatterNode[A, B] private[workflow] (branches: Seq[Seq[Node[_, _]]]) 
 
   }
 
-  def canElevate: Boolean = branches.forall(_.forall(_.canElevate))
+  def canSafelyPrependExtraNodes: Boolean = branches.forall(_.forall(_.canSafelyPrependExtraNodes))
 }
 
 object Scatter {

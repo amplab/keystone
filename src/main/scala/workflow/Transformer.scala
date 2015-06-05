@@ -49,7 +49,7 @@ abstract class Transformer[A, B : ClassTag] extends Node[A, B] {
   def thenFunction[C : ClassTag](next: B => C): Transformer[A, C] = this.then(Transformer(next))
 
   def rewrite: Seq[Transformer[_, _]] = Seq(this)
-  def canElevate: Boolean = true
+  def canSafelyPrependExtraNodes: Boolean = true
 }
 
 object Transformer {

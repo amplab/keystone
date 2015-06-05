@@ -7,7 +7,7 @@ import scala.reflect.ClassTag
  */
 abstract class Node[A, B : ClassTag] extends Serializable {
   def rewrite: Seq[Node[_, _]]
-  def canElevate: Boolean
+  def canSafelyPrependExtraNodes: Boolean
 }
 
 object Node {

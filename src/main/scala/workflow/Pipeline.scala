@@ -71,12 +71,12 @@ case class Pipeline[A, B : ClassTag] private[workflow] (nodes: Seq[Node[_, _]]) 
       case rewritten => rewritten
     }
 
-    if (rewrittenNodes.forall(_.canElevate)) {
+    if (rewrittenNodes.forall(_.canSafelyPrependExtraNodes)) {
       rewrittenNodes
     } else {
       Seq(Pipeline(nodes.flatMap(_.rewrite)))
     }
   }
 
-  def canElevate = true
+  def canSafelyPrependExtraNodes = true
 }

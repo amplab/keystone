@@ -1,6 +1,5 @@
 package workflow
 
-import breeze.linalg.DenseVector
 import org.apache.spark.rdd.RDD
 
 import scala.reflect.ClassTag
@@ -28,9 +27,6 @@ abstract class Transformer[A, B : ClassTag] extends Node[A, B] {
    */
   def apply(in: A): B
 
-  private[workflow] final def unsafeSingleApply(x: Any) = apply(x.asInstanceOf[A])
-  private[workflow] final def unsafeRDDApply(x: Any) = apply(x.asInstanceOf[RDD[A]])
-
   /**
    * Chains another Transformer onto this one, producing a new Transformer that applies both in sequence
    * @param next The Transformer to attach to the end of this one
@@ -46,10 +42,28 @@ abstract class Transformer[A, B : ClassTag] extends Node[A, B] {
    * @param next The method to apply to each item output by this transformer
    * @return The output Transformer
    */
-  def thenFunction[C : ClassTag](next: B => C): Transformer[A, C] = this.then(Transformer(next))
+  def thenFunction[C : ClassTag](next: B => C): Transformer[A, C] = then(Transformer(next))
 
-  def rewrite: Seq[Transformer[_, _]] = Seq(this)
-  def canSafelyPrependExtraNodes: Boolean = true
+  /**
+   * Unsafely apply this transformer to a single item (not type-safe).
+   * Allows workflow nodes to ignore types under-the-hood (e.g. [[PipelineModel]])
+   *
+   * @param x The item to apply this transformer to
+   * @return  The transformed output
+   */
+  private[workflow] final def unsafeSingleApply(x: Any) = apply(x.asInstanceOf[A])
+
+  /**
+   * Unsafely apply this transformer to an RDD (not type-safe).
+   * Allows workflow nodes to ignore types under-the-hood (e.g. [[PipelineModel]])
+   *
+   * @param x The item to apply this transformer to
+   * @return  The transformed output
+   */
+  private[workflow] final def unsafeRDDApply(x: Any) = apply(x.asInstanceOf[RDD[A]])
+
+  override def rewrite: Seq[Transformer[_, _]] = Seq(this)
+  override def canSafelyPrependExtraNodes: Boolean = true
 }
 
 object Transformer {

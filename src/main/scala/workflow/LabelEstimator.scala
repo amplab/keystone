@@ -17,13 +17,27 @@ abstract class LabelEstimator[I, O : ClassTag, L] extends Serializable {
    * A LabelEstimator estimator is an estimator which expects labeled data.
    * @param data Input data.
    * @param labels Input labels.
-   * @return A PipelineNode which can be called on new data.
+   * @return A [[Transformer]] which can be called on new data.
    */
   protected def fit(data: RDD[I], labels: RDD[L]): Transformer[I, O]
 
-  private[workflow] final def unsafeFit(data: RDD[_], labels: RDD[_]) = fit(data.asInstanceOf[RDD[I]], labels.asInstanceOf[RDD[L]])
-
+  /**
+   * Attaches training data to this estimator
+   * @param data The data to attach
+   * @param labels The labels to attach
+   * @return a pipeline that when fit returns the output of this estimator fit on the attached data
+   */
   def withData(data: RDD[I], labels: RDD[L]): Pipeline[I, O] = LabelEstimatorWithData(this, data, labels)
+
+  /**
+   * Unsafely fit this Estimator on a untyped RDDs
+   * Allows workflow nodes to ignore types under-the-hood (e.g. [[Pipeline]])
+   *
+   * @param data The data to fit this estimator to
+   * @param labels The labels to use for the data
+   * @return  The output Transformer
+   */
+  private[workflow] final def unsafeFit(data: RDD[_], labels: RDD[_]) = fit(data.asInstanceOf[RDD[I]], labels.asInstanceOf[RDD[L]])
 }
 
 object LabelEstimator extends Serializable {

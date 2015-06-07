@@ -15,12 +15,8 @@ case class Pipeline[A, B : ClassTag] private[workflow] (nodes: Seq[Node[_, _]]) 
    * @param est The estimator to chain onto the Transformer
    * @return  The output estimator
    */
-  def thenEstimator[C : ClassTag](est: Estimator[B, C]) = new Estimator[A, C] {
-    override def withData(data: RDD[A]): Pipeline[A, C] = {
-      then(EstimatorWithData(est, data))
-    }
-
-    override def fit(data: RDD[A]): Transformer[A, C] = withData(data).fit()
+  def thenEstimator[C : ClassTag](est: Estimator[B, C]): Estimator[A, C] = {
+    PipelineWithEstimator(this, est)
   }
 
   /**
@@ -29,12 +25,8 @@ case class Pipeline[A, B : ClassTag] private[workflow] (nodes: Seq[Node[_, _]]) 
    * @param est The label estimator to chain onto the Transformer
    * @return  The output label estimator
    */
-  def thenLabelEstimator[C : ClassTag, L : ClassTag](est: LabelEstimator[B, C, L]) = new LabelEstimator[A, C, L] {
-    override def withData(data: RDD[A], labels: RDD[L]): Pipeline[A, C] = {
-      then(LabelEstimatorWithData(est, data, labels))
-    }
-
-    override def fit(data: RDD[A], labels: RDD[L]): Transformer[A, C] = withData(data, labels).fit()
+  def thenLabelEstimator[C : ClassTag, L : ClassTag](est: LabelEstimator[B, C, L]): LabelEstimator[A, C, L] = {
+    PipelineWithLabelEstimator(this, est)
   }
 
   /**

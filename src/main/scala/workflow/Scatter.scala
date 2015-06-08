@@ -77,12 +77,11 @@ case class ScatterNode[A, B] private[workflow] (branches: Seq[Seq[Node[_, _]]]) 
 }
 
 object Scatter {
-  def apply[A, B : ClassTag](branches: Seq[Transformer[A, B]]): ScatterTransformer[A, B] = {
-    ScatterTransformer[A, B](branches.map(_.rewrite))
+  def apply[A, B : ClassTag](branches: Seq[Transformer[A, B]]): Transformer[A, Seq[B]] = {
+    PipelineModel(ScatterTransformer[A, B](branches.map(_.rewrite)).rewrite)
   }
 
-  def apply[A, B : ClassTag](branches: Seq[Node[A, B]]): ScatterNode[A, B] = {
+  def apply[A, B : ClassTag](branches: Seq[Node[A, B]]): Pipeline[A, Seq[B]] = {
     ScatterNode[A, B](branches.map(_.rewrite))
   }
-
 }

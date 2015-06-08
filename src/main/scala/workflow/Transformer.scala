@@ -32,7 +32,7 @@ abstract class Transformer[A, B : ClassTag] extends Node[A, B] {
    * @param next The Transformer to attach to the end of this one
    * @return The output Transformer
    */
-  def then[C : ClassTag](next: Transformer[B, C]): Transformer[A, C] = {
+  def then[C : ClassTag](next: Transformer[B, C]): PipelineModel[A, C] = {
     PipelineModel(this.rewrite ++ next.rewrite)
   }
 
@@ -42,7 +42,7 @@ abstract class Transformer[A, B : ClassTag] extends Node[A, B] {
    * @param next The method to apply to each item output by this transformer
    * @return The output Transformer
    */
-  def thenFunction[C : ClassTag](next: B => C): Transformer[A, C] = then(Transformer(next))
+  def thenFunction[C : ClassTag](next: B => C): PipelineModel[A, C] = then(Transformer(next))
 
   /**
    * Unsafely apply this transformer to a single item (not type-safe).

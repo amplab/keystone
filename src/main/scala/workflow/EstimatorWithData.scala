@@ -5,7 +5,8 @@ import org.apache.spark.rdd.RDD
 import scala.reflect.ClassTag
 
 /**
- * Created by tomerk11 on 5/28/15.
+ * A node representing an Estimator with the data it is to be fit on in [[Pipeline.fit()]]
+ * (after said data goes through the prefixing part of the pipeline)
  */
 case class EstimatorWithData[A, B : ClassTag] private[workflow] (estimator: Estimator[A, B], data: RDD[_]) extends Node[A, B] {
   def rewrite: Seq[Node[_, _]] = estimator match {
@@ -15,5 +16,10 @@ case class EstimatorWithData[A, B : ClassTag] private[workflow] (estimator: Esti
     case _ => Seq(this)
   }
 
+  /**
+   * @return false,
+   * because the type of the data must match the input type of the enclosing [[Pipeline]] so [[Pipeline.fit()]]
+   * works correctly
+   */
   def canSafelyPrependExtraNodes: Boolean = false
 }

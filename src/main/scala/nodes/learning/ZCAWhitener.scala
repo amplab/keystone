@@ -49,7 +49,7 @@ class ZCAWhitenerEstimator(val eps: Double = 1e-12)
 
       val s2  = pow(s1, 2.0f) / (rows - 1.0f)
 
-      val sn1 = diag((s2 + 0.1f) :^ -0.5f)
+      val sn1 = diag((s2 + eps.toFloat) :^ -0.5f)
 
       // NOTE: sgesvd returns singular values in the opposite order (when compared to eigenvalues)
       // Thus we need v.t * s * v here ?

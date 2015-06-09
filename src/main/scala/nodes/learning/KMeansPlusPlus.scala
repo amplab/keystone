@@ -17,7 +17,7 @@ case class KMeansModel(means: DenseMatrix[Double]) extends Transformer[DenseVect
    */
   def apply(in: DenseVector[Double]): DenseVector[Double] = {
     // TODO: Could maybe do more efficient single-item implementation
-    apply(in.asDenseMatrix).toDenseVector
+    apply(in.asDenseMatrix).flatten()
   }
 
   def apply(in: DenseMatrix[Double]): DenseMatrix[Double] = {
@@ -66,13 +66,11 @@ case class KMeansModel(means: DenseMatrix[Double]) extends Transformer[DenseVect
  */
 case class KMeansPlusPlusEstimator(numMeans: Int, maxIterations: Int, stopTolerance: Double = 1e-3) extends Estimator[DenseVector[Double], DenseVector[Double]] {
   def fit(data: RDD[DenseVector[Double]]): KMeansModel = {
-    fit(data.collect())
+    val X = MatrixUtils.rowsToMatrix(data.collect())
+    fit(X)
   }
 
-  def fit(samples: Array[DenseVector[Double]]): KMeansModel = {
-    require(samples.length > 0, "Must have training points")
-
-    val X = MatrixUtils.rowsToMatrix(samples)
+  def fit(X: DenseMatrix[Double]): KMeansModel = {
     val numSamples = X.rows
     val numFeatures = X.cols
 

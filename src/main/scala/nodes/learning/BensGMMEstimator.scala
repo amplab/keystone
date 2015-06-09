@@ -39,7 +39,7 @@ case class BensGMMEstimator(k: Int, maxIterations: Int = 100, minClusterSize: In
     val X = MatrixUtils.rowsToMatrix(samples)
 
     // Use KMeans++ initialization to get the GMM center initializations
-    val kMeansModel = KMeansPlusPlusEstimator(k, 1).fit(samples)
+    val kMeansModel = KMeansPlusPlusEstimator(k, 1).fit(X)
     val centerAssignment = kMeansModel.apply(X)
     val assignMass = sum(centerAssignment, Axis._0).toDenseVector
 

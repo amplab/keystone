@@ -13,7 +13,7 @@ import nodes.stats.{BatchSignedHellingerMapper, ColumnSampler, NormalizeRows, Si
 import nodes.util.{Cacher, ClassLabelIndicatorsFromIntArrayLabels, FloatToDouble, MatrixVectorizer}
 import org.apache.spark.{SparkConf, SparkContext}
 import scopt.OptionParser
-import utils.Image
+import utils.{MatrixUtils, Image}
 
 object BensVOCSIFTInteractionTerms extends Serializable {
   val appName = "VOCSIFTInteractionTerms"
@@ -38,7 +38,10 @@ object BensVOCSIFTInteractionTerms extends Serializable {
         GrayScaler then
         new Cacher[Image] then
         new SIFTExtractor(scaleStep = conf.scaleStep) then
-        BatchSignedHellingerMapper then FloatToDouble
+        BatchSignedHellingerMapper then FloatToDouble thenFunction { x =>
+          val rows = MatrixUtils.matrixToRowArray(x.t)
+          DenseVector.horzcat(rows.filter(x => norm(x, 2) > 1e-3):_*)
+        }
 
     val siftRDD = grayscalerAndSift(parsedRDD)
 

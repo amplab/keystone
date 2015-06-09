@@ -14,7 +14,8 @@ import pipelines.Transformer
  */
 class MatrixLinearMapperThenMax(
    val W: DenseMatrix[Double],
-   val b: DenseVector[Double])
+   val b: DenseVector[Double],
+   val threshold: Option[Double] = None                                )
   extends Transformer[DenseMatrix[Double], DenseMatrix[Double]] {
 
   /**
@@ -25,6 +26,9 @@ class MatrixLinearMapperThenMax(
   def apply(in: DenseMatrix[Double]): DenseMatrix[Double] = {
     val features: DenseMatrix[Double] = W.t * in
     features(::,*) :+= b
+    threshold.foreach { x =>
+      features :-= x
+    }
     max(features, 0.0)
   }
 }
@@ -38,6 +42,7 @@ object GaussianRandomFeatures {
     val zca = zcaWhitener.whitener
     val W = zca * DenseMatrix.rand(zca.cols, numGaussianFilters, wDist) :/ sqrt(zca.cols.toDouble) // numZCADimensions by numGaussianFilters
     val b = zcaWhitener.means.t * W
+    b :*= -1.0
     new MatrixLinearMapperThenMax(W, b.t)
   }
 }

@@ -19,7 +19,7 @@ class BensInteractionTerms(
   }
 }
 
-case class BensInteractionTermsEstimator(numTemplateFilters: Int, numGaussianFilters: Int, numSamples: Int, maxIterations: Int = 100) extends Estimator[DenseMatrix[Double], DenseMatrix[Double]] with Logging {
+case class BensInteractionTermsEstimator(numTemplateFilters: Int, numGaussianFilters: Int, numSamples: Int, maxIterations: Int = 100, siftShrinkThreshold: Double = 0.25) extends Estimator[DenseMatrix[Double], DenseMatrix[Double]] with Logging {
   require(maxIterations > 0, "maxIterations must be positive")
 
   def fit(samples: RDD[DenseMatrix[Double]]): BensInteractionTerms = {
@@ -30,7 +30,7 @@ case class BensInteractionTermsEstimator(numTemplateFilters: Int, numGaussianFil
   def fit(X: DenseMatrix[Double]): BensInteractionTerms = {
     val zcaWhitener = new ZCAWhitenerEstimator().fitSingle(X)
 
-    val templateFilters = BensTemplateFiltersEstimator(numTemplateFilters, zcaWhitener, maxIterations).fit(X)
+    val templateFilters = BensTemplateFiltersEstimator(numTemplateFilters, zcaWhitener, maxIterations, siftShrinkThreshold).fit(X)
     val gaussianFilters = GaussianRandomFeatures(numGaussianFilters, zcaWhitener)
 
     new BensInteractionTerms(templateFilters, gaussianFilters)

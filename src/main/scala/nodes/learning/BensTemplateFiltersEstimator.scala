@@ -8,7 +8,7 @@ import org.apache.spark.rdd.RDD
 import pipelines.{Estimator, Logging}
 import utils.MatrixUtils
 
-case class BensTemplateFiltersEstimator(numTemplateFeatures: Int, zcaWhitener: ZCAWhitener, maxIterations: Int = 100) extends Estimator[DenseMatrix[Double], DenseMatrix[Double]] with Logging {
+case class BensTemplateFiltersEstimator(numTemplateFeatures: Int, zcaWhitener: ZCAWhitener, maxIterations: Int = 100, siftShrinkThreshold: Double = 0.25) extends Estimator[DenseMatrix[Double], DenseMatrix[Double]] with Logging {
   require(maxIterations > 0, "maxIterations must be positive")
 
   def fit(samples: RDD[DenseMatrix[Double]]): MatrixLinearMapperThenMax = {
@@ -25,7 +25,8 @@ case class BensTemplateFiltersEstimator(numTemplateFeatures: Int, zcaWhitener: Z
     val zca = zcaWhitener.whitener
     val W = zca * kMeansModel.means.t // numZCADimensions by numTemplateFeatures
     val b = zcaWhitener.means.t * W
+    b :*= -1.0
 
-    new MatrixLinearMapperThenMax(W, b.t)
+    new MatrixLinearMapperThenMax(W, b.t, Some(siftShrinkThreshold))
   }
 }

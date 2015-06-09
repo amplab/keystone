@@ -53,7 +53,7 @@ object BensVOCSIFTInteractionTerms extends Serializable {
     val trainingFeatures = featurizer(siftRDD)
 
     // Part 4: Fit a linear model to the data.
-    val model = new BlockLeastSquaresEstimator(2048, 1, conf.lambda).fit(
+    val model = new BlockLeastSquaresEstimator(4096, 1, conf.lambda).fit(
       trainingFeatures, trainingLabels, Some(conf.numGaussianFilters * conf.numTemplateFilters))
 
     siftRDD.unpersist()

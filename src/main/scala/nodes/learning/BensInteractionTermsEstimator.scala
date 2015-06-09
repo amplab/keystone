@@ -15,7 +15,8 @@ class BensInteractionTerms(
   def apply(in: DenseMatrix[Double]): DenseMatrix[Double] = {
     val template = templateFilters.apply(in)
     val gaussian = gaussianFilters.apply(in)
-    (template * gaussian.t) :/= in.cols.toDouble
+    val out = (template * gaussian.t) :/= in.cols.toDouble
+    out
   }
 }
 
@@ -23,7 +24,7 @@ case class BensInteractionTermsEstimator(numTemplateFilters: Int, numGaussianFil
   require(maxIterations > 0, "maxIterations must be positive")
 
   def fit(samples: RDD[DenseMatrix[Double]]): BensInteractionTerms = {
-    val x: Array[DenseVector[Double]] = new ColumnSampler(numSamples).apply(samples.map(x => convert(x, Float))).map(x => convert(x, Double)).collect()
+    val x: Array[DenseVector[Double]] = new ColumnSampler(numSamples).apply(samples.map(x => convert(x, Float))).map(x => convert(x, Double)).filter(x => norm(x, 2) > 1e-3).collect()
     fit(MatrixUtils.rowsToMatrix(x))
   }
 

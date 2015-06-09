@@ -8,18 +8,30 @@ import pipelines._
 
 class ZCAWhiteningSuite extends FunSuite with LocalSparkContext with Logging {
 
-  test("whitening") {
-    val eps = 0.1
-    val nrows = 10000
-    val ndim = 10
+  val nrows = 10000
+  val ndim = 10
 
-    val x = DenseMatrix.rand[Double](nrows, ndim, Gaussian(0.0, 1.0))
-    val whitener = new ZCAWhitenerEstimator().fitSingle(x)
+  val x = DenseMatrix.rand[Double](nrows, ndim, Gaussian(0.0, 1.0))
+
+  def fitAndCompare(x: DenseMatrix[Double], eps: Double, thresh: Double): Boolean = {
+    val whitener = new ZCAWhitenerEstimator(eps).fitSingle(x)
 
     val wx = whitener(x)
 
-    //Checks max(max(abs(cov(whiten(x))) - eye(10)) < 2*eps
-    assert(max(abs(cov(convert(wx, Double))) - DenseMatrix.eye[Double](ndim)) < 2*eps,
+    //Checks max(max(abs(cov(whiten(x))) - eye(10)) < sqrt(eps)
+    max(abs(cov(convert(wx, Double))) - DenseMatrix.eye[Double](ndim)) < thresh
+  }
+
+  test("whitening with small epsilon") {
+    assert(fitAndCompare(x, 1e-12, 1e-4),
       "Whitening the base matrix should produce unit variance and zero covariance.")
+  }
+
+  test("whitening with large epsilon") {
+    assert(fitAndCompare(x, 0.1, 0.1),
+      "Whitening the base matrix should produce unit variance and zero covariance.")
+
+    assert(!fitAndCompare(x, 0.1, 1e-4),
+      "Whitening the base matrix with a large epsilon should be somewhat noisy.")
   }
 }

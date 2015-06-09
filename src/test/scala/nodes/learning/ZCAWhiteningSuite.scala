@@ -19,7 +19,7 @@ class ZCAWhiteningSuite extends FunSuite with LocalSparkContext with Logging {
     val wx = whitener(x)
 
     //Checks max(max(abs(cov(whiten(x))) - eye(10)) < sqrt(eps)
-    max(abs(cov(convert(wx, Double))) - DenseMatrix.eye[Double](ndim)) < thresh
+    max(abs(cov(convert(wx, Double)) - DenseMatrix.eye[Double](ndim))) < thresh
   }
 
   test("whitening with small epsilon") {

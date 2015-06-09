@@ -14,7 +14,7 @@ class ZCAWhiteningSuite extends FunSuite with LocalSparkContext with Logging {
     val ndim = 10
 
     val x = DenseMatrix.rand[Double](nrows, ndim, Gaussian(0.0, 1.0))
-    val whitener = new ZCAWhitenerEstimator(eps).fitSingle(x)
+    val whitener = new ZCAWhitenerEstimator().fitSingle(x)
 
     val wx = whitener(x)
 

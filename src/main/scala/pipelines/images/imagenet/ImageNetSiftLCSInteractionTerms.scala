@@ -98,7 +98,7 @@ object ImageNetSiftLcsInteractionTerms extends Serializable with Logging {
       siftHellinger
     }.apply(trainParsed)
 
-    val siftSamples = new ColumnSampler(conf.numPcaSamples, Some(numImgs)).apply(
+    val siftSamples = new ColumnSampler(conf.numZcaSamples, Some(numImgs)).apply(
       siftFeatures)
 
     val siftSamplesFiltered = MatrixUtils.rowsToMatrix(
@@ -129,7 +129,7 @@ object ImageNetSiftLcsInteractionTerms extends Serializable with Logging {
     val lcsFeatures = {
       new LCSExtractor(conf.lcsStride, conf.lcsBorder, conf.lcsPatch)
     }.apply(trainParsed)
-    val lcsSamples = new ColumnSampler(conf.numPcaSamples, Some(numImgs)).apply(
+    val lcsSamples = new ColumnSampler(conf.numZcaSamples, Some(numImgs)).apply(
       lcsFeatures)
 
     val lcsSamplesMat = MatrixUtils.rowsToMatrix(
@@ -215,7 +215,7 @@ object ImageNetSiftLcsInteractionTerms extends Serializable with Logging {
     lcsStride: Int = 4,
     lcsBorder: Int = 16,
     lcsPatch: Int = 6,
-    numPcaSamples: Int = 1e7.toInt,
+    numZcaSamples: Int = 1e7.toInt,
     siftThreshold: Double = 1e-3.toDouble,
     featuresSaveDir: Option[String] = None)
 
@@ -234,7 +234,7 @@ object ImageNetSiftLcsInteractionTerms extends Serializable with Logging {
       // PCA, GMM params
       opt[Int]("numGaussianRandomFeatures") action { (x,c) => c.copy(numGaussianRandomFeatures=x) }
       opt[Int]("numKMeans") action { (x,c) => c.copy(numKMeans=x) }
-      opt[Int]("numPcaSamples") action { (x,c) => c.copy(numPcaSamples=x) }
+      opt[Int]("numZcaSamples") action { (x,c) => c.copy(numZcaSamples=x) }
       opt[Double]("siftThreshold") action { (x,c) => c.copy(siftThreshold=x) }
 
       // SIFT, LCS params

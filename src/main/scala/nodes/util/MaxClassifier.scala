@@ -1,7 +1,7 @@
 package nodes.util
 
 import breeze.linalg.{DenseVector, argmax}
-import pipelines.Transformer
+import workflow.Transformer
 
 /**
  * Transformer that returns the index of the largest value in the vector

@@ -1,7 +1,7 @@
 package nodes.util
 
 import breeze.linalg.SparseVector
-import pipelines.Transformer
+import workflow.Transformer
 
 /** A transformer which given a feature space, maps features of the form (feature id, value) into a sparse vector */
 class SparseFeatureVectorizer[T](featureSpace: Map[T, Int]) extends Transformer[Seq[(T, Double)], SparseVector[Double]] {

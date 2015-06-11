@@ -3,8 +3,8 @@ package nodes.learning
 import breeze.linalg._
 import breeze.stats._
 import org.apache.spark.rdd.RDD
-import pipelines.LabelEstimator
 import utils.MatrixUtils
+import workflow.LabelEstimator
 
 /**
  * An Estimator that fits Linear Discriminant Analysis (currently not calculated in a distributed fashion),

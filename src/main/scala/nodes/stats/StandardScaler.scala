@@ -4,8 +4,8 @@ import breeze.linalg.DenseVector
 import breeze.numerics.sqrt
 import org.apache.spark.mllib.stat.MultivariateOnlineSummarizer
 import org.apache.spark.rdd.RDD
-import pipelines.{Estimator, Transformer}
 import utils.MLlibUtils
+import workflow.{Transformer, Estimator}
 
 /**
  * Represents a StandardScaler model that can transform dense vectors.

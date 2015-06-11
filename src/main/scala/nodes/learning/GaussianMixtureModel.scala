@@ -7,6 +7,7 @@ import org.apache.spark.rdd.RDD
 import pipelines._
 import utils.MatrixUtils
 import utils.external.EncEval
+import workflow.{Transformer, Estimator}
 
 /**
  * A Mixture of Gaussians, usually computed via some clustering process.

@@ -1,9 +1,8 @@
 package nodes.nlp
 
 import org.apache.spark.broadcast.Broadcast
-import pipelines.{Estimator, Transformer}
-
 import org.apache.spark.rdd.RDD
+import workflow.{Estimator, Transformer}
 
 object WordFrequencyEncoder extends Estimator[Seq[String], Seq[Int]] {
   private[this] def makeUnigrams(data: RDD[Seq[String]]) =

@@ -2,7 +2,7 @@ package nodes.stats
 
 import breeze.linalg.DenseVector
 import breeze.math.Complex
-import pipelines.Transformer
+import workflow.Transformer
 
 /**
  * This transformer pads input vectors to the nearest power of two,
@@ -10,7 +10,7 @@ import pipelines.Transformer
  *
  * Goes from vectors of size n to vectors of size nextPositivePowerOfTwo(n)/2
  */
-object PaddedFFT extends Transformer[DenseVector[Double], DenseVector[Double]] {
+case class PaddedFFT() extends Transformer[DenseVector[Double], DenseVector[Double]] {
   override def apply(in: DenseVector[Double]): DenseVector[Double] = {
     val paddedSize = nextPositivePowerOfTwo(in.length)
     val fft: DenseVector[Complex] = breeze.signal.fourierTr(in.padTo(paddedSize, 0.0).toDenseVector)

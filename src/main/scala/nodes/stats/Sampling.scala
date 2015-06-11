@@ -2,7 +2,7 @@ package nodes.stats
 
 import breeze.linalg.{DenseVector, DenseMatrix}
 import org.apache.spark.rdd.RDD
-import pipelines.{FunctionNode, Transformer}
+import pipelines.FunctionNode
 
 /**
  * Given a collection of Dense Matrices, this will generate a sample of `numSamples` columns from the entire set.

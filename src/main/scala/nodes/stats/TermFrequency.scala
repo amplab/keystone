@@ -1,6 +1,6 @@
 package nodes.stats
 
-import pipelines.Transformer
+import workflow.Transformer
 
 /**
  * Transformer that maps a Seq[Any] of objects to a Seq[(Any, Double)] of (unique object, weighting_scheme(tf)),

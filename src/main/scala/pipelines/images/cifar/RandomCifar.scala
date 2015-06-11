@@ -39,8 +39,8 @@ object RandomCifar extends Serializable with Logging {
         .then(new Pooler(conf.poolStride, conf.poolSize, identity, _.sum))
         .then(ImageVectorizer)
         .then(new Cacher[DenseVector[Double]])
-        .thenEstimator(new StandardScaler).fit(trainImages)
-        .then(new Cacher[DenseVector[Double]])
+        .thenEstimator(new StandardScaler).withData(trainImages)
+        .then(new Cacher[DenseVector[Double]]).fit()
 
     val labelExtractor = LabelExtractor then
       ClassLabelIndicatorsFromIntLabels(numClasses) then
@@ -49,7 +49,7 @@ object RandomCifar extends Serializable with Logging {
     val trainFeatures = featurizer(trainImages)
     val trainLabels = labelExtractor(trainData)
 
-    val model = LinearMapEstimator(conf.lambda).fit(trainFeatures, trainLabels)
+    val model = LinearMapEstimator(conf.lambda).withData(trainFeatures, trainLabels).fit()
 
     val predictionPipeline = featurizer then model then MaxClassifier
 

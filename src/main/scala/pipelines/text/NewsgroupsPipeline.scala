@@ -1,6 +1,5 @@
 package pipelines.text
 
-import breeze.linalg.{Vector, argmax}
 import evaluation.MulticlassClassifierEvaluator
 import loaders.NewsgroupsDataLoader
 import nodes.learning.NaiveBayesEstimator
@@ -14,6 +13,26 @@ import scopt.OptionParser
 object NewsgroupsPipeline extends Logging {
   val appName = "NewsgroupsPipeline"
 
+  def pp(tree: String, indentSize: Int = 2): String = {
+    var indentLevel = 0
+    var outputTree = ""
+    tree foreach { char => char match {
+      case '(' =>
+        indentLevel += 1
+        outputTree += ":\n"+indents
+      case ')' =>
+        indentLevel -= 1
+        outputTree += indents
+      case ',' => outputTree += "\n" + indents
+      case ' ' => Unit
+      case _   => outputTree += char.toString
+    }}
+
+    def indents = " " * indentLevel * indentSize
+
+    outputTree
+  }
+
   def run(sc: SparkContext, conf: NewsgroupsConfig) {
 
     val trainData = NewsgroupsDataLoader(sc, conf.trainLocation)
@@ -21,15 +40,17 @@ object NewsgroupsPipeline extends Logging {
 
     // Build the classifier estimator
     logInfo("Training classifier")
-    val predictor = Trim.then(LowerCase())
+    val predictorPipeline = Trim.then(LowerCase())
         .then(Tokenizer())
-        .then(new NGramsFeaturizer[String](1 to conf.nGrams))
+        .then(NGramsFeaturizer(1 to conf.nGrams))
         .then(TermFrequency(x => 1))
         .thenEstimator(CommonSparseFeatures(conf.commonFeatures))
-        .fit(trainData.data)
+        .withData(trainData.data)
         .thenLabelEstimator(NaiveBayesEstimator(numClasses))
-        .fit(trainData.data, trainData.labels)
+        .withData(trainData.data, trainData.labels)
         .then(MaxClassifier)
+    logInfo("\n" + pp(predictorPipeline.toString))
+    val predictor = predictorPipeline.fit()
 
     // Evaluate the classifier
     logInfo("Evaluating classifier")

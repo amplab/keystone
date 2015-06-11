@@ -2,11 +2,10 @@ package nodes.learning
 
 import breeze.linalg._
 import edu.berkeley.cs.amplab.mlmatrix.{NormalEquations, RowPartitionedMatrix}
-import nodes.stats.{StandardScalerModel, StandardScaler}
+import nodes.stats.{StandardScaler, StandardScalerModel}
 import org.apache.spark.rdd.RDD
-
-import pipelines.{LabelEstimator, Transformer}
 import utils.MatrixUtils
+import workflow.{LabelEstimator, Transformer}
 
 /**
  * Computes A * x + b i.e. a linear map of data using a trained model.

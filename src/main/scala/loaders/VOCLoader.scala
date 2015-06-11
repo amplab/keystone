@@ -1,21 +1,9 @@
 package loaders
 
-import java.awt.image.BufferedImage
-import java.io.{ByteArrayInputStream, InputStream}
-import java.net.URI
-import java.util.zip.GZIPInputStream
-import javax.imageio.ImageIO
-
-import org.apache.commons.compress.archivers.ArchiveStreamFactory
-import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
-import pipelines.{Logging, Transformer}
-import utils.{MultiLabeledImage, Image, ImageConversions}
-
-import scala.collection.mutable.ArrayBuffer
+import pipelines.Logging
+import utils.MultiLabeledImage
 
 
 case class VOCDataPath(imagesDirName: String, namePrefix: String, numParts: Option[Int])

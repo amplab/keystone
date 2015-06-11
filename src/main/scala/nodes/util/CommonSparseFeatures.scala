@@ -2,7 +2,7 @@ package nodes.util
 
 import breeze.linalg.SparseVector
 import org.apache.spark.rdd.RDD
-import pipelines.Estimator
+import workflow.Estimator
 
 import scala.reflect.ClassTag
 

@@ -3,7 +3,7 @@ package nodes.nlp
 import java.util.Locale
 
 import org.apache.spark.rdd.RDD
-import pipelines.Transformer
+import workflow.Transformer
 
 /**
  * Transformer that tokenizes a String into a Seq[String] by splitting on a regular expression.

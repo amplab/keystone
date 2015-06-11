@@ -1,6 +1,7 @@
 package nodes.learning
 
 import nodes.util.VectorSplitter
+import workflow.LabelEstimator
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -16,7 +17,7 @@ import edu.berkeley.cs.amplab.mlmatrix.{RowPartition, NormalEquations, BlockCoor
 import edu.berkeley.cs.amplab.mlmatrix.util.{Utils => MLMatrixUtils}
 
 import nodes.stats.StandardScaler
-import pipelines.{Transformer, LabelEstimator, Logging}
+import pipelines.Logging
 import utils.{MatrixUtils, Stats}
 
 // Utility class that holds statistics related to each block we solve

@@ -3,7 +3,7 @@ package nodes.nlp
 import edu.arizona.sista.processors.Processor
 import edu.arizona.sista.processors.fastnlp.FastNLPProcessor
 import org.apache.spark.rdd.RDD
-import pipelines.Transformer
+import workflow.Transformer
 
 /**
  * Transformer that uses CoreNLP to (in order):

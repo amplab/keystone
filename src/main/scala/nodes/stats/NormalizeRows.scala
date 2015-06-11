@@ -2,7 +2,7 @@ package nodes.stats
 
 import breeze.linalg.{max, sum, DenseVector}
 import breeze.numerics._
-import pipelines.Transformer
+import workflow.Transformer
 
 /**
  * Divides each row by the max of its two-norm and 2.2e-16.

@@ -5,8 +5,8 @@ import edu.berkeley.cs.amplab.mlmatrix.{RowPartition, NormalEquations, BlockCoor
 import nodes.stats.{StandardScalerModel, StandardScaler}
 import org.apache.spark.rdd.RDD
 import nodes.util.{VectorSplitter, Identity}
-import pipelines.{Transformer, LabelEstimator}
 import utils.{MatrixUtils, Stats}
+import workflow.{Transformer, LabelEstimator}
 
 
 /**

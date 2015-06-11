@@ -6,6 +6,7 @@ import breeze.stats.distributions.Rand
 import org.apache.spark.rdd.RDD
 import pipelines._
 import utils.MatrixUtils
+import workflow.Transformer
 
 /**
  * Transformer that extracts random cosine features from a feature vector

@@ -3,6 +3,7 @@ package nodes.images
 import breeze.linalg.DenseVector
 import pipelines._
 import utils.{ImageMetadata, ChannelMajorArrayVectorizedImage, Image}
+import workflow.Transformer
 
 /**
  * This node takes an image and performs pooling on regions of the image.

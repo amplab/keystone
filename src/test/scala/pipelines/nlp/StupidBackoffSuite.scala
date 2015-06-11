@@ -19,7 +19,7 @@ class StupidBackoffSuite extends FunSuite with LocalSparkContext {
   def featurizer(orders: Seq[Int], mode: NGramsCountsMode.Value = NGramsCountsMode.Default) = {
     def feat(data: RDD[String]) = {
       NGramsCounts[String](mode).apply(
-        (Tokenizer() then NGramsFeaturizer[String](orders)).apply(data))
+        (Tokenizer() then NGramsFeaturizer[String](orders)).fit().apply(data))
     }
     feat _
   }

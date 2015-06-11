@@ -7,6 +7,7 @@ import com.github.fommil.netlib.LAPACK.{getInstance => lapack}
 import org.apache.spark.rdd.RDD
 import org.netlib.util.intW
 import pipelines._
+import workflow.{Transformer, Estimator}
 
 class ZCAWhitener(val whitener: DenseMatrix[Double], val means: DenseVector[Double])
   extends Transformer[DenseMatrix[Double],DenseMatrix[Double]] {

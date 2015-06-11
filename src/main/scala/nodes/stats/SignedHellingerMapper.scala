@@ -2,7 +2,7 @@ package nodes.stats
 
 import breeze.linalg.{DenseVector, DenseMatrix}
 import breeze.numerics._
-import pipelines.Transformer
+import workflow.Transformer
 
 /**
  *  Apply power normalization: z <- sign(z)|z|^{\rho}

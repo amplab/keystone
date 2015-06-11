@@ -101,13 +101,15 @@ object ImageNetSiftLcsInteractionTerms extends Serializable with Logging {
     val siftSamples = new ColumnSampler(conf.numZcaSamples, Some(numImgs)).apply(
       siftFeatures)
 
-    val siftSamplesFiltered = MatrixUtils.rowsToMatrix(
+    val siftSamplesFilteredAll =
       siftSamples.filter { sift =>
         norm(sift, 2) > conf.siftThreshold
       }.map { x =>
         convert(x, Double)
       }.collect()
-    )
+
+    val siftSamplesFiltered = MatrixUtils.rowsToMatrix(
+      MatrixUtils.shuffleArray(siftSamplesFilteredAll).take(1e6.toInt))
 
     val featurizedKitchenSink = {
       grayscaler then
@@ -132,8 +134,10 @@ object ImageNetSiftLcsInteractionTerms extends Serializable with Logging {
     val lcsSamples = new ColumnSampler(conf.numZcaSamples, Some(numImgs)).apply(
       lcsFeatures)
 
+    val lcsSamplesAll = lcsSamples.collect().map(x => convert(x, Double))
+
     val lcsSamplesMat = MatrixUtils.rowsToMatrix(
-      lcsSamples.collect().map(x => convert(x, Double)))
+      MatrixUtils.shuffleArray(lcsSamplesAll).take(1e6.toInt))
 
     val featurizedKitchenSink = {
       new LCSExtractor(conf.lcsStride, conf.lcsBorder, conf.lcsPatch) then

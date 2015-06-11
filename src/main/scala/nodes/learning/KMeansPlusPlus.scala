@@ -136,6 +136,7 @@ case class KMeansPlusPlusEstimator(numMeans: Int, maxIterations: Int, stopTolera
 
       if (iter > 0) {
         costImproving = (curCost(iter - 1) - curCost(iter)) >= stopTolerance * math.abs(curCost(iter - 1))
+        println("Iteration: " + iter + " current cost " + curCost(iter) + " imp " + costImproving)
       }
 
       iter += 1

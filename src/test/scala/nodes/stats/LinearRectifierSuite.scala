@@ -21,7 +21,7 @@ class LinearRectifierSuite extends FunSuite with LocalSparkContext with Logging 
     sc = new SparkContext("local", "test")
     val matrixParts = createRandomMatrix(128, 16, 4)
 
-    val x = matrixParts.flatMap(MatrixUtils.matrixToRowArray)
+    val x = matrixParts.flatMap(y => MatrixUtils.matrixToRowArray(y))
     val y = x.map(r => r.forall(_ >= 0.0))
 
     val valmaxNode = LinearRectifier()

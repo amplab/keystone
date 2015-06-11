@@ -4,6 +4,7 @@ import java.io.File
 
 import breeze.linalg._
 
+import scala.reflect.ClassTag
 import scala.util.Random
 
 
@@ -17,7 +18,7 @@ object MatrixUtils extends Serializable {
    * @param mat Input matrix.
    * @return Array of rows.
    */
-  def matrixToRowArray(mat: DenseMatrix[Double]): Array[DenseVector[Double]] = {
+  def matrixToRowArray[T](mat: DenseMatrix[T]): Array[DenseVector[T]] = {
     val matT = mat.t
     (0 until mat.rows).toArray.map(matT(::, _))
   }
@@ -28,7 +29,7 @@ object MatrixUtils extends Serializable {
    * @param in Sequence of of DenseVectors (rows)
    * @return A row matrix.
    */
-  def rowsToMatrix(in: TraversableOnce[DenseVector[Double]]): DenseMatrix[Double] = {
+  def rowsToMatrix[T : ClassTag](in: TraversableOnce[DenseVector[T]]): DenseMatrix[T] = {
     rowsToMatrix(in.toArray)
   }
 
@@ -38,10 +39,10 @@ object MatrixUtils extends Serializable {
    * @param inArr Array of DenseVectors (rows)
    * @return A row matrix.
    */
-  def rowsToMatrix(inArr: Array[DenseVector[Double]]): DenseMatrix[Double] = {
+  def rowsToMatrix[T : ClassTag](inArr: Array[DenseVector[T]]): DenseMatrix[T] = {
     val nRows = inArr.length
     val nCols = inArr(0).length
-    val outArr = new Array[Double](nRows * nCols)
+    val outArr = new Array[T](nRows * nCols)
     var i = 0
     while (i < nRows) {
       var j = 0
@@ -52,7 +53,7 @@ object MatrixUtils extends Serializable {
       }
       i = i + 1
     }
-    val outMat = new DenseMatrix[Double](nRows, nCols, outArr)
+    val outMat = new DenseMatrix[T](nRows, nCols, outArr)
     outMat
   }
 

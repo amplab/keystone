@@ -70,7 +70,7 @@ class BlockLinearMapper(
       }.getOrElse(mat)
     }
 
-    matOutWithIntercept.flatMap(MatrixUtils.matrixToRowArray)
+    matOutWithIntercept.flatMap(x => MatrixUtils.matrixToRowArray(x))
   }
 
   override def apply(in: DenseVector[Double]): DenseVector[Double] = {
@@ -129,7 +129,7 @@ class BlockLinearMapper(
           mat
         }.getOrElse(mat)
       }
-      evaluator.apply(sumAndIntercept.flatMap(MatrixUtils.matrixToRowArray))
+      evaluator.apply(sumAndIntercept.flatMap(x => MatrixUtils.matrixToRowArray(x)))
       prev.map(_.unpersist())
       prev = Some(sum)
     }

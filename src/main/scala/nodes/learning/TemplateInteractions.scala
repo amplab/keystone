@@ -30,11 +30,11 @@ class TemplateInteractions(
 
   def apply(in: DenseMatrix[Double]): DenseMatrix[Double] = {
     // in is numSifts (128) * numKeyPoints (10k)
-    val gaussianFeatures = in * kitchenSinkGaussian._1  
+    val gaussianFeatures = in.t * kitchenSinkGaussian._1
     gaussianFeatures(*, ::) -= kitchenSinkGaussian._2
     maxInPlace(gaussianFeatures, gaussianOffset)
 
-    val templateFeatures = in * kitchenSinkTemplates._1
+    val templateFeatures = in.t * kitchenSinkTemplates._1
     templateFeatures(*, ::) -= kitchenSinkTemplates._2
     maxInPlace(templateFeatures, templateOffset)
 

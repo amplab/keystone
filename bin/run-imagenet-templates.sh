@@ -23,4 +23,8 @@ LOG_SUFFIX=`date +"%Y_%m_%d_%H_%M_%S"`
   --numKMeans 256 \
   --numGaussianRandomFeatures 160 2>&1 | tee /mnt/imagenet-logs-"$LOG_SUFFIX".log
 
+# NOTE: Add this line above to save out features.
+# This might take much longer to run though
+#  --featuresSaveDir /imagenet-tempates-256-160 \
+
 popd

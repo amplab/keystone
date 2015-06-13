@@ -12,7 +12,7 @@ import scala.reflect.ClassTag
  * @tparam A input item type the transformer takes
  * @tparam B output item type the transformer produces
  */
-abstract class Transformer[A, B : ClassTag] extends OldNode[A, B] {
+abstract class Transformer[A, B : ClassTag] extends TransformerNode[B] {
   /**
    * Apply this Transformer to an RDD of input items
    * @param in The bulk RDD input to pass into this transformer
@@ -27,43 +27,12 @@ abstract class Transformer[A, B : ClassTag] extends OldNode[A, B] {
    */
   def apply(in: A): B
 
-  /**
-   * Chains another Transformer onto this one, producing a new Transformer that applies both in sequence
-   * @param next The Transformer to attach to the end of this one
-   * @return The output Transformer
-   */
-  def then[C : ClassTag](next: Transformer[B, C]): PipelineModel[A, C] = {
-    PipelineModel(this.rewrite ++ next.rewrite)
-  }
+  def transform(dataDependencies: Seq[_], fitDependencies: Seq[TransformerNode[_]]): B = apply(dataDependencies.head.asInstanceOf[A])
 
-  /**
-   * Chains a method, producing a new Transformer that applies the method to each
-   * output item after applying this Transformer first.
-   * @param next The method to apply to each item output by this transformer
-   * @return The output Transformer
-   */
-  def thenFunction[C : ClassTag](next: B => C): PipelineModel[A, C] = then(Transformer(next))
+  def transformRDD(dataDependencies: Seq[RDD[_]], fitDependencies: Seq[TransformerNode[_]]): RDD[B] = apply(dataDependencies.head.asInstanceOf[RDD[A]])
 
-  /**
-   * Unsafely apply this transformer to a single item (not type-safe).
-   * Allows workflow nodes to ignore types under-the-hood (e.g. [[PipelineModel]])
-   *
-   * @param x The item to apply this transformer to
-   * @return  The transformed output
-   */
-  private[workflow] final def unsafeSingleApply(x: Any) = apply(x.asInstanceOf[A])
+  def partialApply(fitDependencies: Seq[TransformerNode[_]]): TransformerNode[B] = this
 
-  /**
-   * Unsafely apply this transformer to an RDD (not type-safe).
-   * Allows workflow nodes to ignore types under-the-hood (e.g. [[PipelineModel]])
-   *
-   * @param x The item to apply this transformer to
-   * @return  The transformed output
-   */
-  private[workflow] final def unsafeRDDApply(x: Any) = apply(x.asInstanceOf[RDD[A]])
-
-  override def rewrite: Seq[Transformer[_, _]] = Seq(this)
-  override def canSafelyPrependExtraNodes: Boolean = true
 }
 
 object Transformer {

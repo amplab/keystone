@@ -7,12 +7,9 @@ case class Pipeline[A, B](
   nodes: Seq[Node],
   dataDeps: Seq[Seq[Int]],
   fitDeps: Seq[Seq[Int]],
-  sources: Seq[Int],
   sink: Int) extends Logging {
 
   validate()
-
-  val SOURCE: Int = -1
 
   /** TODO: require that
     - nodes.size = dataDeps.size == fitDeps.size
@@ -48,7 +45,7 @@ case class Pipeline[A, B](
   }
 
   private def singleDataEval(node: Int, in: A): Any = {
-    if (node == SOURCE) {
+    if (node == Pipeline.SOURCE) {
       in
     } else {
       nodes(node) match {
@@ -65,7 +62,7 @@ case class Pipeline[A, B](
   }
 
   private def rddDataEval(node: Int, in: RDD[A]): RDD[_] = {
-    if (node == SOURCE) {
+    if (node == Pipeline.SOURCE) {
       in
     } else {
       nodes(node) match {
@@ -87,15 +84,14 @@ case class Pipeline[A, B](
   def andThen[C](next: Pipeline[B, C]): Pipeline[A, C] = {
     val nodes = this.nodes ++ next.nodes
     val dataDeps = this.dataDeps ++ next.dataDeps.map(_.map {
-      x => if (x == next.SOURCE) this.sink else x + this.nodes.size
+      x => if (x == Pipeline.SOURCE) this.sink else x + this.nodes.size
     })
     val fitDeps = this.fitDeps ++ next.fitDeps.map(_.map {
-      x => if (x == next.SOURCE) this.sink else x + this.nodes.size
+      x => if (x == Pipeline.SOURCE) this.sink else x + this.nodes.size
     })
-    val sources = this.sources ++ next.sources.map(_ + this.nodes.size)
     val sink = next.sink
 
-    Pipeline(nodes, dataDeps, fitDeps, sources, sink)
+    Pipeline(nodes, dataDeps, fitDeps, sink)
   }
 
   def toDOTString: String = {
@@ -116,4 +112,10 @@ case class Pipeline[A, B](
     val lines = nodeLabels ++ dataEdges ++ fitEdges
     lines.mkString("digraph pipeline {\n  rankdir=LR;\n  ", "\n  ", "\n}")
   }
+}
+
+object Pipeline {
+  val SOURCE: Int = -1
+
+  def apply[T](): Pipeline[T, T] = Pipeline(Seq(), Seq(), Seq(), SOURCE)
 }

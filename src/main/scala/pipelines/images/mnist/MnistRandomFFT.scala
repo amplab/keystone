@@ -39,13 +39,13 @@ object MnistRandomFFT extends Serializable with Logging {
 
     val featurizer = Scatter {
       Seq.fill(conf.numFFTs) {
-        RandomSignNode(mnistImageSize, randomSignSource) then PaddedFFT() then LinearRectifier(0.0)
+        RandomSignNode(mnistImageSize, randomSignSource) andThen PaddedFFT() andThen LinearRectifier(0.0)
       }
     }
 
-    val pipeline = (featurizer then VectorCombiner() thenLabelEstimator
+    val pipeline = (featurizer andThen VectorCombiner() andThenLabelEstimator
         new BlockLeastSquaresEstimator(conf.blockSize, 1, conf.lambda.getOrElse(0)))
-        .withData(train.data, labels) then MaxClassifier
+        .withData(train.data, labels) andThen MaxClassifier
 
     // Train the model
     val model = pipeline.fit()

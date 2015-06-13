@@ -1,8 +1,11 @@
 package workflow
 
 import org.apache.spark.rdd.RDD
+import pipelines.Logging
 
-sealed trait Node extends Serializable
+sealed trait Node extends Serializable {
+  def label: String = getClass.getSimpleName
+}
 
 abstract class EstimatorNode[T <: TransformerNode[_]] extends Node {
   def fit(dependencies: Seq[RDD[_]]): T
@@ -14,8 +17,9 @@ abstract class TransformerNode[T] extends Node {
   def partialApply(fitDependencies: Seq[TransformerNode[_]]): TransformerNode[T]
 }
 
-class DataNode[T](rdd: RDD[T]) extends Node {
-  def get(): RDD[T] = rdd
+case class DataNode[T](rdd: RDD[T]) extends Node {
+  override def label: String = "%s[%d]".format(
+    Option(rdd.name).map(_ + " ").getOrElse(""), rdd.id)
 }
 
 case class Pipeline[A, B](
@@ -23,7 +27,7 @@ case class Pipeline[A, B](
   dataDeps: Seq[Seq[Int]],
   fitDeps: Seq[Seq[Int]],
   sources: Seq[Int],
-  sink: Int) {
+  sink: Int) extends Logging {
 
   validate()
 
@@ -57,7 +61,10 @@ case class Pipeline[A, B](
       throw new RuntimeException("Pipeline DAG error: Cannot have a data dependency on a Transformer")
     case estimator: EstimatorNode[_] =>
       val nodeDataDeps = dataDeps(node).map(x => rddDataEval(x, null))
-      estimator.fit(nodeDataDeps)
+      logInfo(s"Fitting '${estimator.label}' [$node]")
+      val fitOut = estimator.fit(nodeDataDeps)
+      logInfo(s"Finished fitting '${estimator.label}' [$node]")
+      fitOut
   }
 
   private def singleDataEval(node: Int, in: A): Any = {
@@ -82,7 +89,7 @@ case class Pipeline[A, B](
       in
     } else {
       nodes(node) match {
-        case dataNode: DataNode[_] => dataNode.get()
+        case DataNode(rdd) => rdd
         case transformer: TransformerNode[_] =>
           val nodeFitDeps = fitDeps(node).map(fitEstimator)
           val nodeDataDeps = dataDeps(node).map(x => rddDataEval(x, in))
@@ -97,11 +104,11 @@ case class Pipeline[A, B](
 
   def apply(in: RDD[A]): RDD[B] = rddDataEval(sink, in).asInstanceOf[RDD[B]]
 
-  def toDOT(): String = {
+  def toDOT: String = {
     val nodeLabels: Seq[String] = "-1 [label='In' shape='Msquare']" +: nodes.zipWithIndex.map {
-      case (data: DataNode[_], id)  => s"$id [label='${data.get().toString()}' shape='box' style='filled']"
-      case (transformer: TransformerNode[_], id) => s"$id [label='${transformer.getClass.getSimpleName}']"
-      case (estimator: EstimatorNode[_], id) => s"$id [label='${estimator.getClass.getSimpleName}' shape='diamond']"
+      case (data: DataNode[_], id)  => s"$id [label='${data.label}' shape='box' style='filled']"
+      case (transformer: TransformerNode[_], id) => s"$id [label='${transformer.label}']"
+      case (estimator: EstimatorNode[_], id) => s"$id [label='${estimator.label}' shape='diamond']"
     } :+ s"${nodes.size} [label='Out' shape='Msquare']"
 
     val dataEdges: Seq[String] = dataDeps.zipWithIndex.flatMap {

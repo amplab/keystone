@@ -12,7 +12,7 @@ import scala.reflect.ClassTag
  * @tparam A input item type the transformer takes
  * @tparam B output item type the transformer produces
  */
-abstract class Transformer[A, B : ClassTag] extends Node[A, B] {
+abstract class Transformer[A, B : ClassTag] extends OldNode[A, B] {
   /**
    * Apply this Transformer to an RDD of input items
    * @param in The bulk RDD input to pass into this transformer

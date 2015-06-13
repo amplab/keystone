@@ -24,11 +24,11 @@ abstract class Estimator[A, B : ClassTag] extends Serializable {
    * @param data The data to attach
    * @return a pipeline that when fit returns the output of this estimator fit on the attached data
    */
-  def withData(data: RDD[A]): Pipeline[A, B] = EstimatorWithData(this, data)
+  def withData(data: RDD[A]): OldPipeline[A, B] = EstimatorWithData(this, data)
 
   /**
    * Unsafely fit this Estimator on an untyped RDD
-   * Allows workflow nodes to ignore types under-the-hood (e.g. [[Pipeline]])
+   * Allows workflow nodes to ignore types under-the-hood (e.g. [[OldPipeline]])
    *
    * @param data The data to fit this estimator to
    * @return  The output Transformer

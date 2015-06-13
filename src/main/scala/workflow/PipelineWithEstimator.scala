@@ -7,7 +7,7 @@ import scala.reflect.ClassTag
 /**
  * Created by tomerk11 on 5/28/15.
  */
-private[workflow] case class PipelineWithEstimator[A, B : ClassTag, C : ClassTag](pipeline: Pipeline[A, B], estimator: Estimator[B, C]) extends Estimator[A, C] {
+private[workflow] case class PipelineWithEstimator[A, B : ClassTag, C : ClassTag](pipeline: OldPipeline[A, B], estimator: Estimator[B, C]) extends Estimator[A, C] {
   override def withData(data: RDD[A]) = {
     pipeline then EstimatorWithData(estimator, data)
   }

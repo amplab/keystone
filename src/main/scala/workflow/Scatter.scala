@@ -34,22 +34,22 @@ case class ScatterTransformer[A, B : ClassTag] private[workflow] (branches: Seq[
   }
 }
 
-case class ScatterNode[A, B] private[workflow] (branches: Seq[Seq[Node[_, _]]]) extends Node[A, Seq[B]] {
+case class ScatterNode[A, B] private[workflow] (branches: Seq[Seq[OldNode[_, _]]]) extends OldNode[A, Seq[B]] {
   require(branches.nonEmpty, "Concat must have at least one branch")
 
   // Rewrites all the internal transformers
-  private def flattenedBranches: Seq[Seq[Node[_, _]]] = {
+  private def flattenedBranches: Seq[Seq[OldNode[_, _]]] = {
     branches.map(_.flatMap(_.rewrite))
   }
 
-  def rewrite: Seq[Node[_, _]] = {
+  def rewrite: Seq[OldNode[_, _]] = {
     // First rewrite the branches
     flattenedBranches match {
       // In the case of only one branch, no need for a Concat
       case Seq(onlyBranch) => onlyBranch
 
       // If all the branches start with the same prefix, it can be moved out of the Concat
-      case ((prefix: Node[a, b]) +: firstBranchTail) +: otherBranches
+      case ((prefix: OldNode[a, b]) +: firstBranchTail) +: otherBranches
         if otherBranches.forall(_.headOption == Some(prefix)) => {
         prefix +: ScatterNode(firstBranchTail +: otherBranches.map(_.tail)).rewrite
       }
@@ -57,14 +57,14 @@ case class ScatterNode[A, B] private[workflow] (branches: Seq[Seq[Node[_, _]]]) 
       // If any pipeline is nested as the first node inside any branch,
       // flatten it and wrap the whole Concat in a pipeline
       case `branches` if `branches`.exists {
-        case Pipeline(head) +: tail => true
+        case OldPipeline(head) +: tail => true
         case _ => false
       } => {
         val rewrittenBranches = `branches`.map {
-          case Pipeline(head) +: tail => head ++ tail
+          case OldPipeline(head) +: tail => head ++ tail
           case branch => branch
         }
-        Seq(Pipeline(ScatterNode(rewrittenBranches).rewrite))
+        Seq(OldPipeline(ScatterNode(rewrittenBranches).rewrite))
       }
 
       // Otherwise, just return a Concat with the rewritten branches
@@ -81,7 +81,7 @@ object Scatter {
     PipelineModel(ScatterTransformer[A, B](branches.map(_.rewrite)).rewrite)
   }
 
-  def apply[A, B : ClassTag](branches: Seq[Node[A, B]]): Pipeline[A, Seq[B]] = {
+  def apply[A, B : ClassTag](branches: Seq[OldNode[A, B]]): OldPipeline[A, Seq[B]] = {
     ScatterNode[A, B](branches.map(_.rewrite))
   }
 }

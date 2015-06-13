@@ -27,11 +27,11 @@ abstract class LabelEstimator[I, O : ClassTag, L] extends Serializable {
    * @param labels The labels to attach
    * @return a pipeline that when fit returns the output of this estimator fit on the attached data
    */
-  def withData(data: RDD[I], labels: RDD[L]): Pipeline[I, O] = LabelEstimatorWithData(this, data, labels)
+  def withData(data: RDD[I], labels: RDD[L]): OldPipeline[I, O] = LabelEstimatorWithData(this, data, labels)
 
   /**
    * Unsafely fit this Estimator on a untyped RDDs
-   * Allows workflow nodes to ignore types under-the-hood (e.g. [[Pipeline]])
+   * Allows workflow nodes to ignore types under-the-hood (e.g. [[OldPipeline]])
    *
    * @param data The data to fit this estimator to
    * @param labels The labels to use for the data

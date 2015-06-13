@@ -12,7 +12,12 @@ import scala.reflect.ClassTag
  * @tparam A input item type the transformer takes
  * @tparam B output item type the transformer produces
  */
-abstract class Transformer[A, B : ClassTag] extends TransformerNode[B] {
+abstract class Transformer[A, B : ClassTag] extends TransformerNode[B] with Pipeline[A, B] {
+  override val nodes: Seq[Node] = Seq(this)
+  override val dataDeps: Seq[Seq[Int]] = Seq(Seq(Pipeline.SOURCE))
+  override val fitDeps: Seq[Seq[Int]] = Seq(Seq())
+  override val sink: Int = 0
+
   /**
    * Apply this Transformer to an RDD of input items
    * @param in The bulk RDD input to pass into this transformer

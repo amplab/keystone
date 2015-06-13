@@ -60,7 +60,7 @@ abstract class RuleExecutor extends Logging {
           continue = false
         }
 
-        if (curPlan == lastPlan) {
+        if (curPlan planEquals lastPlan) {
           logTrace(
             s"Fixed point reached for batch ${batch.name} after ${iteration - 1} iterations.")
           continue = false
@@ -68,7 +68,7 @@ abstract class RuleExecutor extends Logging {
         lastPlan = curPlan
       }
 
-      if (!(batchStartPlan == curPlan)) {
+      if (!(batchStartPlan planEquals curPlan)) {
         logDebug(
           s"""
              |=== Result of Batch ${batch.name} ===

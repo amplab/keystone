@@ -3,11 +3,11 @@ package workflow
 import org.apache.spark.rdd.RDD
 import pipelines.Logging
 
-case class Pipeline[A, B](
-  nodes: Seq[Node],
-  dataDeps: Seq[Seq[Int]],
-  fitDeps: Seq[Seq[Int]],
-  sink: Int) extends Logging {
+trait Pipeline[A, B] {
+  private[workflow] val nodes: Seq[Node]
+  private[workflow] val dataDeps: Seq[Seq[Int]]
+  private[workflow] val fitDeps: Seq[Seq[Int]]
+  private[workflow] val sink: Int
 
   validate()
 
@@ -25,6 +25,64 @@ case class Pipeline[A, B](
   private def validate(): Unit = {
 
   }
+
+  def apply(in: A): B
+
+  def apply(in: RDD[A]): RDD[B]
+
+  final def andThen[C](next: Pipeline[B, C]): Pipeline[A, C] = {
+    val nodes = this.nodes ++ next.nodes
+    val dataDeps = this.dataDeps ++ next.dataDeps.map(_.map {
+      x => if (x == Pipeline.SOURCE) this.sink else x + this.nodes.size
+    })
+    val fitDeps = this.fitDeps ++ next.fitDeps.map(_.map {
+      x => if (x == Pipeline.SOURCE) this.sink else x + this.nodes.size
+    })
+    val sink = next.sink
+
+    Pipeline(nodes, dataDeps, fitDeps, sink)
+  }
+
+  final def toDOTString: String = {
+    val nodeLabels: Seq[String] = "-1 [label='In' shape='Msquare']" +: nodes.zipWithIndex.map {
+      case (data: DataNode[_], id)  => s"$id [label='${data.label}' shape='box' style='filled']"
+      case (transformer: TransformerNode[_], id) => s"$id [label='${transformer.label}']"
+      case (estimator: EstimatorNode[_], id) => s"$id [label='${estimator.label}' shape='diamond']"
+    } :+ s"${nodes.size} [label='Out' shape='Msquare']"
+
+    val dataEdges: Seq[String] = dataDeps.zipWithIndex.flatMap {
+      case (deps, id) => deps.map(x => s"$x -> $id")
+    } :+ s"$sink -> ${nodes.size}"
+
+    val fitEdges: Seq[String] = fitDeps.zipWithIndex.flatMap {
+      case (deps, id) => deps.map(x => s"$x -> $id [dir='none' style='dashed']")
+    }
+
+    val lines = nodeLabels ++ dataEdges ++ fitEdges
+    lines.mkString("digraph pipeline {\n  rankdir=LR;\n  ", "\n  ", "\n}")
+  }
+
+  final private[workflow] def planEquals(pipeline: Pipeline[A, B]): Boolean = {
+    this.eq(pipeline) || (
+        (nodes == pipeline.nodes) &&
+        (dataDeps == pipeline.dataDeps) &&
+        (fitDeps == pipeline.fitDeps) &&
+        (sink == pipeline.sink))
+  }
+}
+
+object Pipeline {
+  val SOURCE: Int = -1
+
+  def apply[T](): Pipeline[T, T] = new ConcretePipeline(Seq(), Seq(), Seq(), SOURCE)
+  private[workflow] def apply[A, B](nodes: Seq[Node], dataDeps: Seq[Seq[Int]], fitDeps: Seq[Seq[Int]], sink: Int): Pipeline[A, B] = new ConcretePipeline(nodes, dataDeps, fitDeps, sink)
+}
+
+private[workflow] class ConcretePipeline[A, B](
+  override val nodes: Seq[Node],
+  override val dataDeps: Seq[Seq[Int]],
+  override val fitDeps: Seq[Seq[Int]],
+  override val sink: Int) extends Pipeline[A, B] with Logging {
 
   private val fitCache: Array[Option[TransformerNode[_]]] = nodes.map(_ => None).toArray
 
@@ -77,45 +135,7 @@ case class Pipeline[A, B](
     }
   }
 
-  def apply(in: A): B = singleDataEval(sink, in).asInstanceOf[B]
+  override def apply(in: A): B = singleDataEval(sink, in).asInstanceOf[B]
 
-  def apply(in: RDD[A]): RDD[B] = rddDataEval(sink, in).asInstanceOf[RDD[B]]
-
-  def andThen[C](next: Pipeline[B, C]): Pipeline[A, C] = {
-    val nodes = this.nodes ++ next.nodes
-    val dataDeps = this.dataDeps ++ next.dataDeps.map(_.map {
-      x => if (x == Pipeline.SOURCE) this.sink else x + this.nodes.size
-    })
-    val fitDeps = this.fitDeps ++ next.fitDeps.map(_.map {
-      x => if (x == Pipeline.SOURCE) this.sink else x + this.nodes.size
-    })
-    val sink = next.sink
-
-    Pipeline(nodes, dataDeps, fitDeps, sink)
-  }
-
-  def toDOTString: String = {
-    val nodeLabels: Seq[String] = "-1 [label='In' shape='Msquare']" +: nodes.zipWithIndex.map {
-      case (data: DataNode[_], id)  => s"$id [label='${data.label}' shape='box' style='filled']"
-      case (transformer: TransformerNode[_], id) => s"$id [label='${transformer.label}']"
-      case (estimator: EstimatorNode[_], id) => s"$id [label='${estimator.label}' shape='diamond']"
-    } :+ s"${nodes.size} [label='Out' shape='Msquare']"
-
-    val dataEdges: Seq[String] = dataDeps.zipWithIndex.flatMap {
-      case (deps, id) => deps.map(x => s"$x -> $id")
-    } :+ s"$sink -> ${nodes.size}"
-
-    val fitEdges: Seq[String] = fitDeps.zipWithIndex.flatMap {
-      case (deps, id) => deps.map(x => s"$x -> $id [dir='none' style='dashed']")
-    }
-
-    val lines = nodeLabels ++ dataEdges ++ fitEdges
-    lines.mkString("digraph pipeline {\n  rankdir=LR;\n  ", "\n  ", "\n}")
-  }
-}
-
-object Pipeline {
-  val SOURCE: Int = -1
-
-  def apply[T](): Pipeline[T, T] = Pipeline(Seq(), Seq(), Seq(), SOURCE)
+  override def apply(in: RDD[A]): RDD[B] = rddDataEval(sink, in).asInstanceOf[RDD[B]]
 }

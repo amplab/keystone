@@ -1,7 +1,7 @@
 package workflow
 
 /**
- * Represents a pipeline rewriting rule
+ * Represents a pipeline rule
  */
 abstract class Rule {
   /** Name for this rule, automatically inferred based on class name. */

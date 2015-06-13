@@ -12,7 +12,7 @@ import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.rdd.RDD
 import pipelines._
 import scopt.OptionParser
-import workflow.{Scatter, OldNode$, Transformer}
+import workflow.{Scatter, Transformer}
 
 
 object MnistRandomFFT extends Serializable with Logging {

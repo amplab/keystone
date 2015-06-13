@@ -1,18 +1,16 @@
 package pipelines.images.mnist
 
 import breeze.stats.distributions.{RandBasis, ThreadLocalRandomGenerator}
-import breeze.linalg._
 import evaluation.MulticlassClassifierEvaluator
 import loaders.{CsvDataLoader, LabeledData}
-import nodes.learning.{BlockLinearMapper, BlockLeastSquaresEstimator}
+import nodes.learning.BlockLeastSquaresEstimator
 import nodes.stats.{LinearRectifier, PaddedFFT, RandomSignNode}
 import nodes.util._
 import org.apache.commons.math3.random.MersenneTwister
 import org.apache.spark.{SparkConf, SparkContext}
-import org.apache.spark.rdd.RDD
 import pipelines._
 import scopt.OptionParser
-import workflow.{Scatter, Transformer}
+import workflow.Gather
 
 
 object MnistRandomFFT extends Serializable with Logging {
@@ -37,7 +35,7 @@ object MnistRandomFFT extends Serializable with Logging {
         .cache())
     val labels = ClassLabelIndicatorsFromIntLabels(numClasses).apply(train.labels)
 
-    val featurizer = Scatter {
+    val featurizer = Gather {
       Seq.fill(conf.numFFTs) {
         RandomSignNode(mnistImageSize, randomSignSource) andThen PaddedFFT() andThen LinearRectifier(0.0)
       }

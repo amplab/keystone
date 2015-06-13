@@ -35,9 +35,6 @@ abstract class Transformer[A, B : ClassTag] extends TransformerNode[B] with Pipe
   def transform(dataDependencies: Seq[_], fitDependencies: Seq[TransformerNode[_]]): B = apply(dataDependencies.head.asInstanceOf[A])
 
   def transformRDD(dataDependencies: Seq[RDD[_]], fitDependencies: Seq[TransformerNode[_]]): RDD[B] = apply(dataDependencies.head.asInstanceOf[RDD[A]])
-
-  def partialApply(fitDependencies: Seq[TransformerNode[_]]): TransformerNode[B] = this
-
 }
 
 object Transformer {

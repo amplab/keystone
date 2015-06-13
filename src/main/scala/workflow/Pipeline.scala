@@ -19,7 +19,6 @@ case class Pipeline[A, B](
     - there is a sink
     - there is a data path from sink to in
     - there are no fit paths from sink to in
-    - there are no floating nodes that sink doesn’t depend on ?? (probably shouldn't be required, could make a rewrite rule to fix)
     - only data nodes may be sources (no deps)
     - data nodes must have no deps
     - estimators may not have fit deps, must have data deps
@@ -85,6 +84,20 @@ case class Pipeline[A, B](
 
   def apply(in: RDD[A]): RDD[B] = rddDataEval(sink, in).asInstanceOf[RDD[B]]
 
+  def andThen[C](next: Pipeline[B, C]): Pipeline[A, C] = {
+    val nodes = this.nodes ++ next.nodes
+    val dataDeps = this.dataDeps ++ next.dataDeps.map(_.map {
+      x => if (x == next.SOURCE) this.sink else x + this.nodes.size
+    })
+    val fitDeps = this.fitDeps ++ next.fitDeps.map(_.map {
+      x => if (x == next.SOURCE) this.sink else x + this.nodes.size
+    })
+    val sources = this.sources ++ next.sources.map(_ + this.nodes.size)
+    val sink = next.sink
+
+    Pipeline(nodes, dataDeps, fitDeps, sources, sink)
+  }
+
   def toDOTString: String = {
     val nodeLabels: Seq[String] = "-1 [label='In' shape='Msquare']" +: nodes.zipWithIndex.map {
       case (data: DataNode[_], id)  => s"$id [label='${data.label}' shape='box' style='filled']"
@@ -103,24 +116,4 @@ case class Pipeline[A, B](
     val lines = nodeLabels ++ dataEdges ++ fitEdges
     lines.mkString("digraph pipeline {\n  rankdir=LR;\n  ", "\n  ", "\n}")
   }
-}
-
-object Pipeline {
-
-  implicit class PipelineDSL[A, B](val pipeline: Pipeline[A, B]) {
-    def andThen[C](next: Pipeline[B, C]): Pipeline[A, C] = {
-      val nodes = pipeline.nodes ++ next.nodes
-      val dataDeps = pipeline.fitDeps ++ next.fitDeps.map(_.map {
-        x => if (x == next.SOURCE) pipeline.sink else x + pipeline.nodes.size
-      })
-      val fitDeps = pipeline.fitDeps ++ next.fitDeps.map(_.map {
-        x => if (x == next.SOURCE) pipeline.sink else x + pipeline.nodes.size
-      })
-      val sources = pipeline.sources ++ next.sources.map(_ + pipeline.nodes.size)
-      val sink = next.sink
-
-      Pipeline(nodes, dataDeps, fitDeps, sources, sink)
-    }
-  }
-
 }

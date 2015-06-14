@@ -76,7 +76,7 @@ trait Pipeline[A, B] {
     val nodeLabels: Seq[String] = "-1 [label=\"In\" shape=\"Msquare\"]" +: nodes.zipWithIndex.map {
       case (data: DataNode, id)  => s"$id [label=${'"' + data.label + '"'} shape=${"\"box\""} style=${"\"filled\""}]"
       case (transformer: TransformerNode[_], id) => s"$id [label=${'"' + transformer.label + '"'}]"
-      case (estimator: EstimatorNode, id) => s"$id [label=${'"' + estimator.label + '"'} shape=${"\"diamond\""}]"
+      case (estimator: EstimatorNode, id) => s"$id [label=${'"' + estimator.label + '"'} shape=${"\"box\""}]"
     } :+ s"${nodes.size} [label=${"\"Out\""} shape=${"\"Msquare\""}]"
 
     val dataEdges: Seq[String] = dataDeps.zipWithIndex.flatMap {

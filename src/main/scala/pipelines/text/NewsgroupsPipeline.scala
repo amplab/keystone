@@ -9,6 +9,7 @@ import nodes.util.{CommonSparseFeatures, MaxClassifier}
 import org.apache.spark.{SparkConf, SparkContext}
 import pipelines.Logging
 import scopt.OptionParser
+import workflow.Optimizer
 
 object NewsgroupsPipeline extends Logging {
   val appName = "NewsgroupsPipeline"
@@ -33,8 +34,8 @@ object NewsgroupsPipeline extends Logging {
         .withData(trainData.data, trainData.labels)
         .andThen(MaxClassifier)
 
-    logInfo("\n" + predictorPipeline.toDOTString)
-    val predictor = predictorPipeline
+    val predictor = Optimizer.execute(predictorPipeline)
+    logInfo("\n" + predictor.toDOTString)
 
     // Evaluate the classifier
     logInfo("Evaluating classifier")

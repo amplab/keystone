@@ -7,17 +7,53 @@ import org.apache.spark.rdd.RDD
 import scala.reflect.ClassTag
 
 trait LabelEstimatorPipeline[A, B, C, T <: ExposableTransformer[B, C, T], L] {
-  def fit(data: RDD[A], labels: RDD[L]): SingleTransformerPipeline[B, C, T]
+  private[workflow] val nodes: Seq[Node]
+  private[workflow] val dataDeps: Seq[Seq[Int]]
+  private[workflow] val fitDeps: Seq[Seq[Int]]
+  private[workflow] val sink: Int
+
+  def withData(data: RDD[A], labels: RDD[L]): SingleTransformerPipeline[B, C, T] = {
+    val label = {
+      val className = nodes(sink).getClass.getSimpleName
+      if (className endsWith "$") className.dropRight(1) else className
+    } + ".fit"
+
+    val newNodes = nodes :+ DataNode(data) :+ DataNode(labels) :+ new DelegatingTransformer[C](label)
+    val newDataDeps = dataDeps.map(_.map {
+      case Pipeline.SOURCE => nodes.size
+      case LabelEstimatorPipeline.LABEL_SOURCE => nodes.size + 1
+      case x => x
+    }) :+ Seq() :+ Seq() :+ Seq(Pipeline.SOURCE)
+    val newFitDeps = fitDeps :+ Seq() :+ Seq() :+ Seq(sink)
+    val newSink = newNodes.size - 1
+
+    new ConcreteSingleTransformerPipeline(newNodes, newDataDeps, newFitDeps, newSink)
+  }
+}
+
+private[workflow] class ConcreteLabelEstimatorPipeline[A, B, C, T <: ExposableTransformer[B, C, T], L](
+  override val nodes: Seq[Node],
+  override val dataDeps: Seq[Seq[Int]],
+  override val fitDeps: Seq[Seq[Int]],
+  override val sink: Int) extends LabelEstimatorPipeline[A, B, C, T, L]
+
+object LabelEstimatorPipeline {
+  val LABEL_SOURCE: Int = -2
 }
 
 abstract class ModelExposingLabelEstimator[A, B, T <: ExposableTransformer[A, B, T], L] extends EstimatorNode with LabelEstimatorPipeline[A, A, B, T, L]  {
+  override val nodes: Seq[Node] = Seq(this)
+  override val dataDeps: Seq[Seq[Int]] = Seq(Seq(Pipeline.SOURCE, LabelEstimatorPipeline.LABEL_SOURCE))
+  override val fitDeps: Seq[Seq[Int]] = Seq(Seq())
+  override val sink: Int = 0
+
   /**
    * A LabelEstimator estimator is an estimator which expects labeled data.
    * @param data Input data.
    * @param labels Input labels.
    * @return A [[Transformer]] which can be called on new data.
    */
-  override def fit(data: RDD[A], labels: RDD[L]): T
+  protected def fit(data: RDD[A], labels: RDD[L]): T
 
   override def fit(dependencies: Seq[RDD[_]]): TransformerNode[_] = fit(dependencies(0).asInstanceOf[RDD[A]], dependencies(1).asInstanceOf[RDD[L]])
 }

@@ -43,8 +43,33 @@ trait Pipeline[A, B] {
     Pipeline(nodes, dataDeps, fitDeps, sink)
   }
 
-  final def andThenEstimator[C, D, T <: ExposableTransformer[C, D, T]](x: EstimatorPipeline[B, C, D, T]): EstimatorPipeline[A, C, D, T] = ???
-  final def andThenLabelEstimator[C, D, T <: ExposableTransformer[C, D, T], L](x: LabelEstimatorPipeline[B, C, D, T, L]): LabelEstimatorPipeline[A, C, D, T, L] = ???
+  final def andThenEstimator[C, D, T <: ExposableTransformer[C, D, T]](est: EstimatorPipeline[B, C, D, T]): EstimatorPipeline[A, C, D, T] = {
+    val nodes = this.nodes ++ est.nodes
+    val dataDeps = this.dataDeps ++ est.dataDeps.map(_.map {
+      x => if (x == Pipeline.SOURCE) this.sink else x + this.nodes.size
+    })
+    val fitDeps = this.fitDeps ++ est.fitDeps.map(_.map {
+      x => if (x == Pipeline.SOURCE) this.sink else x + this.nodes.size
+    })
+    val sink = est.sink + this.nodes.size
+
+    new ConcreteEstimatorPipeline(nodes, dataDeps, fitDeps, sink)
+  }
+
+  final def andThenLabelEstimator[C, D, T <: ExposableTransformer[C, D, T], L](est: LabelEstimatorPipeline[B, C, D, T, L]): LabelEstimatorPipeline[A, C, D, T, L] = {
+    val nodes = this.nodes ++ est.nodes
+    val dataDeps = this.dataDeps ++ est.dataDeps.map(_.map {
+      case Pipeline.SOURCE => this.sink
+      case LabelEstimatorPipeline.LABEL_SOURCE => LabelEstimatorPipeline.LABEL_SOURCE
+      case x => x + this.nodes.size
+    })
+    val fitDeps = this.fitDeps ++ est.fitDeps.map(_.map {
+      x => if (x == Pipeline.SOURCE) this.sink else x + this.nodes.size
+    })
+    val sink = est.sink + this.nodes.size
+
+    new ConcreteLabelEstimatorPipeline(nodes, dataDeps, fitDeps, sink)
+  }
 
 
   final def toDOTString: String = {
@@ -62,7 +87,11 @@ trait Pipeline[A, B] {
       case (deps, id) => deps.map(x => s"$x -> $id [dir=${"\"none\""} style=${"\"dashed\""}]")
     }
 
-    val lines = nodeLabels ++ dataEdges ++ fitEdges
+    val ranks = fitDeps.zipWithIndex.flatMap {
+      case (deps, id) => deps.map(x => s"{rank=same; $x $id}")
+    }
+
+    val lines = nodeLabels ++ dataEdges ++ fitEdges ++ ranks
     lines.mkString("digraph pipeline {\n  rankdir=LR;\n  ", "\n  ", "\n}")
   }
 

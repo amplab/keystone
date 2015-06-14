@@ -1,10 +1,17 @@
 package workflow
 
 import org.apache.spark.rdd.RDD
+import pipelines.Logging
 
 import scala.reflect.ClassTag
 
 trait SingleTransformerPipeline[A, B, T <: ExposableTransformer[A, B, T]] extends Pipeline[A, B]
+
+private[workflow] class ConcreteSingleTransformerPipeline[A, B, T <: ExposableTransformer[A, B, T]] (
+  nodes: Seq[Node],
+  dataDeps: Seq[Seq[Int]],
+  fitDeps: Seq[Seq[Int]],
+  sink: Int) extends ConcretePipeline[A, B](nodes, dataDeps, fitDeps, sink) with SingleTransformerPipeline[A, B, T]
 
 abstract class ExposableTransformer[A, B : ClassTag, THIS <: ExposableTransformer[A, B, THIS]] extends TransformerNode[B] with SingleTransformerPipeline[A, B, THIS] {
   override val nodes: Seq[Node] = Seq(this)

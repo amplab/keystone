@@ -38,7 +38,7 @@ trait Pipeline[A, B] {
     val fitDeps = this.fitDeps ++ next.fitDeps.map(_.map {
       x => if (x == Pipeline.SOURCE) this.sink else x + this.nodes.size
     })
-    val sink = next.sink
+    val sink = next.sink + this.nodes.size
 
     Pipeline(nodes, dataDeps, fitDeps, sink)
   }
@@ -48,18 +48,18 @@ trait Pipeline[A, B] {
 
 
   final def toDOTString: String = {
-    val nodeLabels: Seq[String] = "-1 [label='In' shape='Msquare']" +: nodes.zipWithIndex.map {
-      case (data: DataNode, id)  => s"$id [label='${data.label}' shape='box' style='filled']"
-      case (transformer: TransformerNode[_], id) => s"$id [label='${transformer.label}']"
-      case (estimator: EstimatorNode, id) => s"$id [label='${estimator.label}' shape='diamond']"
-    } :+ s"${nodes.size} [label='Out' shape='Msquare']"
+    val nodeLabels: Seq[String] = "-1 [label=\"In\" shape=\"Msquare\"]" +: nodes.zipWithIndex.map {
+      case (data: DataNode, id)  => s"$id [label=${'"' + data.label + '"'} shape=${"\"box\""} style=${"\"filled\""}]"
+      case (transformer: TransformerNode[_], id) => s"$id [label=${'"' + transformer.label + '"'}]"
+      case (estimator: EstimatorNode, id) => s"$id [label=${'"' + estimator.label + '"'} shape=${"\"diamond\""}]"
+    } :+ s"${nodes.size} [label=${"\"Out\""} shape=${"\"Msquare\""}]"
 
     val dataEdges: Seq[String] = dataDeps.zipWithIndex.flatMap {
       case (deps, id) => deps.map(x => s"$x -> $id")
     } :+ s"$sink -> ${nodes.size}"
 
     val fitEdges: Seq[String] = fitDeps.zipWithIndex.flatMap {
-      case (deps, id) => deps.map(x => s"$x -> $id [dir='none' style='dashed']")
+      case (deps, id) => deps.map(x => s"$x -> $id [dir=${"\"none\""} style=${"\"dashed\""}]")
     }
 
     val lines = nodeLabels ++ dataEdges ++ fitEdges

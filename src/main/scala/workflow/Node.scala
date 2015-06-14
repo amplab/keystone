@@ -3,7 +3,10 @@ package workflow
 import org.apache.spark.rdd.RDD
 
 sealed trait Node extends Serializable {
-  def label: String = getClass.getSimpleName
+  def label: String = {
+    val className = getClass.getSimpleName
+    if (className endsWith "$") className.dropRight(1) else className
+  }
 }
 
 abstract class EstimatorNode extends Node {

@@ -43,6 +43,10 @@ trait Pipeline[A, B] {
     Pipeline(nodes, dataDeps, fitDeps, sink)
   }
 
+  final def andThenEstimator[C, D, T <: ExposableTransformer[C, D, T]](x: EstimatorPipeline[B, C, D, T]): EstimatorPipeline[A, C, D, T] = ???
+  final def andThenLabelEstimator[C, D, T <: ExposableTransformer[C, D, T], L](x: LabelEstimatorPipeline[B, C, D, T, L]): LabelEstimatorPipeline[A, C, D, T, L] = ???
+
+
   final def toDOTString: String = {
     val nodeLabels: Seq[String] = "-1 [label='In' shape='Msquare']" +: nodes.zipWithIndex.map {
       case (data: DataNode, id)  => s"$id [label='${data.label}' shape='box' style='filled']"
@@ -111,7 +115,7 @@ private[workflow] class ConcretePipeline[A, B](
           val nodeFitDeps = fitDeps(node).map(fitEstimator)
           val nodeDataDeps = dataDeps(node).map(x => singleDataEval(x, in))
           transformer.transform(nodeDataDeps, nodeFitDeps)
-        case _: DataNode[_] =>
+        case _: DataNode =>
           throw new RuntimeException("Pipeline DAG error: came across an RDD data dependency when trying to do a single item apply")
         case _: EstimatorNode =>
           throw new RuntimeException("Pipeline DAG error: Cannot have a data dependency on an Estimator")

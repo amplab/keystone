@@ -33,14 +33,15 @@ object RandomCifar extends Serializable with Logging {
     // Set up a filter Array.
     val filters = DenseMatrix.rand(conf.numFilters, conf.patchSize*conf.patchSize*numChannels, Rand.gaussian)
 
-    val featurizer =
+    val unscaledFeaturizer =
       new Convolver(filters, imageSize, imageSize, numChannels, None, true)
         .andThen(SymmetricRectifier(alpha=conf.alpha))
         .andThen(new Pooler(conf.poolStride, conf.poolSize, identity, _.sum))
         .andThen(ImageVectorizer)
         .andThen(new Cacher[DenseVector[Double]])
-        .thenEstimator(new StandardScaler).withData(trainImages)
-        .andThen(new Cacher[DenseVector[Double]]).fit()
+
+    val featurizer = unscaledFeaturizer.andThen(unscaledFeaturizer.andThenEstimator(new StandardScaler).fit(trainImages))
+        .andThen(new Cacher[DenseVector[Double]])
 
     val labelExtractor = LabelExtractor andThen
       ClassLabelIndicatorsFromIntLabels(numClasses) andThen
@@ -49,7 +50,7 @@ object RandomCifar extends Serializable with Logging {
     val trainFeatures = featurizer(trainImages)
     val trainLabels = labelExtractor(trainData)
 
-    val model = LinearMapEstimator(conf.lambda).withData(trainFeatures, trainLabels).fit()
+    val model = LinearMapEstimator(conf.lambda).fit(trainFeatures, trainLabels)
 
     val predictionPipeline = featurizer andThen model andThen MaxClassifier
 

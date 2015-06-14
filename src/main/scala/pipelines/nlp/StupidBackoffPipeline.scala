@@ -33,8 +33,7 @@ object StupidBackoffPipeline {
     val unigramCounts = frequencyEncode.unigramCounts
 
     /** NGram (n >= 2) generation step */
-    val makeNGrams = (frequencyEncode andThen
-      NGramsFeaturizer[Int](2 to appConfig.n)).fit()
+    val makeNGrams = frequencyEncode andThen NGramsFeaturizer(2 to appConfig.n)
 
     val ngramCounts = NGramsCounts[Int](NGramsCountsMode.NoAdd).apply(
       makeNGrams(text))

@@ -12,12 +12,17 @@ class GatherTransformer[T] extends TransformerNode[Seq[T]] {
       x.zip(y).map(z => z._1 ++ z._2)
     })
   }
-
-  def partialApply(fitDependencies: Seq[TransformerNode[_]]): TransformerNode[Seq[T]] = this
 }
 
 object Gather {
   def apply[A, B : ClassTag](branches: Seq[Pipeline[A, B]]): Pipeline[A, Seq[B]] = {
-    PipelineModel(ScatterTransformer[A, B](branches.map(_.rewrite)).rewrite)
+    branches.scanLeft(0)(_ + _.nodes.size).zip(branches)
+    null
   }
+}
+
+class DelegatingTransformer[T](override val label: String) extends TransformerNode[T] {
+  def transform(dataDependencies: Seq[_], fitDependencies: Seq[TransformerNode[_]]): T = fitDependencies.head.transform(dataDependencies, Seq()).asInstanceOf[T]
+
+  def transformRDD(dataDependencies: Seq[RDD[_]], fitDependencies: Seq[TransformerNode[_]]): RDD[T] = fitDependencies.head.transformRDD(dataDependencies, Seq()).asInstanceOf[RDD[T]]
 }

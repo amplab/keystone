@@ -6,39 +6,29 @@ import org.apache.spark.rdd.RDD
 
 import scala.reflect.ClassTag
 
-/**
- * A label estimator has a `fit` method which takes input data & labels and emits a [[Transformer]]
- * @tparam I The type of the input data
- * @tparam O The type of output of the emitted transformer
- * @tparam L The type of label this node expects
- */
-abstract class LabelEstimator[I, O : ClassTag, L] extends Serializable {
+trait LabelEstimatorPipeline[A, B, C, T <: ExposableTransformer[B, C, T], L] {
+  def fit(data: RDD[A], labels: RDD[L]): SingleTransformerPipeline[B, C, T]
+}
+
+abstract class ModelExposingLabelEstimator[A, B, T <: ExposableTransformer[A, B, T], L] extends EstimatorNode with LabelEstimatorPipeline[A, A, B, T, L]  {
   /**
    * A LabelEstimator estimator is an estimator which expects labeled data.
    * @param data Input data.
    * @param labels Input labels.
    * @return A [[Transformer]] which can be called on new data.
    */
-  protected def fit(data: RDD[I], labels: RDD[L]): Transformer[I, O]
+  override def fit(data: RDD[A], labels: RDD[L]): T
 
-  /**
-   * Attaches training data to this estimator
-   * @param data The data to attach
-   * @param labels The labels to attach
-   * @return a pipeline that when fit returns the output of this estimator fit on the attached data
-   */
-  def withData(data: RDD[I], labels: RDD[L]): OldPipeline[I, O] = LabelEstimatorWithData(this, data, labels)
-
-  /**
-   * Unsafely fit this Estimator on a untyped RDDs
-   * Allows workflow nodes to ignore types under-the-hood (e.g. [[OldPipeline]])
-   *
-   * @param data The data to fit this estimator to
-   * @param labels The labels to use for the data
-   * @return  The output Transformer
-   */
-  private[workflow] final def unsafeFit(data: RDD[_], labels: RDD[_]) = fit(data.asInstanceOf[RDD[I]], labels.asInstanceOf[RDD[L]])
+  override def fit(dependencies: Seq[RDD[_]]): TransformerNode[_] = fit(dependencies(0).asInstanceOf[RDD[A]], dependencies(1).asInstanceOf[RDD[L]])
 }
+
+/**
+ * A label estimator has a `fit` method which takes input data & labels and emits a [[Transformer]]
+ * @tparam I The type of the input data
+ * @tparam O The type of output of the emitted transformer
+ * @tparam L The type of label this node expects
+ */
+abstract class LabelEstimator[I, O : ClassTag, L] extends ModelExposingLabelEstimator[I, O, Transformer[I, O], L]
 
 object LabelEstimator extends Serializable {
   /**

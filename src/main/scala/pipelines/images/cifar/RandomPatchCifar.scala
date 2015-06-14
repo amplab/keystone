@@ -50,13 +50,14 @@ object RandomPatchCifar extends Serializable with Logging {
     }
 
 
-    val featurizer = new Convolver(filters, imageSize, imageSize, numChannels, Some(whitener), true)
+    val unscaledFeaturizer = new Convolver(filters, imageSize, imageSize, numChannels, Some(whitener), true)
         .andThen(SymmetricRectifier(alpha=conf.alpha))
         .andThen(new Pooler(conf.poolStride, conf.poolSize, identity, _.sum))
         .andThen(ImageVectorizer)
         .andThen(new Cacher[DenseVector[Double]])
-        .thenEstimator(new StandardScaler).withData(trainImages)
-        .andThen(new Cacher[DenseVector[Double]]).fit()
+
+    val featurizer = unscaledFeaturizer.andThen(unscaledFeaturizer.andThenEstimator(new StandardScaler).fit(trainImages))
+        .andThen(new Cacher[DenseVector[Double]])
 
     val labelExtractor = LabelExtractor andThen
       ClassLabelIndicatorsFromIntLabels(numClasses) andThen
@@ -65,9 +66,9 @@ object RandomPatchCifar extends Serializable with Logging {
     val trainFeatures = featurizer(trainImages)
     val trainLabels = labelExtractor(trainData)
 
-    val model = new BlockLeastSquaresEstimator(4096, 1, conf.lambda.getOrElse(0.0)).withData(trainFeatures, trainLabels).fit()
+    val model = new BlockLeastSquaresEstimator(4096, 1, conf.lambda.getOrElse(0.0)).fit(trainFeatures, trainLabels)
 
-    val predictionPipeline = (featurizer andThen model andThen MaxClassifier andThen new Cacher[Int]).fit()
+    val predictionPipeline = featurizer andThen model andThen MaxClassifier andThen new Cacher[Int]
 
     // Calculate training error.
     val trainEval = MulticlassClassifierEvaluator(

@@ -6,35 +6,32 @@ import org.apache.spark.rdd.RDD
 
 import scala.reflect.ClassTag
 
+trait EstimatorPipeline[A, B, C, T <: ExposableTransformer[B, C, T]] {
+  def fit(data: RDD[A]): SingleTransformerPipeline[B, C, T]
+}
+
 /**
  * An estimator has a `fit` method which takes an input and emits a [[Transformer]]
  * @tparam A The type of input this estimator (and the resulting Transformer) takes
  * @tparam B The output type of the node this estimator produces when being fit
  */
-abstract class Estimator[A, B : ClassTag] extends Serializable {
+abstract class ModelExposingEstimator[A, B, T <: ExposableTransformer[A, B, T]] extends EstimatorNode with EstimatorPipeline[A, A, B, T]  {
   /**
    * An estimator has a `fit` method which emits a [[Transformer]].
    * @param data Input data.
    * @return A [[Transformer]] which can be called on new data.
    */
-  protected def fit(data: RDD[A]): Transformer[A, B]
+  override def fit(data: RDD[A]): T
 
-  /**
-   * Attaches training data to this estimator
-   * @param data The data to attach
-   * @return a pipeline that when fit returns the output of this estimator fit on the attached data
-   */
-  def withData(data: RDD[A]): OldPipeline[A, B] = EstimatorWithData(this, data)
-
-  /**
-   * Unsafely fit this Estimator on an untyped RDD
-   * Allows workflow nodes to ignore types under-the-hood (e.g. [[OldPipeline]])
-   *
-   * @param data The data to fit this estimator to
-   * @return  The output Transformer
-   */
-  private[workflow] final def unsafeFit(data: RDD[_]) = fit(data.asInstanceOf[RDD[A]])
+  override def fit(dependencies: Seq[RDD[_]]): TransformerNode[_] = fit(dependencies.head.asInstanceOf[RDD[A]])
 }
+
+/**
+ * An estimator has a `fit` method which takes an input and emits a [[Transformer]]
+ * @tparam A The type of input this estimator (and the resulting Transformer) takes
+ * @tparam B The output type of the node this estimator produces when being fit
+ */
+abstract class Estimator[A, B : ClassTag] extends ModelExposingEstimator[A, B, Transformer[A, B]]
 
 object Estimator extends Serializable {
   /**

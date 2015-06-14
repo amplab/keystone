@@ -13,26 +13,6 @@ import scopt.OptionParser
 object NewsgroupsPipeline extends Logging {
   val appName = "NewsgroupsPipeline"
 
-  def pp(tree: String, indentSize: Int = 2): String = {
-    var indentLevel = 0
-    var outputTree = ""
-    tree foreach { char => char match {
-      case '(' =>
-        indentLevel += 1
-        outputTree += ":\n"+indents
-      case ')' =>
-        indentLevel -= 1
-        outputTree += indents
-      case ',' => outputTree += "\n" + indents
-      case ' ' => Unit
-      case _   => outputTree += char.toString
-    }}
-
-    def indents = " " * indentLevel * indentSize
-
-    outputTree
-  }
-
   def run(sc: SparkContext, conf: NewsgroupsConfig) {
 
     val trainData = NewsgroupsDataLoader(sc, conf.trainLocation)
@@ -40,17 +20,21 @@ object NewsgroupsPipeline extends Logging {
 
     // Build the classifier estimator
     logInfo("Training classifier")
-    val predictorPipeline = Trim.andThen(LowerCase())
+    val stringFeaturizer = Trim.andThen(LowerCase())
         .andThen(Tokenizer())
         .andThen(NGramsFeaturizer(1 to conf.nGrams))
         .andThen(TermFrequency(x => 1))
+
+    val featurizer = stringFeaturizer andThen stringFeaturizer
         .andThenEstimator(CommonSparseFeatures(conf.commonFeatures))
-        .withData(trainData.data)
-        .andThenLabelEstimator(NaiveBayesEstimator(numClasses))
-        .withData(trainData.data, trainData.labels)
+        .fit(trainData.data)
+
+    val predictorPipeline = featurizer andThen featurizer.andThenLabelEstimator(NaiveBayesEstimator(numClasses))
+        .fit(trainData.data, trainData.labels)
         .andThen(MaxClassifier)
-    logInfo("\n" + pp(predictorPipeline.toString))
-    val predictor = predictorPipeline.fit()
+
+    logInfo("\n" + predictorPipeline.toDOTString)
+    val predictor = predictorPipeline
 
     // Evaluate the classifier
     logInfo("Evaluating classifier")

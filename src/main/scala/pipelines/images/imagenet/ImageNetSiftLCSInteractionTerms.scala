@@ -72,11 +72,14 @@ object ImageNetSiftLcsInteractionTerms extends Serializable with Logging {
       templateInteractions then
       MatrixVectorizer then
       SignedHellingerMapper then
-      NormalizeRows then
-      new Cacher[DenseVector[Double]](name)
+      NormalizeRows
     }
 
-    kitchenSinkFeaturizer
+    if (conf.featuresSaveDir.isEmpty) {
+      kitchenSinkFeaturizer then new Cacher[DenseVector[Double]](name)
+    } else {
+      kitchenSinkFeaturizer
+    }
   }
 
   def getSiftFeatures(
@@ -192,19 +195,21 @@ object ImageNetSiftLcsInteractionTerms extends Serializable with Logging {
       makeDoubleArrayCsv(testFilenamesRDD, testActual).saveAsTextFile(dir + "/testActual")
     }
 
-    trainingFeatures.count
-    val numTestImgs = testFeatures.count
+    if (conf.featuresSaveDir.isEmpty) {
+      trainingFeatures.count
+      val numTestImgs = testFeatures.count
 
-    // Fit a weighted least squares model to the data.
-    val model = new BlockWeightedLeastSquaresEstimator(
-      4096, 1, conf.lambda, conf.mixtureWeight).fit(
-        trainingFeatures, trainingLabels, Some(2 * conf.numKMeans * conf.numGaussianRandomFeatures))
+      // Fit a weighted least squares model to the data.
+      val model = new BlockWeightedLeastSquaresEstimator(
+        4096, 1, conf.lambda, conf.mixtureWeight).fit(
+          trainingFeatures, trainingLabels, Some(2 * conf.numKMeans * conf.numGaussianRandomFeatures))
 
-    // Apply the model to test data and compute test error
-    val testPredictedValues = model(testFeatures)
-    val testPredicted = TopKClassifier(5).apply(testPredictedValues)
+      // Apply the model to test data and compute test error
+      val testPredictedValues = model(testFeatures)
+      val testPredicted = TopKClassifier(5).apply(testPredictedValues)
 
-    logInfo("TEST Error is " + Stats.getErrPercent(testPredicted, testActual, numTestImgs) + "%")
+      logInfo("TEST Error is " + Stats.getErrPercent(testPredicted, testActual, numTestImgs) + "%")
+    }
   }
 
   case class ImageNetSiftLcsInteractionTermsConfig(

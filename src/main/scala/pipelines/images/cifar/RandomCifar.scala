@@ -40,7 +40,7 @@ object RandomCifar extends Serializable with Logging {
         .andThen(ImageVectorizer)
         .andThen(new Cacher[DenseVector[Double]])
 
-    val featurizer = unscaledFeaturizer.andThen(unscaledFeaturizer.andThenEstimator(new StandardScaler).withData(trainImages))
+    val featurizer = unscaledFeaturizer.andThen(unscaledFeaturizer.andThenEstimate(new StandardScaler).withData(trainImages))
         .andThen(new Cacher[DenseVector[Double]])
 
     val labelExtractor = LabelExtractor andThen

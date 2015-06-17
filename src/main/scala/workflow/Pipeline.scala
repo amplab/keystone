@@ -43,7 +43,7 @@ trait Pipeline[A, B] {
     Pipeline(nodes, dataDeps, fitDeps, sink)
   }
 
-  final def andThenEstimator[C, D, T <: ExposableTransformer[C, D, T]](est: EstimatorPipeline[B, C, D, T]): EstimatorPipeline[A, C, D, T] = {
+  final def andThenEstimate[C, D](est: EstimatorPipeline[B, C, D]): EstimatorPipeline[A, C, D] = {
     val nodes = this.nodes ++ est.nodes
     val dataDeps = this.dataDeps ++ est.dataDeps.map(_.map {
       x => if (x == Pipeline.SOURCE) this.sink else x + this.nodes.size
@@ -56,7 +56,7 @@ trait Pipeline[A, B] {
     new ConcreteEstimatorPipeline(nodes, dataDeps, fitDeps, sink)
   }
 
-  final def andThenLabelEstimator[C, D, T <: ExposableTransformer[C, D, T], L](est: LabelEstimatorPipeline[B, C, D, T, L]): LabelEstimatorPipeline[A, C, D, T, L] = {
+  final def andThenLabelEstimate[C, D, L](est: LabelEstimatorPipeline[B, C, D, L]): LabelEstimatorPipeline[A, C, D, L] = {
     val nodes = this.nodes ++ est.nodes
     val dataDeps = this.dataDeps ++ est.dataDeps.map(_.map {
       case Pipeline.SOURCE => this.sink

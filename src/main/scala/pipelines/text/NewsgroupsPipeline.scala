@@ -27,10 +27,10 @@ object NewsgroupsPipeline extends Logging {
         .andThen(TermFrequency(x => 1))
 
     val featurizer = stringFeaturizer andThen stringFeaturizer
-        .andThenEstimator(CommonSparseFeatures(conf.commonFeatures))
+        .andThenEstimate(CommonSparseFeatures(conf.commonFeatures))
         .withData(trainData.data)
 
-    val predictorPipeline = featurizer andThen featurizer.andThenLabelEstimator(NaiveBayesEstimator(numClasses))
+    val predictorPipeline = featurizer andThen featurizer.andThenLabelEstimate(NaiveBayesEstimator(numClasses))
         .withData(trainData.data, trainData.labels)
         .andThen(MaxClassifier)
 

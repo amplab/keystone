@@ -5,15 +5,15 @@ import pipelines.Logging
 
 import scala.reflect.ClassTag
 
-trait SingleTransformerPipeline[A, B, T <: ExposableTransformer[A, B, T]] extends Pipeline[A, B]
-
-private[workflow] class ConcreteSingleTransformerPipeline[A, B, T <: ExposableTransformer[A, B, T]] (
-  nodes: Seq[Node],
-  dataDeps: Seq[Seq[Int]],
-  fitDeps: Seq[Seq[Int]],
-  sink: Int) extends ConcretePipeline[A, B](nodes, dataDeps, fitDeps, sink) with SingleTransformerPipeline[A, B, T]
-
-abstract class ExposableTransformer[A, B : ClassTag, THIS <: ExposableTransformer[A, B, THIS]] extends TransformerNode[B] with SingleTransformerPipeline[A, B, THIS] {
+/**
+ * Transformers are functions that may be applied both to single input items and to RDDs of input items.
+ * They may be chained together, along with [[Estimator]]s and [[LabelEstimator]]s, to produce complex
+ * pipelines.
+ *
+ * @tparam A input item type the transformer takes
+ * @tparam B output item type the transformer produces
+ */
+abstract class Transformer[A, B : ClassTag] extends TransformerNode[B] with Pipeline[A, B] {
   override val nodes: Seq[Node] = Seq(this)
   override val dataDeps: Seq[Seq[Int]] = Seq(Seq(Pipeline.SOURCE))
   override val fitDeps: Seq[Seq[Int]] = Seq(Seq())
@@ -37,16 +37,6 @@ abstract class ExposableTransformer[A, B : ClassTag, THIS <: ExposableTransforme
 
   def transformRDD(dataDependencies: Seq[RDD[_]], fitDependencies: Seq[TransformerNode[_]]): RDD[B] = apply(dataDependencies.head.asInstanceOf[RDD[A]])
 }
-
-/**
- * Transformers are functions that may be applied both to single input items and to RDDs of input items.
- * They may be chained together, along with [[Estimator]]s and [[LabelEstimator]]s, to produce complex
- * pipelines.
- *
- * @tparam A input item type the transformer takes
- * @tparam B output item type the transformer produces
- */
-abstract class Transformer[A, B : ClassTag] extends ExposableTransformer[A, B, Transformer[A, B]]
 
 object Transformer {
   /**

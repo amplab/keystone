@@ -41,8 +41,10 @@ object MnistRandomFFT extends Serializable with Logging {
       }
     } andThen VectorCombiner()
 
-    val pipeline = featurizer andThen
-        featurizer.andThenLabelEstimate(new BlockLeastSquaresEstimator(conf.blockSize, 1, conf.lambda.getOrElse(0))).withData(train.data, labels) andThen MaxClassifier
+    val pipeline = featurizer
+        .andThenLabelEstimate(new BlockLeastSquaresEstimator(conf.blockSize, 1, conf.lambda.getOrElse(0)))
+        .withData(train.data, labels)
+        .andThen(MaxClassifier)
 
     // Train the model
     val model = pipeline

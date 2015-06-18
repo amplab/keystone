@@ -11,8 +11,9 @@ trait LabelEstimatorPipeline[A, B, C, L] {
   private[workflow] val dataDeps: Seq[Seq[Int]]
   private[workflow] val fitDeps: Seq[Seq[Int]]
   private[workflow] val sink: Int
+  private[workflow] val outputPrefix: Pipeline[A, B]
 
-  def withData(data: RDD[A], labels: RDD[L]): Pipeline[B, C] = {
+  def withData(data: RDD[A], labels: RDD[L]): PipelineWithFittedTransformer[A, B, C] = {
     val label = {
       val className = nodes(sink).getClass.getSimpleName
       if (className endsWith "$") className.dropRight(1) else className
@@ -27,7 +28,9 @@ trait LabelEstimatorPipeline[A, B, C, L] {
     val newFitDeps = fitDeps :+ Seq() :+ Seq() :+ Seq(sink)
     val newSink = newNodes.size - 1
 
-    Pipeline(newNodes, newDataDeps, newFitDeps, newSink)
+    val fittedTransformer = Pipeline[B, C](newNodes, newDataDeps, newFitDeps, newSink)
+    val totalOut = outputPrefix andThen fittedTransformer
+    new PipelineWithFittedTransformer(totalOut.nodes, totalOut.dataDeps, totalOut.fitDeps, totalOut.sink, fittedTransformer)
   }
 }
 
@@ -35,7 +38,8 @@ private[workflow] class ConcreteLabelEstimatorPipeline[A, B, C, L](
   override val nodes: Seq[Node],
   override val dataDeps: Seq[Seq[Int]],
   override val fitDeps: Seq[Seq[Int]],
-  override val sink: Int) extends LabelEstimatorPipeline[A, B, C, L]
+  override val sink: Int,
+  override val outputPrefix: Pipeline[A, B]) extends LabelEstimatorPipeline[A, B, C, L]
 
 object LabelEstimatorPipeline {
   val LABEL_SOURCE: Int = -2
@@ -52,6 +56,7 @@ abstract class LabelEstimator[A, B : ClassTag, L] extends EstimatorNode with Lab
   override val dataDeps: Seq[Seq[Int]] = Seq(Seq(Pipeline.SOURCE, LabelEstimatorPipeline.LABEL_SOURCE))
   override val fitDeps: Seq[Seq[Int]] = Seq(Seq())
   override val sink: Int = 0
+  override val outputPrefix: Pipeline[A, A] = Pipeline()
 
   /**
    * A LabelEstimator estimator is an estimator which expects labeled data.

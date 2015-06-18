@@ -52,8 +52,9 @@ trait Pipeline[A, B] {
       x => if (x == Pipeline.SOURCE) this.sink else x + this.nodes.size
     })
     val sink = est.sink + this.nodes.size
+    val outputPrefix = this.andThen(est.outputPrefix)
 
-    new ConcreteEstimatorPipeline(nodes, dataDeps, fitDeps, sink)
+    new ConcreteEstimatorPipeline(nodes, dataDeps, fitDeps, sink, outputPrefix)
   }
 
   final def andThenLabelEstimate[C, D, L](est: LabelEstimatorPipeline[B, C, D, L]): LabelEstimatorPipeline[A, C, D, L] = {
@@ -67,8 +68,9 @@ trait Pipeline[A, B] {
       x => if (x == Pipeline.SOURCE) this.sink else x + this.nodes.size
     })
     val sink = est.sink + this.nodes.size
+    val outputPrefix = this.andThen(est.outputPrefix)
 
-    new ConcreteLabelEstimatorPipeline(nodes, dataDeps, fitDeps, sink)
+    new ConcreteLabelEstimatorPipeline(nodes, dataDeps, fitDeps, sink, outputPrefix)
   }
 
 
@@ -172,3 +174,11 @@ private[workflow] class ConcretePipeline[A, B](
 
   override def apply(in: RDD[A]): RDD[B] = rddDataEval(sink, in).asInstanceOf[RDD[B]]
 }
+
+class PipelineWithFittedTransformer[A, B, C] private[workflow] (
+    nodes: Seq[Node],
+    dataDeps: Seq[Seq[Int]],
+    fitDeps: Seq[Seq[Int]],
+    sink: Int,
+    val fittedTransformer: Pipeline[B, C])
+    extends ConcretePipeline[A, C](nodes, dataDeps, fitDeps, sink)

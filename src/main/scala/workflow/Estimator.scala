@@ -11,8 +11,9 @@ trait EstimatorPipeline[A, B, C] {
   private[workflow] val dataDeps: Seq[Seq[Int]]
   private[workflow] val fitDeps: Seq[Seq[Int]]
   private[workflow] val sink: Int
+  private[workflow] val outputPrefix: Pipeline[A, B]
 
-  def withData(data: RDD[A]): Pipeline[B, C] = {
+  def withData(data: RDD[A]): PipelineWithFittedTransformer[A, B, C] = {
     val label = {
       val className = nodes(sink).getClass.getSimpleName
       if (className endsWith "$") className.dropRight(1) else className
@@ -23,7 +24,9 @@ trait EstimatorPipeline[A, B, C] {
     val newFitDeps = fitDeps :+ Seq() :+ Seq(sink)
     val newSink = newNodes.size - 1
 
-    Pipeline(newNodes, newDataDeps, newFitDeps, newSink)
+    val fittedTransformer = Pipeline[B, C](newNodes, newDataDeps, newFitDeps, newSink)
+    val totalOut = outputPrefix andThen fittedTransformer
+    new PipelineWithFittedTransformer(totalOut.nodes, totalOut.dataDeps, totalOut.fitDeps, totalOut.sink, fittedTransformer)
   }
 }
 
@@ -31,7 +34,8 @@ private[workflow] class ConcreteEstimatorPipeline[A, B, C](
   override val nodes: Seq[Node],
   override val dataDeps: Seq[Seq[Int]],
   override val fitDeps: Seq[Seq[Int]],
-  override val sink: Int) extends EstimatorPipeline[A, B, C]
+  override val sink: Int,
+  override val outputPrefix: Pipeline[A, B]) extends EstimatorPipeline[A, B, C]
 
 /**
  * An estimator has a `fit` method which takes an input and emits a [[Transformer]]
@@ -43,6 +47,7 @@ abstract class Estimator[A, B : ClassTag] extends EstimatorNode with EstimatorPi
   override val dataDeps: Seq[Seq[Int]] = Seq(Seq(Pipeline.SOURCE))
   override val fitDeps: Seq[Seq[Int]] = Seq(Seq())
   override val sink: Int = 0
+  override val outputPrefix: Pipeline[A, A] = Pipeline()
 
   /**
    * An estimator has a `fit` method which emits a [[Transformer]].

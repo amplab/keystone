@@ -114,10 +114,10 @@ object Pipeline {
 }
 
 private[workflow] class ConcretePipeline[A, B](
-  override val nodes: Seq[Node],
-  override val dataDeps: Seq[Seq[Int]],
-  override val fitDeps: Seq[Seq[Int]],
-  override val sink: Int) extends Pipeline[A, B] with Logging {
+  private[workflow] override val nodes: Seq[Node],
+  private[workflow] override val dataDeps: Seq[Seq[Int]],
+  private[workflow] override val fitDeps: Seq[Seq[Int]],
+  private[workflow] override val sink: Int) extends Pipeline[A, B] with Logging {
 
   private val fitCache: Array[Option[TransformerNode[_]]] = nodes.map(_ => None).toArray
 

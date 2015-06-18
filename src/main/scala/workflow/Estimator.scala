@@ -19,7 +19,7 @@ abstract class Estimator[A, B : ClassTag] extends EstimatorNode  {
    */
   protected def fit(data: RDD[A]): Transformer[A, B]
 
-  override def fit(dependencies: Seq[RDD[_]]): TransformerNode[_] = fit(dependencies.head.asInstanceOf[RDD[A]])
+  private[workflow] final def fit(dependencies: Seq[RDD[_]]): TransformerNode[_] = fit(dependencies.head.asInstanceOf[RDD[A]])
 
   def withData(data: RDD[A]): Pipeline[A, B] = {
     val nodes: Seq[Node] = Seq(DataNode(data), this, new DelegatingTransformer[B](this.label + ".fit"))

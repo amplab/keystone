@@ -14,10 +14,10 @@ import scala.reflect.ClassTag
  * @tparam B output item type the transformer produces
  */
 abstract class Transformer[A, B : ClassTag] extends TransformerNode[B] with Pipeline[A, B] {
-  override val nodes: Seq[Node] = Seq(this)
-  override val dataDeps: Seq[Seq[Int]] = Seq(Seq(Pipeline.SOURCE))
-  override val fitDeps: Seq[Seq[Int]] = Seq(Seq())
-  override val sink: Int = 0
+  private[workflow] override val nodes: Seq[Node] = Seq(this)
+  private[workflow] override val dataDeps: Seq[Seq[Int]] = Seq(Seq(Pipeline.SOURCE))
+  private[workflow] override val fitDeps: Seq[Seq[Int]] = Seq(Seq())
+  private[workflow] override val sink: Int = 0
 
   /**
    * Apply this Transformer to an RDD of input items
@@ -33,9 +33,9 @@ abstract class Transformer[A, B : ClassTag] extends TransformerNode[B] with Pipe
    */
   def apply(in: A): B
 
-  def transform(dataDependencies: Seq[_], fitDependencies: Seq[TransformerNode[_]]): B = apply(dataDependencies.head.asInstanceOf[A])
+  private[workflow] final def transform(dataDependencies: Seq[_], fitDependencies: Seq[TransformerNode[_]]): B = apply(dataDependencies.head.asInstanceOf[A])
 
-  def transformRDD(dataDependencies: Seq[RDD[_]], fitDependencies: Seq[TransformerNode[_]]): RDD[B] = apply(dataDependencies.head.asInstanceOf[RDD[A]])
+  private[workflow] final def transformRDD(dataDependencies: Seq[RDD[_]], fitDependencies: Seq[TransformerNode[_]]): RDD[B] = apply(dataDependencies.head.asInstanceOf[RDD[A]])
 }
 
 object Transformer {

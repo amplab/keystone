@@ -12,7 +12,7 @@ import scala.reflect.ClassTag
  * @tparam B The type of output of the emitted transformer
  * @tparam L The type of label this node expects
  */
-abstract class LabelEstimator[A, B : ClassTag, L] extends EstimatorNode {
+abstract class LabelEstimator[A, B, L] extends EstimatorNode {
   def withData(data: RDD[A], labels: RDD[L]): Pipeline[A, B] = {
     val nodes: Seq[Node] = Seq(DataNode(data), DataNode(labels), this, new DelegatingTransformer[B](this.label + ".fit"))
     val dataDeps = Seq(Seq(), Seq(), Seq(0, 1), Seq(Pipeline.SOURCE))
@@ -44,7 +44,7 @@ object LabelEstimator extends Serializable {
    * @tparam L Label type of the estimator.
    * @return An Estimator which can be applied to new labeled data.
    */
-  def apply[I, O : ClassTag, L](node: (RDD[I], RDD[L]) => Transformer[I, O]): LabelEstimator[I, O, L] = new LabelEstimator[I, O, L] {
+  def apply[I, O, L](node: (RDD[I], RDD[L]) => Transformer[I, O]): LabelEstimator[I, O, L] = new LabelEstimator[I, O, L] {
     override def fit(v1: RDD[I], v2: RDD[L]): Transformer[I, O] = node(v1, v2)
   }
 }

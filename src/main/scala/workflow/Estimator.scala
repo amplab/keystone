@@ -11,7 +11,7 @@ import scala.reflect.ClassTag
  * @tparam A The type of input this estimator (and the resulting Transformer) takes
  * @tparam B The output type of the node this estimator produces when being fit
  */
-abstract class Estimator[A, B : ClassTag] extends EstimatorNode  {
+abstract class Estimator[A, B] extends EstimatorNode  {
   /**
    * An estimator has a `fit` method which emits a [[Transformer]].
    * @param data Input data.
@@ -40,7 +40,7 @@ object Estimator extends Serializable {
    * @tparam O Output type of the estimator and the transformer it produces.
    * @return An Estimator which can be applied to new data.
    */
-  def apply[I, O : ClassTag](node: RDD[I] => Transformer[I, O]): Estimator[I, O] = new Estimator[I, O] {
+  def apply[I, O](node: RDD[I] => Transformer[I, O]): Estimator[I, O] = new Estimator[I, O] {
     override def fit(rdd: RDD[I]): Transformer[I, O] = node.apply(rdd)
   }
 }

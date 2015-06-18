@@ -14,7 +14,7 @@ trait Pipeline[A, B] {
   /** TODO: require that
     - nodes.size = dataDeps.size == fitDeps.size
     - there is a sink
-    - there is a data path from sink to in
+    - there is a data path from sink to in (made solely of transformers)
     - there are no fit paths from sink to in
     - only data nodes may be sources (no deps)
     - data nodes must have no deps
@@ -44,36 +44,28 @@ trait Pipeline[A, B] {
   }
 
   final def andThen[C](est: Estimator[B, C], data: RDD[A]): PipelineWithFittedTransformer[A, B, C] = {
-    val nodes = this.nodes :+ est
-    val dataDeps = this.dataDeps :+ Seq(this.sink)
-    val fitDeps = this.fitDeps :+ Seq()
+    val transformerLabel = est.label + ".fit"
 
-    val label = est.label + ".fit"
+    val newNodes = this.nodes :+ est :+ DataNode(data) :+ new DelegatingTransformer[C](transformerLabel)
+    val newDataDeps = this.dataDeps.map(_.map {
+      x => if (x == Pipeline.SOURCE) this.nodes.size + 1 else x
+    }) :+ Seq(this.sink) :+ Seq() :+ Seq(Pipeline.SOURCE)
+    val newFitDeps = this.fitDeps :+ Seq() :+ Seq() :+ Seq(this.nodes.size)
+    val newSink = newNodes.size - 1
 
-    val fittedTransformerNodes = nodes :+ DataNode(data) :+ new DelegatingTransformer[C](label)
-    val fittedTransformerDataDeps = dataDeps.map(_.map {
-      x => if (x == Pipeline.SOURCE) nodes.size else x
-    }) :+ Seq() :+ Seq(Pipeline.SOURCE)
-    val fittedTransformerFitDeps = fitDeps :+ Seq() :+ Seq(this.nodes.size)
-    val fittedTransformerSink = fittedTransformerNodes.size - 1
-
-    val fittedTransformer = Pipeline[B, C](fittedTransformerNodes, fittedTransformerDataDeps, fittedTransformerFitDeps, fittedTransformerSink)
+    val fittedTransformer = Pipeline[B, C](newNodes, newDataDeps, newFitDeps, newSink)
     val totalOut = this andThen fittedTransformer
     new PipelineWithFittedTransformer(totalOut.nodes, totalOut.dataDeps, totalOut.fitDeps, totalOut.sink, fittedTransformer)
   }
 
   final def andThen[C, L](est: LabelEstimator[B, C, L], data: RDD[A], labels: RDD[L]): PipelineWithFittedTransformer[A, B, C] = {
-    val nodes = this.nodes :+ est
-    val dataDeps = this.dataDeps :+ Seq(this.sink, nodes.size + 1)
-    val fitDeps = this.fitDeps :+ Seq()
+    val transformerLabel = est.label + ".fit"
 
-    val label = est.label + ".fit"
-
-    val newNodes = nodes :+ DataNode(data) :+ DataNode(labels) :+ new DelegatingTransformer[C](label)
-    val newDataDeps = dataDeps.map(_.map {
-      x => if (x == Pipeline.SOURCE) nodes.size else x
-    }) :+ Seq() :+ Seq() :+ Seq(Pipeline.SOURCE)
-    val newFitDeps = fitDeps :+ Seq() :+ Seq() :+ Seq(this.nodes.size)
+    val newNodes = this.nodes :+ est :+ DataNode(data) :+ DataNode(labels) :+ new DelegatingTransformer[C](transformerLabel)
+    val newDataDeps = this.dataDeps.map(_.map {
+      x => if (x == Pipeline.SOURCE) this.nodes.size + 1 else x
+    }) :+ Seq(this.sink, this.nodes.size + 2) :+ Seq() :+ Seq() :+ Seq(Pipeline.SOURCE)
+    val newFitDeps = this.fitDeps :+ Seq() :+ Seq() :+ Seq() :+ Seq(this.nodes.size)
     val newSink = newNodes.size - 1
 
     val fittedTransformer = Pipeline[B, C](newNodes, newDataDeps, newFitDeps, newSink)

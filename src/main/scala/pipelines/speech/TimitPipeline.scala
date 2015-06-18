@@ -79,7 +79,7 @@ object TimitPipeline extends Logging {
           randomSource.gaussian,
           randomSource.uniform)
       }
-      featurizer.andThenEstimate(new StandardScaler()).withData(trainData)
+      featurizer.andThen(new StandardScaler(), trainData)
     }
 
     val trainingBatches = batchFeaturizer.map { x =>

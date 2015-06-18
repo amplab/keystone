@@ -43,34 +43,42 @@ trait Pipeline[A, B] {
     Pipeline(nodes, dataDeps, fitDeps, sink)
   }
 
-  final def andThenEstimate[C, D](est: EstimatorPipeline[B, C, D]): EstimatorPipeline[A, C, D] = {
-    val nodes = this.nodes ++ est.nodes
-    val dataDeps = this.dataDeps ++ est.dataDeps.map(_.map {
-      x => if (x == Pipeline.SOURCE) this.sink else x + this.nodes.size
-    })
-    val fitDeps = this.fitDeps ++ est.fitDeps.map(_.map {
-      x => if (x == Pipeline.SOURCE) this.sink else x + this.nodes.size
-    })
-    val sink = est.sink + this.nodes.size
-    val outputPrefix = this.andThen(est.outputPrefix)
+  final def andThen[C](est: Estimator[B, C], data: RDD[A]): PipelineWithFittedTransformer[A, B, C] = {
+    val nodes = this.nodes :+ est
+    val dataDeps = this.dataDeps :+ Seq(this.sink)
+    val fitDeps = this.fitDeps :+ Seq()
 
-    new ConcreteEstimatorPipeline(nodes, dataDeps, fitDeps, sink, outputPrefix)
+    val label = est.label + ".fit"
+
+    val fittedTransformerNodes = nodes :+ DataNode(data) :+ new DelegatingTransformer[C](label)
+    val fittedTransformerDataDeps = dataDeps.map(_.map {
+      x => if (x == Pipeline.SOURCE) nodes.size else x
+    }) :+ Seq() :+ Seq(Pipeline.SOURCE)
+    val fittedTransformerFitDeps = fitDeps :+ Seq() :+ Seq(this.nodes.size)
+    val fittedTransformerSink = fittedTransformerNodes.size - 1
+
+    val fittedTransformer = Pipeline[B, C](fittedTransformerNodes, fittedTransformerDataDeps, fittedTransformerFitDeps, fittedTransformerSink)
+    val totalOut = this andThen fittedTransformer
+    new PipelineWithFittedTransformer(totalOut.nodes, totalOut.dataDeps, totalOut.fitDeps, totalOut.sink, fittedTransformer)
   }
 
-  final def andThenLabelEstimate[C, D, L](est: LabelEstimatorPipeline[B, C, D, L]): LabelEstimatorPipeline[A, C, D, L] = {
-    val nodes = this.nodes ++ est.nodes
-    val dataDeps = this.dataDeps ++ est.dataDeps.map(_.map {
-      case Pipeline.SOURCE => this.sink
-      case LabelEstimatorPipeline.LABEL_SOURCE => LabelEstimatorPipeline.LABEL_SOURCE
-      case x => x + this.nodes.size
-    })
-    val fitDeps = this.fitDeps ++ est.fitDeps.map(_.map {
-      x => if (x == Pipeline.SOURCE) this.sink else x + this.nodes.size
-    })
-    val sink = est.sink + this.nodes.size
-    val outputPrefix = this.andThen(est.outputPrefix)
+  final def andThen[C, L](est: LabelEstimator[B, C, L], data: RDD[A], labels: RDD[L]): PipelineWithFittedTransformer[A, B, C] = {
+    val nodes = this.nodes :+ est
+    val dataDeps = this.dataDeps :+ Seq(this.sink, nodes.size + 1)
+    val fitDeps = this.fitDeps :+ Seq()
 
-    new ConcreteLabelEstimatorPipeline(nodes, dataDeps, fitDeps, sink, outputPrefix)
+    val label = est.label + ".fit"
+
+    val newNodes = nodes :+ DataNode(data) :+ DataNode(labels) :+ new DelegatingTransformer[C](label)
+    val newDataDeps = dataDeps.map(_.map {
+      x => if (x == Pipeline.SOURCE) nodes.size else x
+    }) :+ Seq() :+ Seq() :+ Seq(Pipeline.SOURCE)
+    val newFitDeps = fitDeps :+ Seq() :+ Seq() :+ Seq(this.nodes.size)
+    val newSink = newNodes.size - 1
+
+    val fittedTransformer = Pipeline[B, C](newNodes, newDataDeps, newFitDeps, newSink)
+    val totalOut = this andThen fittedTransformer
+    new PipelineWithFittedTransformer(totalOut.nodes, totalOut.dataDeps, totalOut.fitDeps, totalOut.sink, fittedTransformer)
   }
 
 

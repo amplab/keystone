@@ -6,57 +6,21 @@ import org.apache.spark.rdd.RDD
 
 import scala.reflect.ClassTag
 
-trait LabelEstimatorPipeline[A, B, C, L] {
-  private[workflow] val nodes: Seq[Node]
-  private[workflow] val dataDeps: Seq[Seq[Int]]
-  private[workflow] val fitDeps: Seq[Seq[Int]]
-  private[workflow] val sink: Int
-  private[workflow] val outputPrefix: Pipeline[A, B]
-
-  def withData(data: RDD[A], labels: RDD[L]): PipelineWithFittedTransformer[A, B, C] = {
-    val label = {
-      val className = nodes(sink).getClass.getSimpleName
-      if (className endsWith "$") className.dropRight(1) else className
-    } + ".fit"
-
-    val newNodes = nodes :+ DataNode(data) :+ DataNode(labels) :+ new DelegatingTransformer[C](label)
-    val newDataDeps = dataDeps.map(_.map {
-      case Pipeline.SOURCE => nodes.size
-      case LabelEstimatorPipeline.LABEL_SOURCE => nodes.size + 1
-      case x => x
-    }) :+ Seq() :+ Seq() :+ Seq(Pipeline.SOURCE)
-    val newFitDeps = fitDeps :+ Seq() :+ Seq() :+ Seq(sink)
-    val newSink = newNodes.size - 1
-
-    val fittedTransformer = Pipeline[B, C](newNodes, newDataDeps, newFitDeps, newSink)
-    val totalOut = outputPrefix andThen fittedTransformer
-    new PipelineWithFittedTransformer(totalOut.nodes, totalOut.dataDeps, totalOut.fitDeps, totalOut.sink, fittedTransformer)
-  }
-}
-
-private[workflow] class ConcreteLabelEstimatorPipeline[A, B, C, L](
-  override val nodes: Seq[Node],
-  override val dataDeps: Seq[Seq[Int]],
-  override val fitDeps: Seq[Seq[Int]],
-  override val sink: Int,
-  override val outputPrefix: Pipeline[A, B]) extends LabelEstimatorPipeline[A, B, C, L]
-
-object LabelEstimatorPipeline {
-  val LABEL_SOURCE: Int = -2
-}
-
 /**
  * A label estimator has a `fit` method which takes input data & labels and emits a [[Transformer]]
  * @tparam A The type of the input data
  * @tparam B The type of output of the emitted transformer
  * @tparam L The type of label this node expects
  */
-abstract class LabelEstimator[A, B : ClassTag, L] extends EstimatorNode with LabelEstimatorPipeline[A, A, B, L]  {
-  override val nodes: Seq[Node] = Seq(this)
-  override val dataDeps: Seq[Seq[Int]] = Seq(Seq(Pipeline.SOURCE, LabelEstimatorPipeline.LABEL_SOURCE))
-  override val fitDeps: Seq[Seq[Int]] = Seq(Seq())
-  override val sink: Int = 0
-  override val outputPrefix: Pipeline[A, A] = Pipeline()
+abstract class LabelEstimator[A, B : ClassTag, L] extends EstimatorNode {
+  def withData(data: RDD[A], labels: RDD[L]): Pipeline[A, B] = {
+    val nodes: Seq[Node] = Seq(DataNode(data), DataNode(labels), this, new DelegatingTransformer[B](this.label + ".fit"))
+    val dataDeps = Seq(Seq(), Seq(), Seq(0, 1), Seq(Pipeline.SOURCE))
+    val fitDeps = Seq(Seq(), Seq(), Seq(), Seq(2))
+    val sink = 3
+
+    Pipeline[A, B](nodes, dataDeps, fitDeps, sink)
+  }
 
   /**
    * A LabelEstimator estimator is an estimator which expects labeled data.

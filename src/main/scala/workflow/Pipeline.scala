@@ -9,21 +9,34 @@ trait Pipeline[A, B] {
   private[workflow] val fitDeps: Seq[Seq[Int]]
   private[workflow] val sink: Int
 
-  validate()
-
-  /** TODO: require that
+  /** validates (returns an exception if false) that
     - nodes.size = dataDeps.size == fitDeps.size
-    - there is a sink
-    - there is a data path from sink to in (made solely of transformers)
-    - there are no fit paths from sink to in
-    - only data nodes may be sources (no deps)
+
+    - there is a valid sink
     - data nodes must have no deps
     - estimators may not have fit deps, must have data deps
-    - transformers must have data deps, may or may not have fit deps
+    - transformers must have data deps, allowed to have fit deps
+
+    - data deps may not point at estimators
     - fit deps may only point to estimators
     */
-  private def validate(): Unit = {
+  private[workflow] def validate(): Unit = {
+    require(nodes.size == dataDeps.size && nodes.size == fitDeps.size, "nodes.size must equal dataDeps.size and fitDeps.size")
+    require(sink == Pipeline.SOURCE || (sink >= 0 && sink < nodes.size), "Sink must point at a valid node")
 
+    val nodeTuples = nodes.zip(dataDeps).zip(fitDeps).map(x => (x._1._1, x._1._2, x._2))
+    require(nodeTuples.forall(x => if (x._1.isInstanceOf[DataNode] && (x._2.nonEmpty || x._3.nonEmpty)) false else true), "DataNodes may not have dependencies")
+    require(nodeTuples.forall(x => if (x._1.isInstanceOf[EstimatorNode] && x._3.nonEmpty) false else true), "Estimators may not have fit dependencies")
+    require(nodeTuples.forall(x => if (x._1.isInstanceOf[EstimatorNode] && x._2.isEmpty) false else true), "Estimators must have data dependencies")
+    require(nodeTuples.forall(x => if (x._1.isInstanceOf[TransformerNode[_]] && x._2.isEmpty) false else true), "Transformers must have data dependencies")
+
+    require(dataDeps.forall(_.forall(x => !nodes(x).isInstanceOf[EstimatorNode])), "Data dependencies may not point at Estimators")
+    require(fitDeps.forall(_.forall(x => nodes(x).isInstanceOf[EstimatorNode])), "Fit dependencies may only point at Estimators")
+
+    /*TODO: Validate that
+    - there is a data path from sink to in
+    - there are no fit paths from sink to in
+    */
   }
 
   def apply(in: A): B

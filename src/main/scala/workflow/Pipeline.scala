@@ -3,6 +3,7 @@ package workflow
 import org.apache.spark.rdd.RDD
 import pipelines.Logging
 
+import scala.collection.mutable
 import scala.reflect.ClassTag
 
 trait Pipeline[A, B] {
@@ -172,6 +173,7 @@ private[workflow] class ConcretePipeline[A, B](
   private[workflow] override val sink: Int) extends Pipeline[A, B] with Logging {
 
   private val fitCache: Array[Option[TransformerNode[_]]] = nodes.map(_ => None).toArray
+  private val dataCache: mutable.Map[(Int, RDD[_]), RDD[_]] = new mutable.HashMap()
 
   final private[workflow] def fitEstimator(node: Int): TransformerNode[_] = fitCache(node).getOrElse {
     nodes(node) match {
@@ -210,15 +212,19 @@ private[workflow] class ConcretePipeline[A, B](
     if (node == Pipeline.SOURCE) {
       in
     } else {
-      nodes(node) match {
-        case DataNode(rdd) => rdd
-        case transformer: TransformerNode[_] =>
-          val nodeFitDeps = fitDeps(node).map(fitEstimator)
-          val nodeDataDeps = dataDeps(node).map(x => rddDataEval(x, in))
-          transformer.transformRDD(nodeDataDeps, nodeFitDeps)
-        case _: EstimatorNode =>
-          throw new RuntimeException("Pipeline DAG error: Cannot have a data dependency on an Estimator")
-      }
+      dataCache.getOrElse((node, in), {
+        nodes(node) match {
+          case DataNode(rdd) => rdd
+          case transformer: TransformerNode[_] =>
+            val nodeFitDeps = fitDeps(node).map(fitEstimator)
+            val nodeDataDeps = dataDeps(node).map(x => rddDataEval(x, in))
+            val outputData = transformer.transformRDD(nodeDataDeps, nodeFitDeps)
+            dataCache((node, in)) = outputData
+            outputData
+          case _: EstimatorNode =>
+            throw new RuntimeException("Pipeline DAG error: Cannot have a data dependency on an Estimator")
+        }
+      })
     }
   }
 

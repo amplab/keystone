@@ -13,6 +13,13 @@ import scala.reflect.ClassTag
  * @tparam L The type of label this node expects
  */
 abstract class LabelEstimator[A, B, L] extends EstimatorNode {
+  /**
+   * Constructs a pipeline from a single label estimator and training data.
+   * Equivalent to `Pipeline() andThen (estimator, data, labels)`
+   *
+   * @param data The training data
+   * @param labels The training labels
+   */
   def withData(data: RDD[A], labels: RDD[L]): Pipeline[A, B] = {
     val nodes: Seq[Node] = Seq(DataNode(data), DataNode(labels), this, new DelegatingTransformer[B](this.label + ".fit"))
     val dataDeps = Seq(Seq(), Seq(), Seq(0, 1), Seq(Pipeline.SOURCE))

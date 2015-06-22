@@ -122,10 +122,18 @@ trait Pipeline[A, B] {
 object Pipeline {
   val SOURCE: Int = -1
 
+  /**
+   * Constructs the Identity pipeline
+   * @tparam T The type of input to take
+   */
   def apply[T](): Pipeline[T, T] = new ConcretePipeline(Seq(), Seq(), Seq(), SOURCE)
   private[workflow] def apply[A, B](nodes: Seq[Node], dataDeps: Seq[Seq[Int]], fitDeps: Seq[Seq[Int]], sink: Int): Pipeline[A, B] = new ConcretePipeline(nodes, dataDeps, fitDeps, sink)
 }
 
+/**
+ * An implementation of [[Pipeline]] that explicitly specifies the Pipline DAG as vals,
+ * With and apply method that works via traversing the DAG graph and executing it.
+ */
 private[workflow] class ConcretePipeline[A, B](
   private[workflow] override val nodes: Seq[Node],
   private[workflow] override val dataDeps: Seq[Seq[Int]],
@@ -134,7 +142,7 @@ private[workflow] class ConcretePipeline[A, B](
 
   private val fitCache: Array[Option[TransformerNode[_]]] = nodes.map(_ => None).toArray
 
-  private def fitEstimator(node: Int): TransformerNode[_] = fitCache(node).getOrElse {
+  final private[workflow] def fitEstimator(node: Int): TransformerNode[_] = fitCache(node).getOrElse {
     nodes(node) match {
       case _: DataNode =>
         throw new RuntimeException("Pipeline DAG error: Cannot have a fit dependency on a DataNode")
@@ -150,7 +158,7 @@ private[workflow] class ConcretePipeline[A, B](
     }
   }
 
-  private def singleDataEval(node: Int, in: A): Any = {
+  final private[workflow] def singleDataEval(node: Int, in: A): Any = {
     if (node == Pipeline.SOURCE) {
       in
     } else {
@@ -167,7 +175,7 @@ private[workflow] class ConcretePipeline[A, B](
     }
   }
 
-  private def rddDataEval(node: Int, in: RDD[A]): RDD[_] = {
+  final private[workflow] def rddDataEval(node: Int, in: RDD[A]): RDD[_] = {
     if (node == Pipeline.SOURCE) {
       in
     } else {

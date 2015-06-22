@@ -33,15 +33,13 @@ object RandomCifar extends Serializable with Logging {
     // Set up a filter Array.
     val filters = DenseMatrix.rand(conf.numFilters, conf.patchSize*conf.patchSize*numChannels, Rand.gaussian)
 
-    val unscaledFeaturizer =
-      new Convolver(filters, imageSize, imageSize, numChannels, None, true)
-        .andThen(SymmetricRectifier(alpha=conf.alpha))
-        .andThen(new Pooler(conf.poolStride, conf.poolSize, identity, _.sum))
-        .andThen(ImageVectorizer)
-        .andThen(new Cacher[DenseVector[Double]])
-
-    val featurizer = unscaledFeaturizer.andThen(new StandardScaler, trainImages)
-        .andThen(new Cacher[DenseVector[Double]])
+    val featurizer = new Convolver(filters, imageSize, imageSize, numChannels, None, true) andThen
+        SymmetricRectifier(alpha=conf.alpha) andThen
+        new Pooler(conf.poolStride, conf.poolSize, identity, _.sum) andThen
+        ImageVectorizer andThen
+        new Cacher[DenseVector[Double]] andThen
+        (new StandardScaler, trainImages) andThen
+        new Cacher[DenseVector[Double]]
 
     val labelExtractor = LabelExtractor andThen
       ClassLabelIndicatorsFromIntLabels(numClasses) andThen

@@ -23,7 +23,9 @@ object LinearPixels extends Logging {
 
     // A featurizer maps input images into vectors. For this pipeline, we'll also convert the image to grayscale.
     val featurizer = GrayScaler andThen ImageVectorizer
-    val labelExtractor = LabelExtractor andThen ClassLabelIndicatorsFromIntLabels(numClasses) andThen new Cacher[DenseVector[Double]]
+    val labelExtractor = LabelExtractor andThen
+        ClassLabelIndicatorsFromIntLabels(numClasses) andThen
+        new Cacher[DenseVector[Double]]
 
     // Our training features are the featurizer applied to our training data.
     val trainImages = ImageExtractor(trainData)

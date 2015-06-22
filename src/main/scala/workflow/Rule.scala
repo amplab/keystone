@@ -1,7 +1,8 @@
 package workflow
 
 /**
- * Represents a pipeline rule
+ * Represents a pipeline transformation rule: A transformation from one pipeline
+ * to a differently-executed but functionally equivalent pipeline
  */
 abstract class Rule {
   /** Name for this rule, automatically inferred based on class name. */

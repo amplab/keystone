@@ -10,7 +10,7 @@ object Optimizer extends RuleExecutor {
 /**
  * Merges equivalent node indices in the DAG.
  * Nodes are considered equivalent if:
- * - The nodes at the indices themselves are equal
+ * - The nodes at the indices themselves are equal (.equals() is true)
  * - They point to the same data dependencies
  * - They point to the same fit dependencies
  */
@@ -23,7 +23,9 @@ object EquivalentNodeMerger extends Rule {
       // no nodes are mergable
       plan
     } else {
-      val oldToNewNodeMapping = mergableNodes.zipWithIndex.map(x => x._1._2.map(y => (y, x._2))).flatMap(identity).toMap + (Pipeline.SOURCE -> Pipeline.SOURCE)
+      val mergedNodeIdsWithOldIds = mergableNodes.zipWithIndex.map(x => (x._2, x._1._2))
+      val oldToNewNodeMapping = mergedNodeIdsWithOldIds.flatMap(x => x._2.map(y => (y, x._1))).toMap +
+          (Pipeline.SOURCE -> Pipeline.SOURCE)
       val newNodes = mergableNodes.map(_._1._1)
       val newDataDeps = mergableNodes.map(_._1._2._1.map(x => oldToNewNodeMapping(x)))
       val newFitDeps = mergableNodes.map(_._1._2._2.map(x => oldToNewNodeMapping(x)))

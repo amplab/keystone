@@ -16,6 +16,7 @@ private[workflow] class GatherTransformer[T] extends TransformerNode[Seq[T]] {
 
 object Gather {
   def apply[A, B : ClassTag](branches: Seq[Pipeline[A, B]]): Pipeline[A, Seq[B]] = {
+    // attach a value per branch to offset all existing node ids by.
     val branchesWithNodeOffsets = branches.scanLeft(0)(_ + _.nodes.size).zip(branches)
 
     val newNodes = branches.map(_.nodes).reduceLeft(_ ++ _) :+ new GatherTransformer[B]

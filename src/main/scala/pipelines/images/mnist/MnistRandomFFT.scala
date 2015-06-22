@@ -10,7 +10,7 @@ import org.apache.commons.math3.random.MersenneTwister
 import org.apache.spark.{SparkConf, SparkContext}
 import pipelines._
 import scopt.OptionParser
-import workflow.Gather
+import workflow.Pipeline
 
 
 object MnistRandomFFT extends Serializable with Logging {
@@ -35,7 +35,7 @@ object MnistRandomFFT extends Serializable with Logging {
         .cache())
     val labels = ClassLabelIndicatorsFromIntLabels(numClasses).apply(train.labels)
 
-    val featurizer = Gather {
+    val featurizer = Pipeline.gather {
       Seq.fill(conf.numFFTs) {
         RandomSignNode(mnistImageSize, randomSignSource) andThen PaddedFFT() andThen LinearRectifier(0.0)
       }

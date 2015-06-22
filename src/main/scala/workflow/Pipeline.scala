@@ -3,6 +3,8 @@ package workflow
 import org.apache.spark.rdd.RDD
 import pipelines.Logging
 
+import scala.reflect.ClassTag
+
 trait Pipeline[A, B] {
   private[workflow] val nodes: Seq[Node]
   private[workflow] val dataDeps: Seq[Seq[Int]]
@@ -128,6 +130,35 @@ object Pipeline {
    */
   def apply[T](): Pipeline[T, T] = new ConcretePipeline(Seq(), Seq(), Seq(), SOURCE)
   private[workflow] def apply[A, B](nodes: Seq[Node], dataDeps: Seq[Seq[Int]], fitDeps: Seq[Seq[Int]], sink: Int): Pipeline[A, B] = new ConcretePipeline(nodes, dataDeps, fitDeps, sink)
+
+  /**
+   * Produces a pipeline that when given an input,
+   * combines the outputs of all its branches when executed on that input into a single Seq (in order)
+   * @param branches The pipelines whose outputs should be combined into a Seq
+   */
+  def gather[A, B : ClassTag](branches: Seq[Pipeline[A, B]]): Pipeline[A, Seq[B]] = {
+    // attach a value per branch to offset all existing node ids by.
+    val branchesWithNodeOffsets = branches.scanLeft(0)(_ + _.nodes.size).zip(branches)
+
+    val newNodes = branches.map(_.nodes).reduceLeft(_ ++ _) :+ new GatherTransformer[B]
+
+    val newDataDeps = branchesWithNodeOffsets.map { case (offset, branch) =>
+      val dataDeps = branch.dataDeps
+      dataDeps.map(_.map(x => if (x == Pipeline.SOURCE) Pipeline.SOURCE else x + offset))
+    }.reduceLeft(_ ++ _) :+  branchesWithNodeOffsets.map { case (offset, branch) =>
+      val sink = branch.sink
+      if (sink == Pipeline.SOURCE) Pipeline.SOURCE else sink + offset
+    }
+
+    val newFitDeps = branchesWithNodeOffsets.map { case (offset, branch) =>
+      val fitDeps = branch.fitDeps
+      fitDeps.map(_.map(x => if (x == Pipeline.SOURCE) Pipeline.SOURCE else x + offset))
+    }.reduceLeft(_ ++ _) :+  Seq()
+
+    val newSink = newNodes.size - 1
+    Pipeline(newNodes, newDataDeps, newFitDeps, newSink)
+  }
+
 }
 
 /**

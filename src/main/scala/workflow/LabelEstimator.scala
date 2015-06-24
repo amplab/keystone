@@ -24,7 +24,7 @@ abstract class LabelEstimator[A, B, L] extends EstimatorNode {
     val nodes: Seq[Node] = Seq(DataNode(data), DataNode(labels), this, new DelegatingTransformer[B](this.label + ".fit"))
     val dataDeps = Seq(Seq(), Seq(), Seq(0, 1), Seq(Pipeline.SOURCE))
     val fitDeps = Seq(Seq(), Seq(), Seq(), Seq(2))
-    val sink = 3
+    val sink = nodes.size - 1
 
     Pipeline[A, B](nodes, dataDeps, fitDeps, sink)
   }

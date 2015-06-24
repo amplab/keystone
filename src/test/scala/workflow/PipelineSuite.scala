@@ -92,10 +92,19 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     }
 
     val single = 7
-    assert(pipeline(single) === Seq(firstPipeline.apply(single), secondPipeline.apply(single), thirdPipeline.apply(single)))
+    assert {
+      pipeline(single) === Seq(
+        firstPipeline.apply(single),
+        secondPipeline.apply(single),
+        thirdPipeline.apply(single))
+    }
 
     val data = Seq(13, 2, 83)
-    val correctOut = data.map(x => Seq(firstPipeline.apply(x), secondPipeline.apply(x), thirdPipeline.apply(x)))
+    val correctOut = data.map { x => Seq(
+      firstPipeline.apply(x),
+      secondPipeline.apply(x),
+      thirdPipeline.apply(x))
+    }
     assert(pipeline(sc.parallelize(data)).collect().toSeq === correctOut)
   }
 }

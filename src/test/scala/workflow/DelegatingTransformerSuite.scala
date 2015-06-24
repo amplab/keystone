@@ -20,7 +20,9 @@ class DelegatingTransformerSuite extends FunSuite with LocalSparkContext with Lo
     val delegatingTransformer = new DelegatingTransformer[Int]("label")
 
     val strings = Seq("A31DFSsafds*be31", "lj32fsd", "woadsf8923")
-    val transformedStrings = delegatingTransformer.transformRDD(Seq(sc.parallelize(strings)), Seq(hashTransformer)).collect()
+    val transformedStrings = delegatingTransformer.transformRDD(
+      Seq(sc.parallelize(strings)),
+      Seq(hashTransformer)).collect()
     assert(transformedStrings.toSeq === strings.map(_.hashCode))
   }
 

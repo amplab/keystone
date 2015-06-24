@@ -33,9 +33,17 @@ abstract class Transformer[A, B : ClassTag] extends TransformerNode[B] with Pipe
    */
   def apply(in: A): B
 
-  private[workflow] final def transform(dataDependencies: Seq[_], fitDependencies: Seq[TransformerNode[_]]): B = apply(dataDependencies.head.asInstanceOf[A])
+  private[workflow] final def transform(
+    dataDependencies: Seq[_],
+    fitDependencies: Seq[TransformerNode[_]]): B = {
+    apply(dataDependencies.head.asInstanceOf[A])
+  }
 
-  private[workflow] final def transformRDD(dataDependencies: Seq[RDD[_]], fitDependencies: Seq[TransformerNode[_]]): RDD[B] = apply(dataDependencies.head.asInstanceOf[RDD[A]])
+  private[workflow] final def transformRDD(
+    dataDependencies: Seq[RDD[_]],
+    fitDependencies: Seq[TransformerNode[_]]): RDD[B] = {
+    apply(dataDependencies.head.asInstanceOf[RDD[A]])
+  }
 }
 
 object Transformer {

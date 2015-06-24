@@ -26,14 +26,14 @@ object VOCSIFTFisher extends Serializable {
       VOCDataPath(conf.trainLocation, "VOCdevkit/VOC2007/JPEGImages/", Some(1)),
       VOCLabelPath(conf.labelPath)).repartition(conf.numParts)
 
-    val labelGrabber = MultiLabelExtractor then
-      ClassLabelIndicatorsFromIntArrayLabels(VOCLoader.NUM_CLASSES) then
+    val labelGrabber = MultiLabelExtractor andThen
+      ClassLabelIndicatorsFromIntArrayLabels(VOCLoader.NUM_CLASSES) andThen
       new Cacher[DenseVector[Double]]
 
     val trainingLabels = labelGrabber(parsedRDD)
 
     // Part 1: Scale and convert images to grayscale.
-    val grayscaler = MultiLabeledImageExtractor then PixelScaler then GrayScaler then new Cacher[Image]
+    val grayscaler = MultiLabeledImageExtractor andThen PixelScaler andThen GrayScaler andThen new Cacher[Image]
     val grayRDD = grayscaler(parsedRDD)
 
     // Part 1a: If necessary, perform PCA on samples of the SIFT features, or load a PCA matrix from disk.
@@ -49,8 +49,8 @@ object VOCSIFTFisher extends Serializable {
     }
 
     // Part 2: Compute dimensionality-reduced PCA features.
-    val featurizer =  new SIFTExtractor(scaleStep = conf.scaleStep) then
-      pcaTransformer then
+    val featurizer =  new SIFTExtractor(scaleStep = conf.scaleStep) andThen
+      pcaTransformer andThen
       new Cacher[DenseMatrix[Float]]
 
     val firstCachedRDD = featurizer(grayRDD)
@@ -69,12 +69,12 @@ object VOCSIFTFisher extends Serializable {
     }
 
     // Part 3: Compute Fisher Vectors and signed-square-root normalization.
-    val fisherFeaturizer =  new FisherVector(gmm) then
-        FloatToDouble then
-        MatrixVectorizer then
-        NormalizeRows then
-        SignedHellingerMapper then
-        NormalizeRows then
+    val fisherFeaturizer =  new FisherVector(gmm) andThen
+        FloatToDouble andThen
+        MatrixVectorizer andThen
+        NormalizeRows andThen
+        SignedHellingerMapper andThen
+        NormalizeRows andThen
         new Cacher[DenseVector[Double]]
 
     val trainingFeatures = fisherFeaturizer(firstCachedRDD)

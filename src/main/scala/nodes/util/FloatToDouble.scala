@@ -1,7 +1,7 @@
 package nodes.util
 
 import breeze.linalg._
-import pipelines.Transformer
+import workflow.Transformer
 
 /**
  * Converts float matrix to a double matrix.

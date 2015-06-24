@@ -1,6 +1,5 @@
 package pipelines.text
 
-import breeze.linalg.{Vector, argmax}
 import evaluation.MulticlassClassifierEvaluator
 import loaders.NewsgroupsDataLoader
 import nodes.learning.NaiveBayesEstimator
@@ -10,6 +9,7 @@ import nodes.util.{CommonSparseFeatures, MaxClassifier}
 import org.apache.spark.{SparkConf, SparkContext}
 import pipelines.Logging
 import scopt.OptionParser
+import workflow.Optimizer
 
 object NewsgroupsPipeline extends Logging {
   val appName = "NewsgroupsPipeline"
@@ -21,15 +21,17 @@ object NewsgroupsPipeline extends Logging {
 
     // Build the classifier estimator
     logInfo("Training classifier")
-    val predictor = Trim.then(LowerCase())
-        .then(Tokenizer())
-        .then(new NGramsFeaturizer[String](1 to conf.nGrams))
-        .then(TermFrequency(x => 1))
-        .thenEstimator(CommonSparseFeatures(conf.commonFeatures))
-        .fit(trainData.data)
-        .thenLabelEstimator(NaiveBayesEstimator(numClasses))
-        .fit(trainData.data, trainData.labels)
-        .then(MaxClassifier)
+    val predictorPipeline = Trim andThen LowerCase() andThen
+        Tokenizer() andThen
+        NGramsFeaturizer(1 to conf.nGrams) andThen
+        TermFrequency(x => 1) andThen
+        (CommonSparseFeatures(conf.commonFeatures), trainData.data) andThen
+        (NaiveBayesEstimator(numClasses), trainData.data, trainData.labels) andThen
+        MaxClassifier
+
+
+    val predictor = Optimizer.execute(predictorPipeline)
+    logInfo("\n" + predictor.toDOTString)
 
     // Evaluate the classifier
     logInfo("Evaluating classifier")

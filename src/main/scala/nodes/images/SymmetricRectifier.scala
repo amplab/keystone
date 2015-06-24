@@ -2,6 +2,7 @@ package nodes.images
 
 import pipelines._
 import utils.{ChannelMajorArrayVectorizedImage, Image}
+import workflow.Transformer
 
 case class SymmetricRectifier(maxVal: Double = 0.0, alpha: Double = 0.0)
   extends Transformer[Image, Image] {

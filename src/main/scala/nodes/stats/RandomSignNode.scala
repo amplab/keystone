@@ -2,7 +2,7 @@ package nodes.stats
 
 import breeze.linalg._
 import breeze.stats.distributions._
-import pipelines.Transformer
+import workflow.Transformer
 
 /**
  *  A node that takes in DenseVector[Double] and randomly flips

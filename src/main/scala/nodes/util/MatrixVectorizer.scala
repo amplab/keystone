@@ -1,7 +1,7 @@
 package nodes.util
 
 import breeze.linalg.{DenseMatrix, DenseVector}
-import pipelines.Transformer
+import workflow.Transformer
 
 /**
  * Flattens a matrix into a vector.

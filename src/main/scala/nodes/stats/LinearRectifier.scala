@@ -2,6 +2,7 @@ package nodes.stats
 
 import breeze.linalg.DenseVector
 import pipelines._
+import workflow.Transformer
 
 /**
  * This transformer applies a Linear Rectifier,

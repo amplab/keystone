@@ -1,7 +1,7 @@
 package nodes.images
 
 import breeze.linalg.DenseMatrix
-import pipelines.Transformer
+import workflow.Transformer
 
 /**
  * Abstract interface for Fisher Vector.

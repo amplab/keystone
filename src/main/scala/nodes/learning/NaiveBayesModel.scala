@@ -1,12 +1,11 @@
 package nodes.learning
 
-import breeze.linalg.{argmax, DenseMatrix, DenseVector, Vector}
+import breeze.linalg.{DenseMatrix, DenseVector, Vector}
 import org.apache.spark.mllib.classification.NaiveBayes
 import org.apache.spark.mllib.regression.LabeledPoint
 import org.apache.spark.rdd.RDD
-import pipelines.LabelEstimator
-import pipelines.Transformer
 import utils.MLlibUtils.breezeVectorToMLlib
+import workflow.{Transformer, LabelEstimator}
 
 import scala.reflect.ClassTag
 

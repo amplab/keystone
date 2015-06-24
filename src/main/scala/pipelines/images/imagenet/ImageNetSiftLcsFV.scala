@@ -28,12 +28,12 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
 
   def constructFisherFeaturizer(gmm: GaussianMixtureModel, name: Option[String] = None) = {
     // Part 3: Compute Fisher Vectors and signed-square-root normalization.
-    val fisherFeaturizer =  new FisherVector(gmm) then
-        FloatToDouble then
-        MatrixVectorizer then
-        NormalizeRows then
-        SignedHellingerMapper then
-        NormalizeRows then
+    val fisherFeaturizer =  new FisherVector(gmm) andThen
+        FloatToDouble andThen
+        MatrixVectorizer andThen
+        NormalizeRows andThen
+        SignedHellingerMapper andThen
+        NormalizeRows andThen
         new Cacher[DenseVector[Double]](name)
     fisherFeaturizer
   }
@@ -43,13 +43,13 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
       trainParsed: RDD[Image],
       testParsed: RDD[Image]): (RDD[DenseVector[Double]], RDD[DenseVector[Double]]) = {
     // Part 1: Scale and convert images to grayscale.
-    val grayscaler = PixelScaler then GrayScaler
+    val grayscaler = PixelScaler andThen GrayScaler
     val grayRDD = grayscaler(trainParsed)
 
     val numImgs = trainParsed.count.toInt
     var siftSamples: Option[RDD[DenseVector[Float]]] = None
 
-    val siftHellinger = (new SIFTExtractor(scaleStep = conf.siftScaleStep) then
+    val siftHellinger = (new SIFTExtractor(scaleStep = conf.siftScaleStep) andThen
       BatchSignedHellingerMapper)
 
     // Part 1a: If necessary, perform PCA on samples of the SIFT features, or load a PCA matrix from
@@ -66,7 +66,7 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
     }
 
     // Part 2: Compute dimensionality-reduced PCA features.
-    val featurizer = siftHellinger then pcaTransformer
+    val featurizer = siftHellinger andThen pcaTransformer
     val pcaTransformedRDD = featurizer(grayRDD)
 
     // Part 2a: If necessary, compute a GMM based on the dimensionality-reduced features, or load
@@ -88,7 +88,7 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
     }
     val fisherFeaturizer = constructFisherFeaturizer(gmm, Some("sift-fisher"))
     val trainingFeatures = fisherFeaturizer(pcaTransformedRDD)
-    val testFeatures = (grayscaler then featurizer then fisherFeaturizer).apply(testParsed)
+    val testFeatures = (grayscaler andThen featurizer andThen fisherFeaturizer).apply(testParsed)
 
     (trainingFeatures, testFeatures)
   }
@@ -116,7 +116,7 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
     }
 
     // Part 2: Compute dimensionality-reduced PCA features.
-    val featurizer =  new LCSExtractor(conf.lcsStride, conf.lcsBorder, conf.lcsPatch) then
+    val featurizer =  new LCSExtractor(conf.lcsStride, conf.lcsBorder, conf.lcsPatch) andThen
       pcaTransformer
     val pcaTransformedRDD = featurizer(trainParsed)
 
@@ -142,7 +142,7 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
     val fisherFeaturizer = constructFisherFeaturizer(gmm, Some("lcs-fisher"))
 
     val trainingFeatures = fisherFeaturizer(pcaTransformedRDD)
-    val testFeatures = (featurizer then fisherFeaturizer).apply(testParsed)
+    val testFeatures = (featurizer andThen fisherFeaturizer).apply(testParsed)
 
     (trainingFeatures, testFeatures)
   }
@@ -154,8 +154,8 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
       conf.trainLocation,
       conf.labelPath).cache().setName("trainData")
 
-    val labelGrabber = LabelExtractor then
-      ClassLabelIndicatorsFromIntLabels(ImageNetLoader.NUM_CLASSES) then
+    val labelGrabber = LabelExtractor andThen
+      ClassLabelIndicatorsFromIntLabels(ImageNetLoader.NUM_CLASSES) andThen
       new Cacher[DenseVector[Double]]
     val trainingLabels = labelGrabber(parsedRDD)
     trainingLabels.count
@@ -165,7 +165,7 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
       sc,
       conf.testLocation,
       conf.labelPath).cache().setName("testData")
-    val testActual = (labelGrabber then TopKClassifier(1)).apply(testParsedRDD)
+    val testActual = (labelGrabber andThen TopKClassifier(1)).apply(testParsedRDD)
 
     val trainParsedImgs = (ImageExtractor).apply(parsedRDD) 
     val testParsedImgs = (ImageExtractor).apply(testParsedRDD)

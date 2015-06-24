@@ -18,7 +18,7 @@ package nodes.images
 
 import breeze.linalg._
 
-import pipelines.Transformer
+import workflow.Transformer
 import utils.ChannelMajorArrayVectorizedImage
 import utils.Image
 import utils.ImageUtils

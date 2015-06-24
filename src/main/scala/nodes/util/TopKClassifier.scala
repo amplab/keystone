@@ -1,7 +1,7 @@
 package nodes.util
 
 import breeze.linalg.{DenseVector, argtopk}
-import pipelines.Transformer
+import workflow.Transformer
 
 /**
  * Transformer that returns the indices of the largest k values of the vector, in order

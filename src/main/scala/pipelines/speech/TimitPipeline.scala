@@ -62,7 +62,7 @@ object TimitPipeline extends Logging {
     trainData.count()
 
     val batchFeaturizer = (0 until numCosineBatches).map { batch =>
-      if (conf.rfType == Distributions.Cauchy) {
+      val featurizer = if (conf.rfType == Distributions.Cauchy) {
         // TODO: Once https://github.com/scalanlp/breeze/issues/398 is released,
         // use a RandBasis for cauchy
         CosineRandomFeatures(
@@ -78,7 +78,8 @@ object TimitPipeline extends Logging {
           conf.gamma,
           randomSource.gaussian,
           randomSource.uniform)
-      }.thenEstimator(new StandardScaler()).fit(trainData)
+      }
+      featurizer.andThen(new StandardScaler(), trainData)
     }
 
     val trainingBatches = batchFeaturizer.map { x =>

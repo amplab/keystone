@@ -3,7 +3,7 @@ package nodes.images
 import breeze.linalg._
 import breeze.numerics._
 
-import pipelines.Transformer
+import workflow.Transformer
 import utils.Image
 import utils.ImageUtils
 

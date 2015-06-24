@@ -2,7 +2,7 @@ package nodes.images
 
 import breeze.linalg.DenseVector
 import org.apache.spark.rdd.RDD
-import pipelines.{FunctionNode, Transformer}
+import pipelines.FunctionNode
 import utils.{ImageMetadata, ChannelMajorArrayVectorizedImage, Image}
 
 

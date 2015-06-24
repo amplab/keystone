@@ -1,23 +1,43 @@
-package pipelines
+package workflow
 
 import java.io.Serializable
 
 import org.apache.spark.rdd.RDD
 
+import scala.reflect.ClassTag
+
 /**
  * A label estimator has a `fit` method which takes input data & labels and emits a [[Transformer]]
- * @tparam I The type of the input data
- * @tparam O The type of output of the emitted transformer
+ * @tparam A The type of the input data
+ * @tparam B The type of output of the emitted transformer
  * @tparam L The type of label this node expects
  */
-abstract class LabelEstimator[I, O, L] extends Serializable {
+abstract class LabelEstimator[A, B, L] extends EstimatorNode {
+  /**
+   * Constructs a pipeline from a single label estimator and training data.
+   * Equivalent to `Pipeline() andThen (estimator, data, labels)`
+   *
+   * @param data The training data
+   * @param labels The training labels
+   */
+  def withData(data: RDD[A], labels: RDD[L]): Pipeline[A, B] = {
+    val nodes: Seq[Node] = Seq(DataNode(data), DataNode(labels), this, new DelegatingTransformer[B](this.label + ".fit"))
+    val dataDeps = Seq(Seq(), Seq(), Seq(0, 1), Seq(Pipeline.SOURCE))
+    val fitDeps = Seq(Seq(), Seq(), Seq(), Seq(2))
+    val sink = nodes.size - 1
+
+    Pipeline[A, B](nodes, dataDeps, fitDeps, sink)
+  }
+
   /**
    * A LabelEstimator estimator is an estimator which expects labeled data.
    * @param data Input data.
    * @param labels Input labels.
-   * @return A PipelineNode which can be called on new data.
+   * @return A [[Transformer]] which can be called on new data.
    */
-  def fit(data: RDD[I], labels: RDD[L]): Transformer[I, O]
+  protected def fit(data: RDD[A], labels: RDD[L]): Transformer[A, B]
+
+  private[workflow] final def fit(dependencies: Seq[RDD[_]]): TransformerNode[_] = fit(dependencies(0).asInstanceOf[RDD[A]], dependencies(1).asInstanceOf[RDD[L]])
 }
 
 object LabelEstimator extends Serializable {

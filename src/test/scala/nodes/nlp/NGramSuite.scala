@@ -14,9 +14,9 @@ class NGramSuite extends FunSuite with LocalSparkContext {
     val rdd = sc.parallelize(Seq("Pipelines are awesome", "NLP is awesome"), 1)
 
     def run(orders: Seq[Int]) = {
-      val pipeline = Tokenizer() then NGramsFeaturizer[String](orders)
+      val pipeline = Tokenizer() andThen NGramsFeaturizer[String](orders)
 
-      pipeline(rdd)
+      pipeline.apply(rdd)
         .collect()
         .toSeq // for comparison
     }
@@ -41,7 +41,7 @@ class NGramSuite extends FunSuite with LocalSparkContext {
     val rdd = sc.parallelize(Seq("Pipelines are awesome", "NLP is awesome"), 2)
 
     def run(orders: Seq[Int]) = {
-      val featurizer = Tokenizer() then NGramsFeaturizer[String](orders)
+      val featurizer = Tokenizer() andThen NGramsFeaturizer[String](orders)
 
       def pipeline(rdd: RDD[String]) = NGramsCounts[String]().apply(featurizer(rdd))
 
@@ -79,7 +79,7 @@ class NGramSuite extends FunSuite with LocalSparkContext {
     val rdd = sc.parallelize(Seq("Pipelines are awesome", "NLP is awesome"), 2)
 
     def run(orders: Seq[Int]) = {
-      val featurizer = Tokenizer() then NGramsFeaturizer[String](orders)
+      val featurizer = Tokenizer() andThen NGramsFeaturizer[String](orders)
 
       def pipeline(rdd: RDD[String]) = NGramsCounts[String](NGramsCountsMode.NoAdd)
         .apply(featurizer(rdd))

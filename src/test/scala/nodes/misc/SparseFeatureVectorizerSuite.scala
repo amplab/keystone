@@ -29,12 +29,7 @@ class SparseFeatureVectorizerSuite extends FunSuite with LocalSparkContext with 
     val test = Seq(("Third", 4.0), ("Fourth", 6.0), ("First", 1.0))
     val out = featureVectorizer.apply(sc.parallelize(Seq(test))).first().toArray
 
-    // It is unpredictable what mapping of feature to index will be used by the vectorizer
-    // just make sure expected values are found somewhere, and unexpected values not seen
-    assert(out.length == 3)
-    assert(out.contains(4))
-    assert(out.contains(1))
-    assert(!out.contains(6))
+    assert(out === Array(1.0, 0.0, 4.0))
   }
 
   test("common sparse feature selection") {
@@ -52,10 +47,6 @@ class SparseFeatureVectorizerSuite extends FunSuite with LocalSparkContext with 
     val test = Seq(("Third", 4.0), ("Seventh", 8.0), ("Second", 1.3), ("Fourth", 6.0), ("First", 1.0))
     val out = featureVectorizer.apply(sc.parallelize(Seq(test))).first().toArray
 
-    // It is unpredictable what mapping of feature to index will be used by the vectorizer
-    // just make sure expected values are found somewhere, and unexpected values not seen
-    assert(out.length == 2)
-    assert(out.contains(1.3))
-    assert(out.contains(4.0))
+    assert(out === Array(1.3, 4.0))
   }
 }

@@ -89,12 +89,12 @@ private[workflow] class ConcretePipeline[A, B](
           val nodeFitDeps = fitDeps(node).map(fitEstimator)
           val nodeDataDeps = dataDeps(node).map(x => singleDataEval(x, in))
           transformer.transform(nodeDataDeps, nodeFitDeps)
-        case _: DataNode => throw new RuntimeException {
+        case _: DataNode => throw new RuntimeException(
           "Pipeline DAG error: came across an RDD data dependency when trying to do a single item apply"
-        }
-        case _: EstimatorNode => throw new RuntimeException {
+        )
+        case _: EstimatorNode => throw new RuntimeException(
           "Pipeline DAG error: Cannot have a data dependency on an Estimator"
-        }
+        )
       }
     }
   }

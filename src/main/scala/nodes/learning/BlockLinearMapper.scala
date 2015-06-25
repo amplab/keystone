@@ -144,7 +144,7 @@ class BlockLinearMapper(
  * @param numIter number of iterations of solver to run
  * @param lambda L2-regularization to use
  */
-class BlockLeastSquaresEstimator(blockSize: Int, numIter: Int, lambda: Double = 0.0)
+class BlockLeastSquaresEstimator(blockSize: Int, numIter: Int, lambda: Double = 0.0, numFeaturesOpt: Option[Int] = None)
   extends LabelEstimator[DenseVector[Double], DenseVector[Double], DenseVector[Double]] {
 
   /**
@@ -190,7 +190,9 @@ class BlockLeastSquaresEstimator(blockSize: Int, numIter: Int, lambda: Double = 
   override def fit(
       trainingFeatures: RDD[DenseVector[Double]],
       trainingLabels: RDD[DenseVector[Double]]): BlockLinearMapper = {
-    fit(trainingFeatures, trainingLabels, None)
+    val vectorSplitter = new VectorSplitter(blockSize, numFeaturesOpt)
+    val featureBlocks = vectorSplitter.apply(trainingFeatures)
+    fit(featureBlocks, trainingLabels)
   }
 
   def fit(

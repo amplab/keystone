@@ -37,7 +37,8 @@ class BlockWeightedLeastSquaresEstimator(
     blockSize: Int,
     numIter: Int,
     lambda: Double,
-    mixtureWeight: Double)
+    mixtureWeight: Double,
+    numFeaturesOpt: Option[Int] = None)
   extends LabelEstimator[DenseVector[Double], DenseVector[Double], DenseVector[Double]] {
  
   /**
@@ -75,17 +76,9 @@ class BlockWeightedLeastSquaresEstimator(
   override def fit(
       trainingFeatures: RDD[DenseVector[Double]],
       trainingLabels: RDD[DenseVector[Double]]): BlockLinearMapper = {
-    fit(trainingFeatures, trainingLabels, None)
-  }
-
-  def fit(
-      trainingFeatures: RDD[DenseVector[Double]],
-      trainingLabels: RDD[DenseVector[Double]],
-      numFeaturesOpt: Option[Int]): BlockLinearMapper = {
     val trainingFeaturesSplit = new VectorSplitter(blockSize, numFeaturesOpt).apply(trainingFeatures)
     fit(trainingFeaturesSplit, trainingLabels)
   }
-
 }
 
 object BlockWeightedLeastSquaresEstimator extends Logging {

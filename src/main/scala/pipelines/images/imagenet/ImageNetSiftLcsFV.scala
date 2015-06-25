@@ -14,137 +14,69 @@ import evaluation.MulticlassClassifierEvaluator
 import loaders.ImageNetLoader
 import pipelines.Logging
 
-import nodes.images.external.{FisherVector, SIFTExtractor}
+import nodes.images.external.{GMMFisherVectorEstimator, FisherVector, SIFTExtractor}
 import nodes.images._
 import nodes.learning._
-import nodes.stats.{ColumnSampler, NormalizeRows, SignedHellingerMapper, BatchSignedHellingerMapper}
-import nodes.util.{FloatToDouble, MatrixVectorizer, Cacher}
-import nodes.util.{ClassLabelIndicatorsFromIntLabels, ZipVectors, TopKClassifier}
+import nodes.stats._
+import nodes.util._
 
 import utils.{Image, MatrixUtils, Stats}
+import workflow.{Optimizer, Pipeline}
 
 object ImageNetSiftLcsFV extends Serializable with Logging {
   val appName = "ImageNetSiftLcsFV"
 
-  def constructFisherFeaturizer(gmm: GaussianMixtureModel, name: Option[String] = None) = {
+  def computePCAandFisherBranch(
+    prefix: Pipeline[Image, DenseMatrix[Float]],
+    trainingData: RDD[Image],
+    pcaFile: Option[String],
+    gmmMeanFile: Option[String],
+    gmmVarFile: Option[String],
+    gmmWtsFile: Option[String],
+    numColSamplesPerImage: Int,
+    numPCADesc: Int,
+    gmmVocabSize: Int): Pipeline[Image, DenseVector[Double]] = {
+
+    val sampledColumns = prefix andThen
+        ColumnSampler(numColSamplesPerImage) andThen
+        new Cacher
+
+    // Part 1a: If necessary, perform PCA on samples of the features, or load a PCA matrix from disk.
+    // Part 2: Compute dimensionality-reduced PCA features.
+    val pcaTransformer = pcaFile match {
+      case Some(fname) =>
+        new BatchPCATransformer(convert(csvread(new File(fname)), Float).t)
+      case None =>
+        val pca = sampledColumns andThen
+            (ColumnPCAEstimator(numPCADesc), trainingData)
+
+        pca.fittedTransformer
+    }
+
+    // Part 2a: If necessary, compute a GMM based on the dimensionality-reduced features, or load from disk.
     // Part 3: Compute Fisher Vectors and signed-square-root normalization.
-    val fisherFeaturizer =  new FisherVector(gmm) andThen
+    val fisherVectorTransformer = gmmMeanFile match {
+      case Some(f) =>
+        val gmm = new GaussianMixtureModel(
+          csvread(new File(gmmMeanFile.get)),
+          csvread(new File(gmmVarFile.get)),
+          csvread(new File(gmmWtsFile.get)).toDenseVector)
+        FisherVector(gmm)
+      case None =>
+        val fisherVector = sampledColumns andThen
+            pcaTransformer andThen
+            (GMMFisherVectorEstimator(gmmVocabSize), trainingData)
+        fisherVector.fittedTransformer
+    }
+
+    prefix andThen
+        pcaTransformer andThen
+        fisherVectorTransformer andThen
         FloatToDouble andThen
         MatrixVectorizer andThen
         NormalizeRows andThen
         SignedHellingerMapper andThen
-        NormalizeRows andThen
-        new Cacher[DenseVector[Double]](name)
-    fisherFeaturizer
-  }
-
-  def getSiftFeatures(
-      conf: ImageNetSiftLcsFVConfig,
-      trainParsed: RDD[Image],
-      testParsed: RDD[Image]): (RDD[DenseVector[Double]], RDD[DenseVector[Double]]) = {
-    // Part 1: Scale and convert images to grayscale.
-    val grayscaler = PixelScaler andThen GrayScaler
-    val grayRDD = grayscaler(trainParsed)
-
-    val numImgs = trainParsed.count.toInt
-    var siftSamples: Option[RDD[DenseVector[Float]]] = None
-
-    val siftHellinger = (new SIFTExtractor(scaleStep = conf.siftScaleStep) andThen
-      BatchSignedHellingerMapper)
-
-    // Part 1a: If necessary, perform PCA on samples of the SIFT features, or load a PCA matrix from
-    // disk.
-    val pcaTransformer = conf.siftPcaFile match {
-      case Some(fname) => new BatchPCATransformer(convert(csvread(new File(fname)), Float).t)
-      case None => {
-        siftSamples = Some(
-          new ColumnSampler(conf.numPcaSamples, Some(numImgs)).apply(siftHellinger(grayRDD)).cache())
-        val pca = new PCAEstimator(conf.descDim).fit(siftSamples.get)
-
-        new BatchPCATransformer(pca.pcaMat)
-      }
-    }
-
-    // Part 2: Compute dimensionality-reduced PCA features.
-    val featurizer = siftHellinger andThen pcaTransformer
-    val pcaTransformedRDD = featurizer(grayRDD)
-
-    // Part 2a: If necessary, compute a GMM based on the dimensionality-reduced features, or load
-    // from disk.
-    val gmm = conf.siftGmmMeanFile match {
-      case Some(f) =>
-        new GaussianMixtureModel(
-          csvread(new File(conf.siftGmmMeanFile.get)),
-          csvread(new File(conf.siftGmmVarFile.get)),
-          csvread(new File(conf.siftGmmWtsFile.get)).toDenseVector)
-      case None =>
-        val samples = siftSamples.getOrElse { 
-          new ColumnSampler(conf.numGmmSamples, Some(numImgs)).apply(siftHellinger(grayRDD))
-        }
-        val vectorPCATransformer = new PCATransformer(pcaTransformer.pcaMat)
-        new GaussianMixtureModelEstimator(conf.vocabSize)
-          .fit(MatrixUtils.shuffleArray(
-            vectorPCATransformer(samples).map(convert(_, Double)).collect()).take(1e6.toInt))
-    }
-    val fisherFeaturizer = constructFisherFeaturizer(gmm, Some("sift-fisher"))
-    val trainingFeatures = fisherFeaturizer(pcaTransformedRDD)
-    val testFeatures = (grayscaler andThen featurizer andThen fisherFeaturizer).apply(testParsed)
-
-    (trainingFeatures, testFeatures)
-  }
-
-  def getLcsFeatures(
-      conf: ImageNetSiftLcsFVConfig,
-      trainParsed: RDD[Image],
-      testParsed: RDD[Image]): (RDD[DenseVector[Double]], RDD[DenseVector[Double]]) = {
-
-    val numImgs = trainParsed.count.toInt
-    var lcsSamples: Option[RDD[DenseVector[Float]]] = None
-    // Part 1a: If necessary, perform PCA on samples of the LCS features, or load a PCA matrix from
-    // disk.
-    val pcaTransformer = conf.lcsPcaFile match {
-      case Some(fname) => new BatchPCATransformer(convert(csvread(new File(fname)), Float).t)
-      case None => {
-        val pcapipe = new LCSExtractor(conf.lcsStride, conf.lcsBorder, conf.lcsPatch)
-        lcsSamples = Some(
-          new ColumnSampler(conf.numPcaSamples, Some(numImgs)).apply(
-            pcapipe(trainParsed)).cache())
-        val pca = new PCAEstimator(conf.descDim).fit(lcsSamples.get)
-
-        new BatchPCATransformer(pca.pcaMat)
-      }
-    }
-
-    // Part 2: Compute dimensionality-reduced PCA features.
-    val featurizer =  new LCSExtractor(conf.lcsStride, conf.lcsBorder, conf.lcsPatch) andThen
-      pcaTransformer
-    val pcaTransformedRDD = featurizer(trainParsed)
-
-    // Part 2a: If necessary, compute a GMM based on the dimensionality-reduced features, or load
-    // from disk.
-    val gmm = conf.lcsGmmMeanFile match {
-      case Some(f) =>
-        new GaussianMixtureModel(
-          csvread(new File(conf.lcsGmmMeanFile.get)),
-          csvread(new File(conf.lcsGmmVarFile.get)),
-          csvread(new File(conf.lcsGmmWtsFile.get)).toDenseVector)
-      case None =>
-        val samples = lcsSamples.getOrElse { 
-          val lcs = new LCSExtractor(conf.lcsStride, conf.lcsBorder, conf.lcsPatch)
-          new ColumnSampler(conf.numPcaSamples, Some(numImgs)).apply(lcs(trainParsed))
-        }
-        val vectorPCATransformer = new PCATransformer(pcaTransformer.pcaMat)
-        new GaussianMixtureModelEstimator(conf.vocabSize)
-          .fit(MatrixUtils.shuffleArray(
-            vectorPCATransformer(samples).map(convert(_, Double)).collect()).take(1e6.toInt))
-    }
-
-    val fisherFeaturizer = constructFisherFeaturizer(gmm, Some("lcs-fisher"))
-
-    val trainingFeatures = fisherFeaturizer(pcaTransformedRDD)
-    val testFeatures = (featurizer andThen fisherFeaturizer).apply(testParsed)
-
-    (trainingFeatures, testFeatures)
+        NormalizeRows
   }
 
   def run(sc: SparkContext, conf: ImageNetSiftLcsFVConfig) {
@@ -158,7 +90,7 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
       ClassLabelIndicatorsFromIntLabels(ImageNetLoader.NUM_CLASSES) andThen
       new Cacher[DenseVector[Double]]
     val trainingLabels = labelGrabber(parsedRDD)
-    trainingLabels.count
+    val numTrainingImgs = trainingLabels.count()
 
     // Load test data and get actual labels
     val testParsedRDD = ImageNetLoader(
@@ -167,30 +99,56 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
       conf.labelPath).cache().setName("testData")
     val testActual = (labelGrabber andThen TopKClassifier(1)).apply(testParsedRDD)
 
-    val trainParsedImgs = (ImageExtractor).apply(parsedRDD) 
-    val testParsedImgs = (ImageExtractor).apply(testParsedRDD)
+    val trainParsedImgs = ImageExtractor.apply(parsedRDD)
+    val testParsedImgs = ImageExtractor.apply(testParsedRDD)
 
-    // Get SIFT + FV features
-    val (trainSift, testSift) = getSiftFeatures(conf, trainParsedImgs, testParsedImgs)
+    // Get SIFT + FV feature branch
+    val siftBranchPrefix = PixelScaler andThen
+        GrayScaler andThen
+        new SIFTExtractor(scaleStep = conf.siftScaleStep) andThen
+        BatchSignedHellingerMapper
 
-    // Get LCS + FV features
-    val (trainLcs, testLcs) = getLcsFeatures(conf, trainParsedImgs, testParsedImgs)
+    val siftBranch = computePCAandFisherBranch(
+      siftBranchPrefix,
+      trainParsedImgs,
+      conf.siftPcaFile,
+      conf.siftGmmMeanFile,
+      conf.siftGmmVarFile,
+      conf.siftGmmWtsFile,
+      conf.numPcaSamples / numTrainingImgs.toInt,
+      conf.descDim, conf.vocabSize)
 
-    val trainingFeatures = ZipVectors(Seq(trainSift, trainLcs))
-    val testFeatures = ZipVectors(Seq(testSift, testLcs))
+    // Get LCS + FV feature branch
+    val lcsBranchPrefix = new LCSExtractor(conf.lcsStride, conf.lcsBorder, conf.lcsPatch)
+    val lcsBranch = computePCAandFisherBranch(
+      lcsBranchPrefix,
+      trainParsedImgs,
+      conf.lcsPcaFile,
+      conf.lcsGmmMeanFile,
+      conf.lcsGmmVarFile,
+      conf.lcsGmmWtsFile,
+      conf.numPcaSamples / numTrainingImgs.toInt,
+      conf.descDim, conf.vocabSize)
 
-    trainingFeatures.count
-    val numTestImgs = testFeatures.count
+    // Combine the two models, and fit the weighted least squares model to the data
+    val pipeline = Pipeline.gather {
+      siftBranch :: lcsBranch :: Nil
+    } andThen
+        VectorCombiner() andThen
+        new Cacher andThen
+        (new BlockWeightedLeastSquaresEstimator(
+          4096, 1, conf.lambda, conf.mixtureWeight, Some(2 * 2 * conf.descDim * conf.vocabSize)),
+            trainParsedImgs,
+            trainingLabels) andThen
+        TopKClassifier(5)
 
-    // Fit a weighted least squares model to the data.
-    val model = new BlockWeightedLeastSquaresEstimator(
-      4096, 1, conf.lambda, conf.mixtureWeight).fit(
-        trainingFeatures, trainingLabels, Some(2 * 2 * conf.descDim * conf.vocabSize))
+    // Optimize the pipeline
+    val predictor = Optimizer.execute(pipeline)
+    logInfo("\n" + predictor.toDOTString)
 
     // Apply the model to test data and compute test error
-    val testPredictedValues = model(testFeatures)
-    val testPredicted = TopKClassifier(5).apply(testPredictedValues)
-
+    val numTestImgs = testActual.count()
+    val testPredicted = predictor(testParsedImgs)
     logInfo("TEST Error is " + Stats.getErrPercent(testPredicted, testActual, numTestImgs) + "%")
   }
 

@@ -61,7 +61,7 @@ object TimitFeaturesDataLoader {
       testLabelsLocation: String,
       numParts: Int = 512): TimitFeaturesData = {
     val trainData = CsvDataLoader(sc, trainDataLocation, numParts)
-    val trainLabels = createLabelsRDD(parseSparseLabels(testLabelsLocation), trainData)
+    val trainLabels = createLabelsRDD(parseSparseLabels(trainLabelsLocation), trainData)
 
     val testData = CsvDataLoader(sc, testDataLocation, numParts)
     val testLabels = createLabelsRDD(parseSparseLabels(testLabelsLocation), testData)

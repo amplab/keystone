@@ -30,9 +30,9 @@ if [ ! -f ${JAR} ]; then
   # Download
   printf "Attempting to fetch sbt\n"
   if hash curl 2>/dev/null; then
-    curl --progress-bar ${URL1} > ${JAR} || curl --progress-bar ${URL2} > ${JAR}
+    curl --fail --location --silent ${URL1} > ${JAR} || curl --fail --location --silent ${URL2} > ${JAR}
   elif hash wget 2>/dev/null; then
-    wget --progress=bar ${URL1} -O ${JAR} || wget --progress=bar ${URL2} -O ${JAR}
+    wget --quiet ${URL1} -O ${JAR} || wget --quiet ${URL2} -O ${JAR}
   else
     printf "You do not have curl or wget installed, please install sbt manually from http://www.scala-sbt.org/\n"
     exit -1

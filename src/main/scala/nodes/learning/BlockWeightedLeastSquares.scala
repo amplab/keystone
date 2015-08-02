@@ -29,12 +29,27 @@ class BlockWeightedLeastSquaresEstimator(
     lambda: Double,
     mixtureWeight: Double)
   extends LabelEstimator[DenseVector[Double], DenseVector[Double], DenseVector[Double]] {
+
+  def fit(
+      trainingFeatures: Iterator[RDD[DenseVector[Double]]],
+      trainingLabels: RDD[DenseVector[Double]],
+      numBlocks: Int): BlockLinearMapper = {
+    BlockWeightedLeastSquaresEstimator.trainWithL2(
+      trainingFeatures,
+      numBlocks,
+      trainingLabels,
+      blockSize,
+      numIter,
+      lambda,
+      mixtureWeight)
+  }
  
   def fit(
       trainingFeatures: Seq[RDD[DenseVector[Double]]],
       trainingLabels: RDD[DenseVector[Double]]): BlockLinearMapper = {
     BlockWeightedLeastSquaresEstimator.trainWithL2(
-      trainingFeatures,
+      trainingFeatures.iterator,
+      trainingFeatures.size,
       trainingLabels,
       blockSize,
       numIter,
@@ -75,13 +90,14 @@ object BlockWeightedLeastSquaresEstimator extends Logging {
    * @param numIter number of passes of co-ordinate descent to run
    */
   def trainWithL2(
-      trainingFeatures: Seq[RDD[DenseVector[Double]]],
+      trainingFeatures: Iterator[RDD[DenseVector[Double]]],
+      numBlocks: Int,
       trainingLabels: RDD[DenseVector[Double]],
       blockSize: Int,
       numIter: Int,
       lambda: Double,
       mixtureWeight: Double): BlockLinearMapper = {
-    val sc = trainingFeatures.head.context
+    val sc = trainingLabels.context
 
     // Check if all examples in a partition are of the same class
     val sameClasses = trainingLabels.mapPartitions { iter =>
@@ -104,13 +120,11 @@ object BlockWeightedLeastSquaresEstimator extends Logging {
     }.collect():_*)
 
     // Initialize models to zero here. Each model is a (W, b)
-    val models = trainingFeatures.map { block =>
+    val models = (0 until numBlocks).map { block =>
       // TODO: This assumes uniform block sizes. We should check the number of columns
       // in each block to ensure safety.
       DenseMatrix.zeros[Double](blockSize, nClasses)
     }.toArray
-
-    val numBlocks = models.length
 
     // Initialize residual to labels - jointLabelMean
     var residual = trainingLabelsMat.map { mat =>
@@ -128,11 +142,11 @@ object BlockWeightedLeastSquaresEstimator extends Logging {
     (0 until numIter).foreach { pass =>
       var blockIdx = 0
        // TODO: Figure out if this should be shuffled ? rnd.shuffle((0 until numBlocks).toList)
-      val randomBlocks = (0 until numBlocks).toList
+      // val randomBlocks = (0 until numBlocks).toList
       while (blockIdx < numBlocks) {
-        val block = randomBlocks(blockIdx)
+        val block = blockIdx // randomBlocks(blockIdx)
         logInfo(s"Running pass $pass block $block")
-        val blockFeatures = trainingFeatures(block)
+        val blockFeatures = trainingFeatures.next // (block)
 
         val blockFeaturesMat = blockFeatures.mapPartitions { part => 
           Iterator.single(MatrixUtils.rowsToMatrix(part))

@@ -233,10 +233,13 @@ object LazyImageNetSiftLcsFV extends Serializable with Logging {
     // val numTestImgs = testFeatures.count
 
     val numBlocks = math.ceil(conf.vocabSize.toDouble / conf.centroidBatchSize).toInt
+    // NOTE(shivaram): one block only contains `centroidBatchSize` worth of SIFT/LCS features
+    // (i.e. one of them not both !). So this will 2048 if centroidBatchSize is 16
+    val numFeaturesPerBlock = 2 * conf.centroidBatchSize * conf.descDim // 2048 by default
 
     // Fit a weighted least squares model to the data.
     val model = new BlockWeightedLeastSquaresEstimator(
-      4096, 1, conf.lambda, conf.mixtureWeight).fit(
+      numFeaturesPerBlock, 1, conf.lambda, conf.mixtureWeight).fit(
         trainingFeatures, trainingLabels, numBlocks)
 
     model.applyAndEvaluate(testFeatures,

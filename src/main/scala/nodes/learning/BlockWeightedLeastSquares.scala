@@ -158,8 +158,11 @@ object BlockWeightedLeastSquaresEstimator extends Logging {
 
         val (popCov, popXTR, jointMeansRDD, popMean) = if (pass == 0) {
           // Step 1: Calculate population mean, covariance
-          // TODO: This expects blockFeatures to be cached as this does one pass ??
-          val blockPopMean = new StandardScaler(normalizeStdDev=false).fit(blockFeatures).mean
+          // NOTE: Use blockFeaturesMat here as that is cached !
+          val blockPopMean = new StandardScaler(normalizeStdDev=false).fit(
+            blockFeaturesMat.flatMap { mat =>
+              MatrixUtils.matrixToRowArray(mat).iterator
+            }).mean
 
           // This is numClasses x blockSize -- So keep a RDD version of it that we can zip with each
           // partition and also a local version of it.

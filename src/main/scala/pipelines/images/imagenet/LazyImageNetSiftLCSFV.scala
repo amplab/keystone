@@ -56,8 +56,7 @@ object LazyImageNetSiftLcsFV extends Serializable with Logging {
         MatrixVectorizer then
         NormalizeRows then
         SignedHellingerMapper then
-        NormalizeRows then
-        new Cacher[DenseVector[Double]](name)
+        NormalizeRows
     fisherFeaturizer
   }
 

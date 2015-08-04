@@ -38,7 +38,11 @@ class BlockLinearMapper(
   }
 
   def apply(in: Seq[RDD[DenseVector[Double]]]): RDD[DenseVector[Double]] = {
-    val res = in.zip(xs.zip(featureScalers)).map {
+    apply(in.iterator)
+  }
+
+  def apply(in: Iterator[RDD[DenseVector[Double]]]): RDD[DenseVector[Double]] = {
+    val res = in.zip(xs.zip(featureScalers).iterator).map {
       case (rdd, xScaler) => {
         val (x, scaler) = xScaler
         val modelBroadcast = rdd.context.broadcast(x)

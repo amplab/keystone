@@ -243,13 +243,9 @@ object LazyImageNetSiftLcsFV extends Serializable with Logging {
       numFeaturesPerBlock, 1, conf.lambda, conf.mixtureWeight).fit(
         trainingFeatures, trainingLabels, numBlocks)
 
-    model.applyAndEvaluate(testFeatures,
-      (testPredictedValues: RDD[DenseVector[Double]]) => {
-        val predicted = TopKClassifier(5).apply(testPredictedValues)
-        logInfo("TEST Error is " + Stats.getErrPercent(predicted, testActual, numTestImgs) + "%")
-      }
-    )
-
+    val testPredictedValues = model.apply(testFeatures)
+    val predicted = TopKClassifier(5).apply(testPredictedValues)
+    logInfo("TEST Error is " + Stats.getErrPercent(predicted, testActual, numTestImgs) + "%")
   }
 
   case class LazyImageNetSiftLcsFVConfig(

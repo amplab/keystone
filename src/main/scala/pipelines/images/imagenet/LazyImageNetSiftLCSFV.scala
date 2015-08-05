@@ -82,7 +82,8 @@ object LazyImageNetSiftLcsFV extends Serializable with Logging {
       case Some(fname) => new BatchPCATransformer(convert(csvread(new File(fname)), Float).t)
       case None => {
         siftSamples = Some(
-          new ColumnSampler(conf.numPcaSamples, Some(numImgs)).apply(siftHellinger(grayRDD)).cache())
+          new ColumnSampler(conf.numPcaSamples,
+            Some(numImgs)).apply(siftHellinger(grayRDD)).cache().setName("sift-samples"))
         val pca = new PCAEstimator(conf.descDim).fit(siftSamples.get)
 
         new BatchPCATransformer(pca.pcaMat)
@@ -144,7 +145,7 @@ object LazyImageNetSiftLcsFV extends Serializable with Logging {
         val pcapipe = new LCSExtractor(conf.lcsStride, conf.lcsBorder, conf.lcsPatch)
         lcsSamples = Some(
           new ColumnSampler(conf.numPcaSamples, Some(numImgs)).apply(
-            pcapipe(trainParsed)).cache())
+            pcapipe(trainParsed)).cache().setName("lcs-samples"))
         val pca = new PCAEstimator(conf.descDim).fit(lcsSamples.get)
 
         new BatchPCATransformer(pca.pcaMat)
@@ -201,7 +202,7 @@ object LazyImageNetSiftLcsFV extends Serializable with Logging {
 
     val labelGrabber = LabelExtractor then
       ClassLabelIndicatorsFromIntLabels(ImageNetLoader.NUM_CLASSES) then
-      new Cacher[DenseVector[Double]]
+      new Cacher[DenseVector[Double]](Some("labels"))
     val trainingLabels = labelGrabber(parsedRDD)
     trainingLabels.count
 

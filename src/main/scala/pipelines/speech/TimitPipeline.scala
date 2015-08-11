@@ -12,9 +12,10 @@ import evaluation.MulticlassClassifierEvaluator
 import loaders.TimitFeaturesDataLoader
 import nodes.learning.{BlockLinearMapper, BlockLeastSquaresEstimator}
 import nodes.stats.{CosineRandomFeatures, StandardScaler}
-import nodes.util.{ClassLabelIndicatorsFromIntLabels, MaxClassifier}
+import nodes.util.{VectorCombiner, ClassLabelIndicatorsFromIntLabels, MaxClassifier}
 
 import pipelines._
+import workflow.{Optimizer, Pipeline}
 
 
 object TimitPipeline extends Logging {
@@ -61,60 +62,53 @@ object TimitPipeline extends Logging {
     val trainData = timitFeaturesData.train.data.cache().setName("trainRaw")
     trainData.count()
 
-    val batchFeaturizer = (0 until numCosineBatches).map { batch =>
-      val featurizer = if (conf.rfType == Distributions.Cauchy) {
-        // TODO: Once https://github.com/scalanlp/breeze/issues/398 is released,
-        // use a RandBasis for cauchy
-        CosineRandomFeatures(
-          TimitFeaturesDataLoader.timitDimension,
-          numCosineFeatures,
-          conf.gamma,
-          new CauchyDistribution(0, 1),
-          randomSource.uniform)
-      } else {
-        CosineRandomFeatures(
-          TimitFeaturesDataLoader.timitDimension,
-          numCosineFeatures,
-          conf.gamma,
-          randomSource.gaussian,
-          randomSource.uniform)
-      }
-      featurizer.andThen(new StandardScaler(), trainData)
-    }
-
-    val trainingBatches = batchFeaturizer.map { x =>
-      x.apply(trainData)
-    }
-
     val labels = ClassLabelIndicatorsFromIntLabels(TimitFeaturesDataLoader.numClasses).apply(
       timitFeaturesData.train.labels
     ).cache().setName("trainLabels")
 
+    // Train the model
+    val featurizer = Pipeline.gather {
+      Seq.fill(numCosineBatches) {
+        if (conf.rfType == Distributions.Cauchy) {
+          // TODO: Once https://github.com/scalanlp/breeze/issues/398 is released,
+          // use a RandBasis for cauchy
+          CosineRandomFeatures(
+            TimitFeaturesDataLoader.timitDimension,
+            numCosineFeatures,
+            conf.gamma,
+            new CauchyDistribution(0, 1),
+            randomSource.uniform)
+        } else {
+          CosineRandomFeatures(
+            TimitFeaturesDataLoader.timitDimension,
+            numCosineFeatures,
+            conf.gamma,
+            randomSource.gaussian,
+            randomSource.uniform)
+        }
+      }
+    } andThen VectorCombiner()
+
+    val predictorPipeline = featurizer andThen
+        (new BlockLeastSquaresEstimator(numCosineFeatures, conf.numEpochs, conf.lambda),
+            trainData, labels) andThen MaxClassifier
+
+    val predictor = Optimizer.execute(predictorPipeline)
+    logInfo("\n" + predictor.toDOTString)
+
+
+
     val testData = timitFeaturesData.test.data.cache().setName("testRaw")
     val numTest = testData.count()
 
-    val testBatches = batchFeaturizer.map { case x =>
-      val rdd = x.apply(testData)
-      rdd.cache().setName("testFeatures")
-    }
-
     val actual = timitFeaturesData.test.labels.cache().setName("actual")
 
-    // Train the model
-    val blockLinearMapper = new BlockLeastSquaresEstimator(
-      numCosineFeatures, conf.numEpochs, conf.lambda).fit(trainingBatches, labels)
-
     // Calculate test error
-    blockLinearMapper.applyAndEvaluate(testBatches,
-      (testPredictedValues: RDD[DenseVector[Double]]) => {
-        val predicted = MaxClassifier(testPredictedValues)
-        val evaluator = MulticlassClassifierEvaluator(predicted, actual,
-          TimitFeaturesDataLoader.numClasses)
-        println("TEST Error is " + (100d * evaluator.totalError) + "%")
-      }
-    )
-
-    System.exit(0)
+    val testEval = MulticlassClassifierEvaluator(
+      predictor(testData),
+      actual,
+      TimitFeaturesDataLoader.numClasses)
+    logInfo("TEST Error is " + (100 * testEval.totalError) + "%")
   }
 
   object Distributions extends Enumeration {

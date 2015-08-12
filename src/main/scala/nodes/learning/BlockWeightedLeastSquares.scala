@@ -134,7 +134,7 @@ object BlockWeightedLeastSquaresEstimator extends Logging {
     } else {
       (trainingFeatures, trainingLabels)
     }
-    
+
     val classIdxs = labels.mapPartitions { iter =>
       Iterator.single(iter.map(label => label.toArray.indexOf(label.max)).toSeq.distinct.head)
     }.cache().setName("classIdxs")
@@ -145,9 +145,15 @@ object BlockWeightedLeastSquaresEstimator extends Logging {
     val labelsMat = labels.mapPartitions(part =>
       Iterator.single(MatrixUtils.rowsToMatrix(part)))
 
-    val jointLabelMean = DenseVector(labelsMat.map { part =>
-      2*mixtureWeight + (2*(1.0-mixtureWeight) * part.rows/nTrain.toDouble) - 1
-    }.collect():_*)
+    val jointLabelMeanData = labelsMat.zip(classIdxs).map { x =>
+      (x._2, 2*mixtureWeight + (2*(1.0-mixtureWeight) * x._1.rows/nTrain.toDouble) - 1)
+    }.collect()
+
+    // The jointLabelMean should be nClasses * 1
+    val jointLabelMean = DenseVector.zeros[Double](nClasses)
+    jointLabelMeanData.foreach { x =>
+      jointLabelMean(x._1) = x._2
+    }
 
     // Initialize models to zero here. Each model is a (W, b)
     val models = trainingFeatures.map { block =>
@@ -185,8 +191,8 @@ object BlockWeightedLeastSquaresEstimator extends Logging {
         }.cache().setName("blockFeaturesMat")
 
         val treeBranchingFactor = sc.getConf.getInt("spark.mlmatrix.treeBranchingFactor", 2).toInt
-        val depth = math.ceil(math.log(blockFeaturesMat.partitions.size) / 
-          math.log(treeBranchingFactor)).toInt
+        val depth = math.max(math.ceil(math.log(blockFeaturesMat.partitions.size) /
+          math.log(treeBranchingFactor)).toInt, 1)
 
         val (popCov, popXTR, jointMeansRDD, popMean) = if (pass == 0) {
           // Step 1: Calculate population mean, covariance
@@ -199,7 +205,11 @@ object BlockWeightedLeastSquaresEstimator extends Logging {
             mean(mat(::, *)).toDenseVector * mixtureWeight + blockPopMean * (1.0 -
               mixtureWeight)
           }.cache().setName("jointMeans")
-          val blockJointMeans = MatrixUtils.rowsToMatrix(blockJointMeansRDD.collect())
+          val blockJointMeans = DenseMatrix.zeros[Double](nClasses, blockSize)
+          val blockJointMeansData = blockJointMeansRDD.zip(classIdxs).collect()
+          blockJointMeansData.foreach { x =>
+            blockJointMeans(x._2, ::) := x._1.t
+          }
 
           val aTaResidual = MLMatrixUtils.treeReduce(blockFeaturesMat.zip(residual).map { part =>
             (part._1.t * part._1, part._1.t * part._2)
@@ -260,12 +270,13 @@ object BlockWeightedLeastSquaresEstimator extends Logging {
           val W = (jointXTX + (DenseMatrix.eye[Double](numDims) :* lambda) ) \ (jointXTR -
             modelBC.value(::, classIdx) * lambda)
 
-          W.toDenseMatrix.t
+          (classIdx, W.toDenseMatrix.t)
         }.collect()
 
         // TODO: Write a more reasonable conversion function here.
-        val localFullModel = modelsThisPass.reduceLeft { (a, b) =>
-          DenseMatrix.horzcat(a, b)
+        val localFullModel = DenseMatrix.zeros[Double](models(block).rows, models(block).cols)
+        modelsThisPass.foreach { m =>
+          localFullModel(::, m._1) := m._2.toDenseVector
         }
 
         // So newXj is oldXj + localFullModel

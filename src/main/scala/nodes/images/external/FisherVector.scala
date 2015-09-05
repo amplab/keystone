@@ -40,6 +40,9 @@ case class FisherVector(
  * estimating a GMM by treating each column of the inputs as a separate
  * DenseVector input to [[GaussianMixtureModelEstimator]]
  *
+ * TODO: Pending philosophical discussions on how to best make it so you can
+ * swap in GMM, KMeans++, etc. for Fisher Vectors. For now just hard-codes GMM here
+ *
  * @param k Number of centers to estimate.
  */
 case class GMMFisherVectorEstimator(k: Int) extends Estimator[DenseMatrix[Float], DenseMatrix[Float]] {

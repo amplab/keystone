@@ -14,13 +14,22 @@ import scala.util.Random
 object MatrixUtils extends Serializable {
 
   /**
-   * Converts a matrix to an array of row arrays.
+   * Converts a matrix to an array of rows.
    * @param mat Input matrix.
    * @return Array of rows.
    */
   def matrixToRowArray[T](mat: DenseMatrix[T]): Array[DenseVector[T]] = {
     val matT = mat.t
     (0 until mat.rows).toArray.map(matT(::, _))
+  }
+
+  /**
+   * Converts a matrix to an array of columns.
+   * @param mat Input matrix.
+   * @return Array of columns.
+   */
+  def matrixToColArray[T](mat: DenseMatrix[T]): Array[DenseVector[T]] = {
+    (0 until mat.cols).toArray.map(mat(::, _))
   }
 
   /**

@@ -7,6 +7,7 @@ import com.github.fommil.netlib.LAPACK.{getInstance => lapack}
 import org.apache.spark.rdd.RDD
 import org.netlib.util.intW
 import pipelines._
+import utils.MatrixUtils
 import workflow.{Transformer, Estimator}
 
 
@@ -33,10 +34,23 @@ class PCATransformer(val pcaMat: DenseMatrix[Float]) extends Transformer[DenseVe
  *
  * @param pcaMat A DxK projection matrix.
  */
-class BatchPCATransformer(val pcaMat: DenseMatrix[Float]) extends Transformer[DenseMatrix[Float], DenseMatrix[Float]] with Logging {
+case class BatchPCATransformer(pcaMat: DenseMatrix[Float]) extends Transformer[DenseMatrix[Float], DenseMatrix[Float]] with Logging {
   def apply(in: DenseMatrix[Float]): DenseMatrix[Float] = {
     logInfo(s"Multiplying pcaMat:(${pcaMat.rows}x${pcaMat.cols}), in: (${in.rows}x${in.cols})")
     pcaMat.t * in
+  }
+}
+
+/**
+ * Estimates a PCA model for dimensionality reduction based on a sample of a larger input dataset.
+ * Treats each column of the input matrices like a separate DenseVector input to [[PCAEstimator]].
+ *
+ * @param dims Dimensions to reduce input dataset to.
+ */
+case class ColumnPCAEstimator(dims: Int) extends Estimator[DenseMatrix[Float], DenseMatrix[Float]] {
+  protected def fit(data: RDD[DenseMatrix[Float]]): Transformer[DenseMatrix[Float], DenseMatrix[Float]] = {
+    val singleTransformer = new PCAEstimator(dims).fit(data.flatMap(x => MatrixUtils.matrixToColArray(x)))
+    BatchPCATransformer(singleTransformer.pcaMat)
   }
 }
 

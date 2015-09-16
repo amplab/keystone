@@ -2,11 +2,15 @@ import AssemblyKeys._
 
 assemblySettings
 
-name := "keystone"
+name := "keystoneml"
 
 version := "0.1"
 
 organization := "edu.berkeley.cs.amplab"
+
+licenses := Seq("Apache 2.0" -> url("https://raw.githubusercontent.com/amplab/keystone/master/LICENSE"))
+
+homepage := Some(url("http://keystone-ml.org"))
 
 scalaVersion := "2.10.4"
 
@@ -22,7 +26,7 @@ libraryDependencies ++= Seq(
   "commons-io" % "commons-io" % "2.4",
   "org.scalanlp" % "breeze_2.10" % "0.11.2",
   "com.github.fommil.netlib" % "all" % "1.1.2" pomOnly(),
-  "edu.berkeley.cs.amplab" % "mlmatrix" % "0.1" from "https://s3-us-west-1.amazonaws.com/amp-ml-matrix/2.10/mlmatrix_2.10-0.1.jar",
+  "edu.berkeley.cs.amplab" % "mlmatrix" % "0.1",
   "com.github.scopt" %% "scopt" % "3.3.0"
 )
 
@@ -71,3 +75,42 @@ mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) =>
 }
 
 test in assembly := {}
+
+publishTo := {
+  val nexus = "https://oss.sonatype.org/"
+  if (isSnapshot.value)
+    Some("snapshots" at nexus + "content/repositories/snapshots")
+  else
+    Some("releases" at nexus + "service/local/staging/deploy/maven2")
+}
+
+publishMavenStyle := true
+
+publishArtifact in Test := false
+
+// To publish on maven-central, all required artifacts must also be hosted on maven central.
+pomIncludeRepository := { _ => false }
+
+pomExtra := (
+  <scm>
+    <url>git@github.com:amplab/keystone.git</url>
+    <connection>scm:git:git@github.com:amplab/keystone.git</connection>
+  </scm>
+  <developers>
+    <developer>
+      <id>etrain</id>
+      <name>Evan Sparks</name>
+      <url>http://etrain.github.io/about.html</url>
+    </developer>
+    <developer>
+      <id>shivaram</id>
+      <name>Shivaram Venkataraman</name>
+      <url>http://shivaram.org</url>
+    </developer>
+    <developer>
+      <id>tomerk</id>
+      <name>Tomer Kaftan</name>
+      <url>https://github.com/tomerk</url>
+    </developer>
+  </developers>
+)

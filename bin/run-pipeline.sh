@@ -18,11 +18,11 @@ else
   $SPARK_HOME/bin/spark-submit \
     --deploy-mode client \
     --class $CLASS \
-    --driver-class-path $FWDIR/../target/scala-2.10/keystone-assembly-0.1.jar \
+    --driver-class-path $FWDIR/../target/scala-2.10/keystoneml-assembly-0.1.jar \
     --driver-library-path $FWDIR/../lib \
     --conf spark.executor.extraLibraryPath=$FWDIR/../lib \
-    --conf spark.executor.extraClassPath=$FWDIR/../target/scala-2.10/keystone-assembly-0.1.jar \
+    --conf spark.executor.extraClassPath=$FWDIR/../target/scala-2.10/keystoneml-assembly-0.1.jar \
     --driver-memory $KEYSTONE_MEM \
-    target/scala-2.10/keystone-assembly-0.1.jar \
+    target/scala-2.10/keystoneml-assembly-0.1.jar \
     "$@"
 fi

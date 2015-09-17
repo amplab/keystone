@@ -28,8 +28,8 @@ if [ -z "$1" ]; then
 fi
 
 ASSEMBLY_JAR=""
-if [ -e "$FWDIR"/target/scala-$SCALA_VERSION/keystone-assembly-*.jar ]; then
-  export ASSEMBLY_JAR=`ls "$FWDIR"/target/scala-$SCALA_VERSION/keystone-assembly*.jar`
+if [ -e "$FWDIR"/target/scala-$SCALA_VERSION/keystoneml-assembly-*.jar ]; then
+  export ASSEMBLY_JAR=`ls "$FWDIR"/target/scala-$SCALA_VERSION/keystoneml-assembly*.jar`
 fi
 
 if [[ -z $ASSEMBLY_JAR ]]; then

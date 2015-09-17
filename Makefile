@@ -13,8 +13,8 @@ VLFEATURL = "http://www.vlfeat.org/download/vlfeat-0.9.20-bin.tar.gz"
 ENCEVALURL = "http://www.robots.ox.ac.uk/~vgg/software/enceval_toolkit/downloads/enceval-toolkit-1.1.tar.gz"
 
 SCALA_VERSION = 2.10
-PROJECT = keystone
-PROJECT_VERSION = 0.1
+PROJECT = keystoneml
+PROJECT_VERSION = 0.2
 TARGET_JAR = target/scala-$(SCALA_VERSION)/$(PROJECT)-assembly-$(PROJECT_VERSION).jar
 
 CC = g++

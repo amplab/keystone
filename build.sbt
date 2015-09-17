@@ -26,7 +26,7 @@ libraryDependencies ++= Seq(
   "commons-io" % "commons-io" % "2.4",
   "org.scalanlp" % "breeze_2.10" % "0.11.2",
   "com.github.fommil.netlib" % "all" % "1.1.2" pomOnly(),
-  "edu.berkeley.cs.amplab" % "mlmatrix" % "0.1",
+  "edu.berkeley.cs.amplab" % "mlmatrix_2.10" % "0.1",
   "com.github.scopt" %% "scopt" % "3.3.0"
 )
 
@@ -55,8 +55,6 @@ resolvers ++= Seq(
   "Cloudera Repository" at "https://repository.cloudera.com/artifactory/cloudera-repos/",
   "Spray" at "http://repo.spray.cc"
 )
-
-resolvers += "Amplab ml-matrix repo" at "https://s3-us-west-1.amazonaws.com/"
 
 resolvers += Resolver.sonatypeRepo("public")
 

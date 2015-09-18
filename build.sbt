@@ -26,7 +26,6 @@ libraryDependencies ++= Seq(
   "commons-io" % "commons-io" % "2.4",
   "org.scalanlp" % "breeze_2.10" % "0.11.2",
   "com.github.fommil.netlib" % "all" % "1.1.2" pomOnly(),
-  "edu.berkeley.cs.amplab" % "mlmatrix_2.10" % "0.1",
   "com.github.scopt" %% "scopt" % "3.3.0"
 )
 
@@ -35,10 +34,12 @@ libraryDependencies ++= Seq(
   val sparkVersion =
     scala.util.Properties.envOrElse("SPARK_VERSION", defaultSparkVersion)
   val excludeHadoop = ExclusionRule(organization = "org.apache.hadoop")
+  val excludeSpark = ExclusionRule(organization = "org.apache.spark")
   libraryDependencies ++= Seq(
     "org.apache.spark" % "spark-core_2.10" % sparkVersion excludeAll(excludeHadoop),
     "org.apache.spark" % "spark-mllib_2.10" % sparkVersion excludeAll(excludeHadoop),
-    "org.apache.spark" % "spark-sql_2.10" % sparkVersion excludeAll(excludeHadoop)
+    "org.apache.spark" % "spark-sql_2.10" % sparkVersion excludeAll(excludeHadoop),
+    "edu.berkeley.cs.amplab" % "mlmatrix_2.10" % "0.1" excludeAll(excludeHadoop, excludeSpark)
   )
 }
 

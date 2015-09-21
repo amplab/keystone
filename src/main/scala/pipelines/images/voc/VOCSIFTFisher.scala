@@ -25,7 +25,7 @@ object VOCSIFTFisher extends Serializable with Logging {
     val parsedRDD = VOCLoader(
       sc,
       VOCDataPath(conf.trainLocation, "VOCdevkit/VOC2007/JPEGImages/", Some(1)),
-      VOCLabelPath(conf.labelPath)).repartition(conf.numParts)
+      VOCLabelPath(conf.labelPath)).repartition(conf.numParts).cache()
 
     val labelGrabber = MultiLabelExtractor andThen
       ClassLabelIndicatorsFromIntArrayLabels(VOCLoader.NUM_CLASSES) andThen
@@ -34,6 +34,8 @@ object VOCSIFTFisher extends Serializable with Logging {
     val trainingLabels = labelGrabber(parsedRDD)
     val trainingData = MultiLabeledImageExtractor(parsedRDD)
     val numTrainingImages = trainingData.count().toInt
+    val numPCASamplesPerImage = conf.numPcaSamples / numTrainingImages
+    val numGMMSamplesPerImage = conf.numGmmSamples / numTrainingImages
 
     // Part 1: Scale and convert images to grayscale & Extract Sifts.
     val siftExtractor = PixelScaler andThen
@@ -48,7 +50,7 @@ object VOCSIFTFisher extends Serializable with Logging {
         siftExtractor andThen new BatchPCATransformer(convert(csvread(new File(fname)), Float).t)
       case None =>
         val pca = siftExtractor andThen
-            ColumnSampler(conf.numPcaSamples / numTrainingImages) andThen
+            ColumnSampler(numPCASamplesPerImage) andThen
             (ColumnPCAEstimator(conf.descDim), trainingData)
 
         siftExtractor andThen pca.fittedTransformer
@@ -65,7 +67,7 @@ object VOCSIFTFisher extends Serializable with Logging {
         pcaFeaturizer andThen FisherVector(gmm)
       case None =>
         val fisherVector = pcaFeaturizer andThen
-            ColumnSampler(conf.numGmmSamples) andThen
+            ColumnSampler(numGMMSamplesPerImage) andThen
             (GMMFisherVectorEstimator(conf.vocabSize), trainingData)
         pcaFeaturizer andThen fisherVector.fittedTransformer
     }) andThen

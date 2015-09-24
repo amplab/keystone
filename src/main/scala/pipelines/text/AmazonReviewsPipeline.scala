@@ -15,8 +15,6 @@ object AmazonReviewsPipeline extends Logging {
   val appName = "AmazonReviewsPipeline"
 
   def run(sc: SparkContext, conf: AmazonReviewsConfig) {
-
-    logInfo("PIPELINE TIMING: Started training the classifier")
     val amazonTrainData = AmazonReviewsDataLoader(sc, conf.trainLocation, conf.threshold).labeledData
     val trainData = LabeledData(amazonTrainData.repartition(conf.numParts).cache())
 
@@ -24,7 +22,6 @@ object AmazonReviewsPipeline extends Logging {
     val labels = trainData.labels
 
     // Build the classifier estimator
-    logInfo("Training classifier")
     val predictorPipeline = Trim andThen
         LowerCase() andThen
         Tokenizer() andThen
@@ -36,12 +33,7 @@ object AmazonReviewsPipeline extends Logging {
     val predictor = Optimizer.execute(predictorPipeline)
     logInfo("\n" + predictor.toDOTString)
 
-    predictor.apply("Test review")
-    logInfo("PIPELINE TIMING: Finished training the classifier")
-
     // Evaluate the classifier
-    logInfo("PIPELINE TIMING: Evaluating the classifier")
-
     val amazonTestData = AmazonReviewsDataLoader(sc, conf.testLocation, conf.threshold).labeledData
     val testData = LabeledData(amazonTestData.repartition(conf.numParts).cache())
     val testLabels = testData.labels
@@ -49,7 +41,6 @@ object AmazonReviewsPipeline extends Logging {
     val eval = BinaryClassifierEvaluator(testResults.map(_ > 0), testLabels.map(_ > 0))
 
     logInfo("\n" + eval.summary())
-    logInfo("PIPELINE TIMING: Finished evaluating the classifier")
   }
 
   case class AmazonReviewsConfig(

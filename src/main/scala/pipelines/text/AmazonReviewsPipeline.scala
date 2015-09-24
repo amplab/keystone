@@ -2,7 +2,7 @@ package pipelines.text
 
 import evaluation.BinaryClassifierEvaluator
 import loaders.{AmazonReviewsDataLoader, LabeledData}
-import nodes.learning.LogisticRegressionLBFGSEstimator
+import nodes.learning.LogisticRegressionEstimator
 import nodes.nlp._
 import nodes.stats.TermFrequency
 import nodes.util.CommonSparseFeatures
@@ -17,19 +17,21 @@ object AmazonReviewsPipeline extends Logging {
   def run(sc: SparkContext, conf: AmazonReviewsConfig) {
 
     logInfo("PIPELINE TIMING: Started training the classifier")
-    val trainData = LabeledData(AmazonReviewsDataLoader(sc, conf.trainLocation, conf.threshold).labeledData.repartition(conf.numParts).cache())
+    val amazonTrainData = AmazonReviewsDataLoader(sc, conf.trainLocation, conf.threshold).labeledData
+    val trainData = LabeledData(amazonTrainData.repartition(conf.numParts).cache())
 
     val training = trainData.data
     val labels = trainData.labels
 
     // Build the classifier estimator
     logInfo("Training classifier")
-    val predictorPipeline = Trim andThen LowerCase() andThen
+    val predictorPipeline = Trim andThen
+        LowerCase() andThen
         Tokenizer() andThen
         NGramsFeaturizer(1 to conf.nGrams) andThen
         TermFrequency(x => 1) andThen
         (CommonSparseFeatures(conf.commonFeatures), training) andThen
-        (LogisticRegressionLBFGSEstimator(numClasses = 2, numIters = 20), training, labels)
+        (LogisticRegressionEstimator(numClasses = 2, numIters = conf.numIters), training, labels)
 
     val predictor = Optimizer.execute(predictorPipeline)
     logInfo("\n" + predictor.toDOTString)
@@ -40,7 +42,8 @@ object AmazonReviewsPipeline extends Logging {
     // Evaluate the classifier
     logInfo("PIPELINE TIMING: Evaluating the classifier")
 
-    val testData = LabeledData(AmazonReviewsDataLoader(sc, conf.testLocation, conf.threshold).labeledData.repartition(conf.numParts).cache())
+    val amazonTestData = AmazonReviewsDataLoader(sc, conf.testLocation, conf.threshold).labeledData
+    val testData = LabeledData(amazonTestData.repartition(conf.numParts).cache())
     val testLabels = testData.labels
     val testResults = predictor(testData.data)
     val eval = BinaryClassifierEvaluator(testResults.map(_ > 0), testLabels.map(_ > 0))
@@ -50,12 +53,13 @@ object AmazonReviewsPipeline extends Logging {
   }
 
   case class AmazonReviewsConfig(
-                                    trainLocation: String = "",
-                                    testLocation: String = "",
-                                    threshold: Double = 3.5,
-                                    nGrams: Int = 2,
-                                    commonFeatures: Int = 100000,
-                                    numParts: Int = 512)
+    trainLocation: String = "",
+    testLocation: String = "",
+    threshold: Double = 3.5,
+    nGrams: Int = 2,
+    commonFeatures: Int = 100000,
+    numIters: Int = 20,
+    numParts: Int = 512)
 
   def parse(args: Array[String]): AmazonReviewsConfig = new OptionParser[AmazonReviewsConfig](appName) {
     head(appName, "0.1")
@@ -64,6 +68,7 @@ object AmazonReviewsPipeline extends Logging {
     opt[Double]("threshold") action { (x,c) => c.copy(threshold=x)}
     opt[Int]("nGrams") action { (x,c) => c.copy(nGrams=x) }
     opt[Int]("commonFeatures") action { (x,c) => c.copy(commonFeatures=x) }
+    opt[Int]("numIters") action { (x,c) => c.copy(numParts=x) }
     opt[Int]("numParts") action { (x,c) => c.copy(numParts=x) }
   }.parse(args, AmazonReviewsConfig()).get
 
@@ -73,10 +78,7 @@ object AmazonReviewsPipeline extends Logging {
    */
   def main(args: Array[String]) = {
     val conf = new SparkConf().setAppName(appName)
-
-    // NOTE: ONLY APPLICABLE IF YOU CAN DONE COPY-DIR
-    conf.remove("spark.jars")
-    conf.setIfMissing("spark.master", "local[8]") // This is a fallback if things aren't set via spark submit.
+    conf.setIfMissing("spark.master", "local[2]") // This is a fallback if things aren't set via spark submit.
 
     val sc = new SparkContext(conf)
 

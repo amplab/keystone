@@ -16,9 +16,7 @@ object AmazonReviewsDataLoader {
    * @return  A Labeled Dataset that contains the data strings and labels.
    */
   def apply(sc: SparkContext, dataDir: String, threshold: Double): LabeledData[Int, String] = {
-
     val sqlContext = new SQLContext(sc)
-
 
     val df = sqlContext.jsonFile(dataDir)
     val data = df.select(df("overall"), df("reviewText"))

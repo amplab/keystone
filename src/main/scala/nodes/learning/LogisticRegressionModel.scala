@@ -52,17 +52,19 @@ case class LogisticRegressionEstimator[T <: Vector[Double] : ClassTag](
    * NOTE: Labels used in Logistic Regression should be {0, 1, ..., k - 1}
    * for k classes multi-label classification problem.
    */
-  private[this] class LogisticRegressionWithLBFGS
+  private[this] class LogisticRegressionWithLBFGS(numClasses: Int, numFeaturesValue: Int)
       extends GeneralizedLinearAlgorithm[MLlibLRM] with Serializable {
 
+    this.numFeatures = numFeaturesValue
     override val optimizer = new LBFGS(new LogisticGradient, new SquaredL2Updater)
 
-    def setNumFeatures(numFeatures: Int): this.type = {
-      this.numFeatures = numFeatures
-      this
-    }
-
     override protected val validators = List(multiLabelValidator)
+
+    require(numClasses > 1)
+    numOfLinearPredictor = numClasses - 1
+    if (numClasses > 2) {
+      optimizer.setGradient(new LogisticGradient(numClasses))
+    }
 
     private def multiLabelValidator: RDD[LabeledPoint] => Boolean = { data =>
       if (numOfLinearPredictor > 1) {
@@ -70,20 +72,6 @@ case class LogisticRegressionEstimator[T <: Vector[Double] : ClassTag](
       } else {
         DataValidators.binaryLabelValidator(data)
       }
-    }
-
-    /**
-     * Set the number of possible outcomes for k classes classification problem in
-     * Multinomial Logistic Regression.
-     * By default, it is binary logistic regression so k will be set to 2.
-     */
-    def setNumClasses(numClasses: Int): this.type = {
-      require(numClasses > 1)
-      numOfLinearPredictor = numClasses - 1
-      if (numClasses > 2) {
-        optimizer.setGradient(new LogisticGradient(numClasses))
-      }
-      this
     }
 
     override protected def createModel(weights: MLlibVector, intercept: Double) = {
@@ -97,7 +85,7 @@ case class LogisticRegressionEstimator[T <: Vector[Double] : ClassTag](
 
   override def fit(in: RDD[T], labels: RDD[Int]): LogisticRegressionModel[T] = {
     val labeledPoints = labels.zip(in).map(x => LabeledPoint(x._1, breezeVectorToMLlib(x._2)))
-    val trainer = new LogisticRegressionWithLBFGS().setNumClasses(numClasses).setNumFeatures(numFeatures)
+    val trainer = new LogisticRegressionWithLBFGS(numClasses, numFeatures)
     trainer.setValidateData(false).optimizer.setNumIterations(numIters)
     val model = trainer.run(labeledPoints)
 

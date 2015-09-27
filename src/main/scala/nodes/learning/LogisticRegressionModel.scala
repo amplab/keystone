@@ -16,7 +16,7 @@ import scala.reflect.ClassTag
  * A Logistic Regression model that transforms feature vectors to vectors containing
  * the logistic regression output of the different classes
  */
-class LogisticRegressionModel[T <: Vector[Double]](val model: MLlibLRM)
+case class LogisticRegressionModel[T <: Vector[Double]](model: MLlibLRM)
     extends Transformer[T, Double] {
 
   /**
@@ -41,9 +41,11 @@ class LogisticRegressionModel[T <: Vector[Double]](val model: MLlibLRM)
  */
 case class LogisticRegressionEstimator[T <: Vector[Double] : ClassTag](
     numClasses: Int,
+    regParam: Double = 0,
     numIters: Int = 100,
     convergenceTol: Double = 1E-4,
-    numFeatures: Int = -1
+    numFeatures: Int = -1,
+    addIntercept: Boolean = false
   ) extends LabelEstimator[T, Double, Int] {
 
   /**
@@ -86,7 +88,7 @@ case class LogisticRegressionEstimator[T <: Vector[Double] : ClassTag](
   override def fit(in: RDD[T], labels: RDD[Int]): LogisticRegressionModel[T] = {
     val labeledPoints = labels.zip(in).map(x => LabeledPoint(x._1, breezeVectorToMLlib(x._2)))
     val trainer = new LogisticRegressionWithLBFGS(numClasses, numFeatures)
-    trainer.setValidateData(false).optimizer.setNumIterations(numIters)
+    trainer.setValidateData(false).setIntercept(addIntercept).optimizer.setNumIterations(numIters).setRegParam(regParam)
     val model = trainer.run(labeledPoints)
 
     new LogisticRegressionModel(model)

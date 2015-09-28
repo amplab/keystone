@@ -127,11 +127,10 @@ class LogisticRegressionModelSuite extends FunSuite with LocalSparkContext {
   def validatePrediction(
       predictions: Seq[Double],
       input: Seq[Double],
-      expectedAcc: Double = 0.83) {
+      expectedAcc: Double) {
     val numOffPredictions = predictions.zip(input).count { case (prediction, expected) =>
       prediction != expected
     }
-    // At least 83% of the predictions should be on.
     assert(((input.length - numOffPredictions).toDouble / input.length) > expectedAcc)
   }
 
@@ -140,14 +139,14 @@ class LogisticRegressionModelSuite extends FunSuite with LocalSparkContext {
     sc = new SparkContext("local", "test")
 
     val nPoints = 10000
-    val A = 2.0
-    val B = -1.5
+    val A = 0.0
+    val B = -0.8
 
     val testData = LogisticRegressionModelSuite.generateLogisticInput(A, B, nPoints, 42)
 
     val testRDD = sc.parallelize(testData, 2)
     testRDD.cache()
-    val lr = LogisticRegressionEstimator[DenseVector[Double]](2, addIntercept = true)
+    val lr = LogisticRegressionEstimator[DenseVector[Double]](2)
 
     val model = lr.fit(testRDD.map(_._2), testRDD.map(_._1))
 
@@ -157,11 +156,14 @@ class LogisticRegressionModelSuite extends FunSuite with LocalSparkContext {
 
     val validationData = LogisticRegressionModelSuite.generateLogisticInput(A, B, nPoints, 17)
     val validationRDD = sc.parallelize(validationData, 2)
-    // Test prediction on RDD.
-    validatePrediction(model.apply(validationRDD.map(_._2)).collect(), validationData.map(_._1.toDouble))
+    // Test prediction on RDD. Expected accuracy w/o intercept is 65%, should be 83% w/ intercept.
+    validatePrediction(model.apply(validationRDD.map(_._2)).collect(), validationData.map(_._1.toDouble), 0.65)
 
     // Test prediction on Array.
-    validatePrediction(validationData.map(row => model.apply(row._2)), validationData.map(_._1.toDouble))
+    validatePrediction(validationData.map(row => model.apply(row._2)), validationData.map(_._1.toDouble), 0.65)
+
+    // Only the initial RDD should be cached, the estimator shouldn't force cache.
+    assert(sc.getRDDStorageInfo.length == 1)
   }
 
   test("multinomial logistic regression with LBFGS") {
@@ -181,76 +183,34 @@ class LogisticRegressionModelSuite extends FunSuite with LocalSparkContext {
     val xVariance = Array(0.6856, 0.1899, 3.116, 0.581)
 
     val testData = LogisticRegressionModelSuite.generateMultinomialLogisticInput(
-      weights, xMean, xVariance, true, nPoints, 42)
+      weights, xMean, xVariance, addIntercept = false, nPoints, 42)
 
     val testRDD = sc.parallelize(testData, 2)
     testRDD.cache()
 
     val lr = LogisticRegressionEstimator[DenseVector[Double]](
       numClasses = 3,
-      addIntercept = true,
       numIters = 200,
       convergenceTol = 1E-15)
     val model = lr.fit(testRDD.map(_._2), testRDD.map(_._1))
 
     val numFeatures = testRDD.map(_._2.size).first()
 
-    /**
-     * The following is the instruction to reproduce the model using R's glmnet package.
-     *
-     * First of all, using the following scala code to save the data into `path`.
-     *
-     *    testRDD.map(x => x.label+ ", " + x.features(0) + ", " + x.features(1) + ", " +
-     *      x.features(2) + ", " + x.features(3)).saveAsTextFile("path")
-     *
-     * Using the following R code to load the data and train the model using glmnet package.
-     *
-     *    library("glmnet")
-     *    data <- read.csv("path", header=FALSE)
-     *    label = factor(data$V1)
-     *    features = as.matrix(data.frame(data$V2, data$V3, data$V4, data$V5))
-     *    weights = coef(glmnet(features,label, family="multinomial", alpha = 0, lambda = 0))
-     *
-     * The model weights of mutinomial logstic regression in R have `K` set of linear predictors
-     * for `K` classes classification problem; however, only `K-1` set is required if the first
-     * outcome is chosen as a "pivot", and the other `K-1` outcomes are separately regressed against
-     * the pivot outcome. This can be done by subtracting the first weights from those `K-1` set
-     * weights. The mathematical discussion and proof can be found here:
-     * http://en.wikipedia.org/wiki/Multinomial_logistic_regression
-     *
-     *    weights1 = weights$`1` - weights$`0`
-     *    weights2 = weights$`2` - weights$`0`
-     *
-     *    > weights1
-     *    5 x 1 sparse Matrix of class "dgCMatrix"
-     *                    s0
-     *             2.6228269
-     *    data.V2 -0.5837166
-     *    data.V3  0.9285260
-     *    data.V4 -0.3783612
-     *    data.V5 -0.8123411
-     *    > weights2
-     *    5 x 1 sparse Matrix of class "dgCMatrix"
-     *                     s0
-     *             4.11197445
-     *    data.V2 -0.16918650
-     *    data.V3 -0.81104784
-     *    data.V4 -0.06463799
-     *    data.V5 -0.29198337
-     */
-
     val weightsR = DenseVector(Array(
       -0.5837166, 0.9285260, -0.3783612, -0.8123411, 2.6228269,
-      -0.1691865, -0.811048, -0.0646380, -0.2919834, 4.1119745))
+      -0.1691865, -0.811048, -0.0646380))
 
-    assert(Stats.aboutEq(MLlibUtils.mllibVectorToDenseBreeze(model.model.weights), weightsR, 0.15))
+    assert(Stats.aboutEq(MLlibUtils.mllibVectorToDenseBreeze(model.model.weights), weightsR, 0.05))
 
     val validationData = LogisticRegressionModelSuite.generateMultinomialLogisticInput(
-      weights, xMean, xVariance, true, nPoints, 17)
+      weights, xMean, xVariance, addIntercept = false, nPoints, 17)
     val validationRDD = sc.parallelize(validationData, 2)
     // The validation accuracy is not good since this model (even the original weights) doesn't have
     // very steep curve in logistic function so that when we draw samples from distribution, it's
     // very easy to assign to another labels. However, this prediction result is consistent to R.
     validatePrediction(model.apply(validationRDD.map(_._2)).collect(), validationData.map(_._1.toDouble), 0.47)
+
+    // Only the initial RDD should be cached, the estimator shouldn't force cache.
+    assert(sc.getRDDStorageInfo.length == 1)
   }
 }

@@ -1,17 +1,13 @@
 package nodes.learning
 
+import breeze.linalg.DenseVector
 import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
 import pipelines.LocalSparkContext
+import utils.{MLlibUtils, Stats}
 
-import scala.collection.JavaConverters._
 import scala.util.Random
 import scala.util.control.Breaks._
-
-import breeze.linalg.{DenseVector, Vector}
-import org.apache.spark.mllib.classification.{LogisticRegressionModel => MLlibLRM}
-import org.apache.spark.mllib.linalg.{Vector => MLlibVector, Vectors => MLlibVectors}
-import utils.{MLlibUtils, Stats}
 
 
 object LogisticRegressionModelSuite {
@@ -198,7 +194,6 @@ class LogisticRegressionModelSuite extends FunSuite with LocalSparkContext {
     val model = lr.fit(testRDD.map(_._2), testRDD.map(_._1))
 
     val numFeatures = testRDD.map(_._2.size).first()
-    val initialWeights = MLlibVectors.dense(new Array[Double]((numFeatures + 1) * 2))
 
     /**
      * The following is the instruction to reproduce the model using R's glmnet package.

@@ -40,6 +40,20 @@ case class BinaryClassificationMetrics(tp: Double, fp: Double, tn: Double, fn: D
     val denom = (1.0 + beta * beta) * tp + beta * beta * fn + fp
     num / denom
   }
+
+  /**
+   * Pretty-prints a summary of how the multiclass classifier did (including the confusion matrix)
+   *
+   * @return  the pretty-printed string
+   */
+  def summary(format: String = "%2.3f"): String = {
+    s""" Accuracy:\t${format.format(accuracy)}
+          |Precision:\t${format.format(precision)}
+          |Recall:\t${format.format(recall)}
+          |Specificity:\t${format.format(specificity)}}
+          |F1:\t${format.format(fScore())}
+     """.stripMargin
+  }
 }
 
 object BinaryClassifierEvaluator {

@@ -21,7 +21,8 @@ object NewsgroupsPipeline extends Logging {
 
     // Build the classifier estimator
     logInfo("Training classifier")
-    val predictorPipeline = Trim andThen LowerCase() andThen
+    val predictorPipeline = Trim andThen
+        LowerCase() andThen
         Tokenizer() andThen
         NGramsFeaturizer(1 to conf.nGrams) andThen
         TermFrequency(x => 1) andThen

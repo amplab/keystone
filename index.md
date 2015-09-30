@@ -124,7 +124,13 @@ Now that you've seen an example pipeline, have a look at the [programming guide]
 
 After that, head over to the [API documentation](api/).
 
-## Contributing
+##People
+KeystoneML is under active development in the UC Berkeley AMPLab. Development is led by Evan Sparks, Shivaram Venkataraman, Tomer Kaftan, Michael Franklin and Benjamin Recht. 
+
+For more information please contact <a href="mailto:sparks@cs.berkeley.edu?subject=KeystoneML">Evan Sparks</a> and <a href="mailto:shivaram@cs.berkeley.edu?subject=KeystoneML">Shivaram Venkataraman</a>.
+
+##Getting Help and Contributing
+For help using the software please join and send mail to the [KeystoneML users list](https://groups.google.com/forum/#!forum/keystoneml-users).
 
 KeystoneML is an Apache Licensed open-source project and we welcome contributions.
 Have a look at our [Github Issues page](http://github.com/amplab/keystone/issues) if you'd like to contribute, and feel free to fork the repo and submit a pull request!

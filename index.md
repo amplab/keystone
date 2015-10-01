@@ -19,15 +19,16 @@ KeystoneML makes constructing even complicated machine learning pipelines easy. 
 {% highlight scala %}
 val trainData = NewsGroupsDataLoader(sc, trainingDir)
 
-val predictor = Trim.then(LowerCase())
-  .then(Tokenizer())
-  .then(new NGramsFeaturizer(1 to conf.nGrams))
-  .then(TermFrequency(x => 1))
-  .thenEstimator(CommonSparseFeatures(conf.commonFeatures))
-  .fit(trainData.data)
-  .thenLabelEstimator(NaiveBayesEstimator(numClasses))
-  .fit(trainData.data, trainData.labels)
-  .then(MaxClassifier)
+val predictorPipeline = Trim andThen
+    LowerCase() andThen
+    Tokenizer() andThen
+    NGramsFeaturizer(1 to conf.nGrams) andThen
+    TermFrequency(x => 1) andThen
+    (CommonSparseFeatures(conf.commonFeatures), trainData.data) andThen
+    (NaiveBayesEstimator(numClasses), trainData.data, trainData.labels) andThen
+    MaxClassifier
+
+val predictor = Optimizer.execute(predictorPipeline)
 {% endhighlight %}
 
 Parallelization of the pipeline fitting process is handled automatically and pipeline nodes are designed to scale horizontally.
@@ -67,7 +68,7 @@ rec.sport.baseball
 
 KeystoneML works with much more than just text. Have a look at our [examples](examples.html) to see pipelines in the domains of computer vision and speech.
 
-KeystoneML is alpha software, in its very first public release (v0.1).
+KeystoneML is alpha software, in a very early public release (v0.2).
 The project is still very young, but we feel that it has grown to the point where it is viable for general use.
 
 ## Downloading
@@ -84,11 +85,12 @@ $ git clone https://github.com/amplab/keystone.git
 Once downloaded, you can build KeystoneML with the following commands:
 {% highlight bash %}
 $ cd keystone
+$ git checkout branch-v0.2
 $ sbt/sbt assembly
 $ make
 {% endhighlight %}
 
-This will automatically resolve dependencies and package a jar file in `target/keystone/scala-2.10/keystone-assembly-0.1.jar`.
+This will automatically resolve dependencies and package a jar file in `target/keystone/scala-2.10/keystone-assembly-0.2.jar`.
 
 You can then run example pipelines with the included `bin/run-pipeline.sh` script, or pass as an argument to `spark-submit`.
 
@@ -122,7 +124,7 @@ We've provided some scripts to set up a well-configured cluster automatically in
 
 Now that you've seen an example pipeline, have a look at the [programming guide](programming_guide.html). 
 
-After that, head over to the [API documentation](api/).
+After that, head over to the [API documentation](api/latest/).
 
 ##People
 KeystoneML is under active development in the UC Berkeley AMPLab. Development is led by Evan Sparks, Shivaram Venkataraman, Tomer Kaftan, Michael Franklin and Benjamin Recht. 

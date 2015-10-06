@@ -89,14 +89,9 @@ object TimitPipeline extends Logging {
       }
     } andThen VectorCombiner()
 
-    val predictorPipeline = featurizer andThen
+    val predictor = featurizer andThen
         (new BlockLeastSquaresEstimator(numCosineFeatures, conf.numEpochs, conf.lambda),
             trainData, labels) andThen MaxClassifier
-
-    val predictor = Optimizer.execute(predictorPipeline)
-    logInfo("\n" + predictor.toDOTString)
-
-
 
     val testData = timitFeaturesData.test.data.cache().setName("testRaw")
     val numTest = testData.count()

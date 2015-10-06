@@ -40,8 +40,10 @@ trait Pipeline[A, B] {
   private[workflow] val sink: Int
 
   def apply(in: A): B
+  def apply(in: A, optimizer: Option[RuleExecutor]): B
 
   def apply(in: RDD[A]): RDD[B]
+  def apply(in: RDD[A], optimizer: Option[RuleExecutor]): RDD[B]
 
   /**
    * Chains a pipeline onto the end of this one, producing a new pipeline.

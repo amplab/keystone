@@ -22,16 +22,13 @@ object AmazonReviewsPipeline extends Logging {
     val labels = trainData.labels
 
     // Build the classifier estimator
-    val predictorPipeline = Trim andThen
+    val predictor = Trim andThen
         LowerCase() andThen
         Tokenizer() andThen
         NGramsFeaturizer(1 to conf.nGrams) andThen
         TermFrequency(x => 1) andThen
         (CommonSparseFeatures(conf.commonFeatures), training) andThen
         (LogisticRegressionEstimator(numClasses = 2, numIters = conf.numIters), training, labels)
-
-    val predictor = Optimizer.execute(predictorPipeline)
-    logInfo("\n" + predictor.toDOTString)
 
     // Evaluate the classifier
     val amazonTestData = AmazonReviewsDataLoader(sc, conf.testLocation, conf.threshold).labeledData

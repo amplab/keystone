@@ -71,7 +71,20 @@ KeystoneML works with much more than just text. Have a look at our [examples](ex
 KeystoneML is alpha software, in a very early public release (v0.2).
 The project is still very young, but we feel that it has grown to the point where it is viable for general use.
 
-## Downloading
+##News
+
+* 2015-09-18 KeystoneML version 0.2.0 has been pushed to Maven central. See [the release notes](release.html) for more information.
+* 2015-09-17 KeystoneML is on Maven Central. We have added a new "linking" section below.
+
+##Linking
+
+KeystoneML is available from Maven Central. You can use it in your applications by adding the following lines to your SBT project definition:
+
+{% highlight scala %}
+libraryDependencies += "edu.berkeley.cs.amplab" % "keystoneml_2.10" % "0.2"
+{% endhighlight %}
+
+##Developing
 
 KeystoneML is available on [GitHub](http://github.com/amplab/keystone/). 
 
@@ -80,7 +93,7 @@ $ git clone https://github.com/amplab/keystone.git
 {% endhighlight %}
 
 
-## Building
+##Building
 
 Once downloaded, you can build KeystoneML with the following commands:
 {% highlight bash %}
@@ -95,7 +108,7 @@ This will automatically resolve dependencies and package a jar file in `target/k
 You can then run example pipelines with the included `bin/run-pipeline.sh` script, or pass as an argument to `spark-submit`.
 
 
-## Running an Example
+##Running an Example
 
 Once you've built KeystoneML, you can run many of the example pipelines locally.
 However, to run the larger examples, you'll want access to a Spark cluster.
@@ -104,7 +117,7 @@ Here's an example of running a handwriting recognition pipeline on the popular M
 You should be able to run this on a single machine in under a minute.
 
 {% highlight bash %}
-# Get the data from S3
+#Get the data from S3
 wget http://mnist-data.s3.amazonaws.com/train-mnist-dense-with-labels.data
 wget http://mnist-data.s3.amazonaws.com/test-mnist-dense-with-labels.data
 
@@ -120,7 +133,7 @@ To run on a cluster, we recommend using the `spark-ec2` to launch a cluster and 
 
 We've provided some scripts to set up a well-configured cluster automatically in `bin/pipelines-ec2.sh`. You can read more about using them [here](running_pipelines.html).
 
-## Building New Pipelines
+##Building New Pipelines
 
 Now that you've seen an example pipeline, have a look at the [programming guide](programming_guide.html). 
 
@@ -129,7 +142,7 @@ After that, head over to the [API documentation](api/latest/).
 ##People
 KeystoneML is under active development in the UC Berkeley AMPLab. Development is led by Evan Sparks, Shivaram Venkataraman, Tomer Kaftan, Michael Franklin and Benjamin Recht. 
 
-For more information please contact <a href="mailto:sparks@cs.berkeley.edu?subject=KeystoneML">Evan Sparks</a> and <a href="mailto:shivaram@cs.berkeley.edu?subject=KeystoneML">Shivaram Venkataraman</a>.
+For more information please contact <a href="mailto:sparks@cs.berkeley.edu,shivaram@cs.berkeley.edu?subject=KeystoneML">Evan Sparks and Shivaram Venkataraman</a>.
 
 ##Getting Help and Contributing
 For help using the software please join and send mail to the [KeystoneML users list](https://groups.google.com/forum/#!forum/keystoneml-users).
@@ -137,5 +150,5 @@ For help using the software please join and send mail to the [KeystoneML users l
 KeystoneML is an Apache Licensed open-source project and we welcome contributions.
 Have a look at our [Github Issues page](http://github.com/amplab/keystone/issues) if you'd like to contribute, and feel free to fork the repo and submit a pull request!
 
-## Acknowledgements
+##Acknowledgements
 Research on KeystoneML is a part of the [AMPLab at UC Berkeley](http://amplab.cs.berkeley.edu/). This research is supported in part by NSF CISE Expeditions Award CCF-1139158, DOE Award SN10040 DE-SC0012463, and DARPA XData Award FA8750-12-2-0331, and gifts from Amazon Web Services, Google, IBM, SAP, The Thomas and Stacey Siebel Foundation, Adatao, Adobe, Apple, Inc., Blue Goji, Bosch, C3Energy, Cisco, Cray, Cloudera, EMC2, Ericsson, Facebook, Guavus, HP, Huawei, Informatica, Intel, Microsoft, NetApp, Pivotal, Samsung, Schlumberger, Splunk, Virdata and VMware.

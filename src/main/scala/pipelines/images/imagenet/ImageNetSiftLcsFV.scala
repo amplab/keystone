@@ -131,7 +131,7 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
       conf.descDim, conf.vocabSize)
 
     // Combine the two models, and fit the weighted least squares model to the data
-    val pipeline = Pipeline.gather {
+    val predictor = Pipeline.gather {
       siftBranch :: lcsBranch :: Nil
     } andThen
         VectorCombiner() andThen
@@ -141,10 +141,6 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
             trainParsedImgs,
             trainingLabels) andThen
         TopKClassifier(5)
-
-    // Optimize the pipeline
-    val predictor = Optimizer.execute(pipeline)
-    logInfo("\n" + predictor.toDOTString)
 
     // Apply the model to test data and compute test error
     val numTestImgs = testActual.count()

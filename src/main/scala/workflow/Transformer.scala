@@ -25,6 +25,7 @@ abstract class Transformer[A, B : ClassTag] extends TransformerNode[B] with Pipe
    * @return The bulk RDD output for the given input
    */
   def apply(in: RDD[A]): RDD[B] = in.map(apply)
+  def apply(in: RDD[A], optimizer: Option[RuleExecutor]): RDD[B] = in.map(apply)
 
   /**
    * Apply this Transformer to a single input item
@@ -32,6 +33,7 @@ abstract class Transformer[A, B : ClassTag] extends TransformerNode[B] with Pipe
    * @return  The output value
    */
   def apply(in: A): B
+  def apply(in: A, optimizer: Option[RuleExecutor]): B = apply(in)
 
   private[workflow] final def transform(
     dataDependencies: Seq[_],

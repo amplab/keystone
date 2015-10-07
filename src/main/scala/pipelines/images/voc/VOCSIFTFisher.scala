@@ -79,14 +79,10 @@ object VOCSIFTFisher extends Serializable with Logging {
         new Cacher
 
     // Part 4: Fit a linear model to the data.
-    val pipeline = fisherFeaturizer andThen
+    val predictor = fisherFeaturizer andThen
         (new BlockLeastSquaresEstimator(4096, 1, conf.lambda, Some(2 * conf.descDim * conf.vocabSize)),
         trainingData,
         trainingLabels)
-
-    val predictor = Optimizer.execute(pipeline)
-    logInfo("\n" + predictor.toDOTString)
-
 
     // Now featurize and apply the model to test data.
     val testParsedRDD = VOCLoader(

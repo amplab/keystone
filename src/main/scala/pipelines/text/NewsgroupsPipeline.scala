@@ -21,7 +21,7 @@ object NewsgroupsPipeline extends Logging {
 
     // Build the classifier estimator
     logInfo("Training classifier")
-    val predictorPipeline = Trim andThen
+    val predictor = Trim andThen
         LowerCase() andThen
         Tokenizer() andThen
         NGramsFeaturizer(1 to conf.nGrams) andThen
@@ -29,10 +29,6 @@ object NewsgroupsPipeline extends Logging {
         (CommonSparseFeatures(conf.commonFeatures), trainData.data) andThen
         (NaiveBayesEstimator(numClasses), trainData.data, trainData.labels) andThen
         MaxClassifier
-
-
-    val predictor = Optimizer.execute(predictorPipeline)
-    logInfo("\n" + predictor.toDOTString)
 
     // Evaluate the classifier
     logInfo("Evaluating classifier")

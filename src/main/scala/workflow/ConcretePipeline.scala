@@ -119,7 +119,21 @@ private[workflow] class ConcretePipeline[A, B](
     }
   }
 
-  override def apply(in: A): B = singleDataEval(sink, in).asInstanceOf[B]
+  override def apply(in: A): B = apply(in, Some(Optimizer))
 
-  override def apply(in: RDD[A]): RDD[B] = rddDataEval(sink, in).asInstanceOf[RDD[B]]
+  override def apply(in: RDD[A]): RDD[B] = apply(in, Some(Optimizer))
+
+  def apply(in: A, optimizer: Option[RuleExecutor]): B = {
+    optimizer match {
+      case Some(opt) => opt.execute(this).apply(in, None)
+      case None => singleDataEval(sink, in).asInstanceOf[B]
+    }
+  }
+
+  def apply(in: RDD[A], optimizer: Option[RuleExecutor]): RDD[B] = {
+    optimizer match {
+      case Some(opt) => opt.execute(this).apply(in, None)
+      case None => rddDataEval(sink, in).asInstanceOf[RDD[B]]
+    }
+  }
 }

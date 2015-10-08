@@ -72,7 +72,7 @@ KeystoneML is alpha software, in a very early public release (v0.2).
 The project is still very young, but we feel that it has grown to the point where it is viable for general use.
 
 ##News
-
+* 2015-10-08 We've put together a [minimal example application](https://github.com/amplab/keystone-example) for you to use as a basis for starting your own projects that use KeystoneML.
 * 2015-09-18 KeystoneML version 0.2.0 has been pushed to Maven central. See [the release notes](release.html) for more information.
 * 2015-09-17 KeystoneML is on Maven Central. We have added a new "linking" section below.
 
@@ -83,6 +83,8 @@ KeystoneML is available from Maven Central. You can use it in your applications 
 {% highlight scala %}
 libraryDependencies += "edu.berkeley.cs.amplab" % "keystoneml_2.10" % "0.2"
 {% endhighlight %}
+
+[See here](https://github.com/amplab/keystone-example) for an example application which uses KeystoneML (and has scripts for launching a cluster configured with KeystoneML
 
 ##Developing
 

@@ -7,6 +7,9 @@ import breeze.linalg._
 import scala.reflect.ClassTag
 import scala.util.Random
 
+import org.apache.spark.rdd.RDD
+
+import edu.berkeley.cs.amplab.mlmatrix.util.{Utils => MLMatrixUtils}
 
 /**
  * A collection of utilities useful for matrices.
@@ -92,6 +95,17 @@ object MatrixUtils extends Serializable {
       i = i - 1
     }
     arr
+  }
+
+  def computeMean(in: RDD[DenseMatrix[Double]]): DenseVector[Double] = {
+    val sumCount = MLMatrixUtils.treeReduce(in.map { mat =>
+      (sum(mat(::, *)).toDenseVector, mat.rows)
+    }, (a: (DenseVector[Double], Int), b: (DenseVector[Double], Int)) => {
+      a._1 += b._1
+      (a._1, a._2 + b._2)
+    })
+
+    sumCount._1 /= sumCount._2.toDouble
   }
 
 }

@@ -162,14 +162,7 @@ object BlockWeightedLeastSquaresEstimator extends Logging {
       mat(*, ::) :- jointLabelMean
     }.cache().setName("residual")
 
-    val residualSumCount = MLMatrixUtils.treeReduce(residual.map { mat =>
-      (sum(mat(::, *)).toDenseVector, mat.rows)
-    }, (a: (DenseVector[Double], Int), b: (DenseVector[Double], Int)) => {
-      a._1 += b._1
-      (a._1, a._2 + b._2)
-    })
-
-    var residualMean = residualSumCount._1 /= residualSumCount._2.toDouble
+    var residualMean = MatrixUtils.computeMean(residual)
 
     @transient val blockStats: Array[Option[BlockStatistics]] = (0 until numBlocks).map { blk =>
       None
@@ -289,14 +282,7 @@ object BlockWeightedLeastSquaresEstimator extends Logging {
         residual.unpersist()
         residual = newResidual
 
-        val residualSumCount = MLMatrixUtils.treeReduce(residual.map { mat =>
-          (sum(mat(::, *)).toDenseVector, mat.rows)
-        }, (a: (DenseVector[Double], Int), b: (DenseVector[Double], Int)) => {
-          a._1 += b._1
-          (a._1, a._2 + b._2)
-        })
-
-        residualMean = residualSumCount._1 /= residualSumCount._2.toDouble
+        residualMean = MatrixUtils.computeMean(residual)
 
         popCovBC.unpersist()
         popMeanBC.unpersist()

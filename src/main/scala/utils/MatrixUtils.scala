@@ -20,6 +20,8 @@ object MatrixUtils extends Serializable {
    */
   def matrixToRowArray[T : ClassTag](mat: DenseMatrix[T]): Array[DenseVector[T]] = {
     val matT = mat.t
+    // The explicit copy of the vector is necessary because otherwise Breeze slices
+    // lazily, leading to inflated serialization size (A serious issue w/ spark)
     (0 until mat.rows).toArray.map(x => DenseVector(matT(::, x).toArray))
   }
 
@@ -29,6 +31,8 @@ object MatrixUtils extends Serializable {
    * @return Array of columns.
    */
   def matrixToColArray[T : ClassTag](mat: DenseMatrix[T]): Array[DenseVector[T]] = {
+    // The explicit copy of the vector is necessary because otherwise Breeze slices
+    // lazily, leading to inflated serialization size (A serious issue w/ spark)
     (0 until mat.cols).toArray.map(x => DenseVector(mat(::, x).toArray))
   }
 

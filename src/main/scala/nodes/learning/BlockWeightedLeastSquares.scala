@@ -162,9 +162,7 @@ object BlockWeightedLeastSquaresEstimator extends Logging {
       mat(*, ::) :- jointLabelMean
     }.cache().setName("residual")
 
-    var residualMean = MLMatrixUtils.treeReduce(residual.map { mat =>
-      mean(mat(::, *)).toDenseVector
-    }, (a: DenseVector[Double], b: DenseVector[Double]) => a += b ) /= nClasses.toDouble
+    var residualMean = MatrixUtils.computeMean(residual)
 
     @transient val blockStats: Array[Option[BlockStatistics]] = (0 until numBlocks).map { blk =>
       None
@@ -266,7 +264,6 @@ object BlockWeightedLeastSquaresEstimator extends Logging {
           (classIdx, W.toDenseMatrix.t)
         }.collect()
 
-        // TODO: Write a more reasonable conversion function here.
         val localFullModel = DenseMatrix.zeros[Double](models(block).rows, models(block).cols)
         modelsThisPass.foreach { m =>
           localFullModel(::, m._1) := m._2.toDenseVector
@@ -285,11 +282,7 @@ object BlockWeightedLeastSquaresEstimator extends Logging {
         residual.unpersist()
         residual = newResidual
 
-        residualMean = residual.map { mat =>
-          mean(mat(::, *)).toDenseVector
-        }.reduce { (a: DenseVector[Double], b: DenseVector[Double]) =>
-          a += b
-        } /= nClasses.toDouble
+        residualMean = MatrixUtils.computeMean(residual)
 
         popCovBC.unpersist()
         popMeanBC.unpersist()

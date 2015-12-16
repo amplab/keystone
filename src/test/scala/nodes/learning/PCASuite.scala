@@ -1,6 +1,6 @@
 package nodes.learning
 
-import breeze.stats.distributions.Gaussian
+import breeze.stats.distributions.{RandBasis, Gaussian}
 import breeze.linalg._
 import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
@@ -79,4 +79,48 @@ class PCATransformerSuite extends FunSuite with LocalSparkContext with Logging {
       assert(Stats.aboutEq(redCov(x,y), 0.0, 1e-6), s"PCA Matrix should be 0 off-diagonal. $x,$y = ${redCov(x,y)}")
     }
   }
+
+  test("Distributed PCA Estimation should match local one") {
+    sc = new SparkContext("local", "test")
+
+    val matRows = 1000
+    val matCols = 10
+    val dimRed = 5
+
+    // Generate a random Gaussian matrix.
+    val gau = new Gaussian(0.0, 1.0)
+    val randMatrix = new DenseMatrix(matRows, matCols, gau.sample(matRows*matCols).toArray)
+
+    // Parallelize and estimate the PCA.
+    val data = sc.parallelize(MatrixUtils.matrixToRowArray(randMatrix).map(x => convert(x, Float)))
+
+    val pcaDist = new DistributedPCAEstimator(dimRed).fit(data)
+    val pcaLocal = new PCAEstimator(dimRed).fit(data)
+
+    assert(Stats.aboutEq(convert(pcaDist.pcaMat, Double), convert(pcaLocal.pcaMat, Double), 1e-4))
+  }
+
+  test("Approximate PCA Estimation should match local one") {
+    sc = new SparkContext("local", "test")
+
+    val matRows = 200
+    val matCols = 200
+    val dimRed = 10
+
+    // Generate a random Gaussian matrix.
+    val gau = new Gaussian(0.0, 1.0)(RandBasis.mt0)
+    val randMatrix = new DenseMatrix(matRows, matCols, gau.sample(matRows*matCols).toArray)
+
+    val matCopy = randMatrix.copy
+    // Parallelize and estimate the PCA.
+    val data = sc.parallelize(MatrixUtils.matrixToRowArray(randMatrix).map(x => convert(x, Float)))
+
+    val pcaApprox = new ApproximatePCAEstimator(dimRed).fit(data)
+    val pcaLocal = new PCAEstimator(dimRed).fit(data)
+
+    val b = 34
+
+    //assert(Stats.aboutEq(convert(pcaApprox.pcaMat, Double), convert(pcaLocal.pcaMat, Double), 1e-4))
+  }
+
 }

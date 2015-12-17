@@ -32,4 +32,20 @@ class LinearMapperSuite extends FunSuite with LocalSparkContext with Logging {
     assert(Stats.aboutEq(bt.collect()(0), bary.collect()(0)),
         "Linear model applied to input should be the same as training points.")
   }
+
+  test("LocalLeastSquaresEstimator doesn't crash") {
+    sc = new SparkContext("local", "test")
+
+    // Create the data.
+    val A = RowPartitionedMatrix.createRandom(sc, 50, 400, 4, cache=true)
+    val x = DenseVector(5.0, 4.0, 3.0, 2.0, -1.0).toDenseMatrix
+    val b = A.mapPartitions(part => DenseMatrix.rand(part.rows, 3))
+
+    val Aary = A.rdd.flatMap(part => MatrixUtils.matrixToRowArray(part.mat).toIterator)
+    val bary = b.rdd.flatMap(part => MatrixUtils.matrixToRowArray(part.mat).toIterator)
+
+    val mapper = new LocalLeastSquaresEstimator(1e-2).fit(Aary, bary)
+    assert(mapper.x.rows === 400)
+    assert(mapper.x.cols === 3)
+  }
 }

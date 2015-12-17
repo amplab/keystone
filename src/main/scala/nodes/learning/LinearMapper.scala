@@ -96,4 +96,40 @@ class LinearMapEstimator(lambda: Option[Double] = None)
  */
 object LinearMapEstimator extends Serializable {
   def apply(lambda: Option[Double] = None) = new LinearMapEstimator(lambda)
+
+  def computeCost(
+      trainingFeatures: RDD[DenseVector[Double]],
+      trainingLabels: RDD[DenseVector[Double]],
+      lambda: Double,
+      x: DenseMatrix[Double],
+      bOpt: Option[DenseVector[Double]]): Double = {
+
+    val nTrain = trainingLabels.count
+    val modelBroadcast = trainingLabels.context.broadcast(x)
+    val bBroadcast = trainingLabels.context.broadcast(bOpt)
+
+    val axb = trainingFeatures.mapPartitions(rows => {
+      val mat = MatrixUtils.rowsToMatrix(rows) * modelBroadcast.value
+      val out = bBroadcast.value.map { b =>
+        mat(*, ::) :+= b
+        mat
+      }.getOrElse(mat)
+
+      MatrixUtils.matrixToRowArray(out).iterator
+    })
+
+    val cost = axb.zip(trainingLabels).map { part =>
+      val axb = part._1
+      val labels = part._2
+      val out = axb - labels
+      math.pow(norm(out), 2)
+    }.reduce(_ + _)
+
+    if (lambda == 0) {
+      cost/(2.0*nTrain.toDouble)
+    } else {
+      val wNorm = math.pow(norm(x.toDenseVector), 2)
+      cost/(2.0*nTrain.toDouble) + lambda/2.0 * wNorm
+    }
+  }
 }

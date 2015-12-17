@@ -105,7 +105,7 @@ class PCATransformerSuite extends FunSuite with LocalSparkContext with Logging {
 
     val matRows = 200
     val matCols = 200
-    val dimRed = 10
+    val dimRed = 20
 
     // Generate a random Gaussian matrix.
     val gau = new Gaussian(0.0, 1.0)(RandBasis.mt0)
@@ -115,11 +115,12 @@ class PCATransformerSuite extends FunSuite with LocalSparkContext with Logging {
     // Parallelize and estimate the PCA.
     val data = sc.parallelize(MatrixUtils.matrixToRowArray(randMatrix).map(x => convert(x, Float)))
 
-    val pcaApprox = new ApproximatePCAEstimator(dimRed).fit(data)
+    val pcaApprox = new ApproximatePCAEstimator(dimRed, q = 3).fit(data)
     val pcaLocal = new PCAEstimator(dimRed).fit(data)
 
-    val b = 34
+    val errorMat = pcaApprox.pcaMat - pcaLocal.pcaMat
 
+    logError(errorMat.toString())
     //assert(Stats.aboutEq(convert(pcaApprox.pcaMat, Double), convert(pcaLocal.pcaMat, Double), 1e-4))
   }
 

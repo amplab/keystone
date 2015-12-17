@@ -13,7 +13,7 @@ import workflow.Estimator
  *
  * @param k Number of centers to estimate.
  */
-case class ScalaGMMEstimator(k: Int, maxIterations: Int = 100, minClusterSize: Int = 40, stopTolerance: Double = 1e-4, weightThreshold: Double = 1e-4, smallVarianceThreshold: Double = 1e-2, absoluteVarianceThreshold: Double = 0) extends Estimator[DenseVector[Double], DenseVector[Double]] with Logging {
+case class ScalaGMMEstimator(k: Int, maxIterations: Int = 100, minClusterSize: Int = 40, stopTolerance: Double = 1e-4, weightThreshold: Double = 1e-4, smallVarianceThreshold: Double = 1e-2, absoluteVarianceThreshold: Double = 1e-9) extends Estimator[DenseVector[Double], DenseVector[Double]] with Logging {
   require(minClusterSize > 0, "Minimum cluster size must be positive")
   require(maxIterations > 0, "maxIterations must be positive")
 

@@ -13,7 +13,8 @@ import scala.collection.mutable
  *
  * It computes a rolling MurmurHash3 instead of fully constructing the n-grams, making
  * it more efficient than using [[NGramsFeaturizer]] followed by [[HashingTF]], although
- * it should return the exact same feature vector.
+ * it should return the exact same feature vector. The MurmurHash3 methods are copied from
+ * [[scala.util.hashing.MurmurHash3]]
  *
  * Individual terms are hashed using Scala's `.##` method. We may want to convert to MurmurHash3 for strings,
  * as discussed for Spark's ML Pipelines in https://issues.apache.org/jira/browse/SPARK-10574

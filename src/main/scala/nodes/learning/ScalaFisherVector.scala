@@ -36,7 +36,8 @@ case class ScalaFisherVector(gmm: GaussianMixtureModel)
     val s2 = ((x :* x) * q) :/= nDesc // D x K
 
     val fv1 = (s1 - gmmMeans * diag(s0)) :/ (sqrt(gmmVars) * diag(sqrt(gmmWeights)))
-    val fv2 = (s2 - (gmmMeans * 2.0 :* s1) + (((gmmMeans :* gmmMeans) - gmmVars)*diag(s0))) :/ (gmmVars * diag(sqrt(gmmWeights :* 2.0)))
+    val fv2 = (s2 - (gmmMeans * 2.0 :* s1) + (((gmmMeans :* gmmMeans) - gmmVars)*diag(s0))) :/
+        (gmmVars * diag(sqrt(gmmWeights :* 2.0)))
 
     // concatenate the two fv terms
     convert(DenseMatrix.horzcat(fv1, fv2), Float)

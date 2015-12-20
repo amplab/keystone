@@ -13,8 +13,9 @@ import workflow.{Transformer, Estimator}
 /**
  * A Mixture of Gaussians, usually computed via some clustering process.
  *
- * @param means Cluster centers.
- * @param variances Cluster variances (diagonal)
+ * @param means Cluster centers. # of Dims by # of Cluster. Each column represents a separate cluster.
+ * @param variances Cluster variances (diagonal). # of Dims by # of Clusters.
+ *                  Each column represents a separate cluster.
  * @param weights Cluster weights.
  */
 case class GaussianMixtureModel(
@@ -31,7 +32,8 @@ case class GaussianMixtureModel(
   val k = means.cols
   val dim = means.rows
 
-  require(means.rows == variances.rows && means.cols == variances.cols, "GMM means and variances must be the same size.")
+  require(means.rows == variances.rows && means.cols == variances.cols,
+    "GMM means and variances must be the same size.")
   require(weights.length == k, "Every GMM center must have a weight.")
 
   /**
@@ -52,13 +54,15 @@ case class GaussianMixtureModel(
 
     /*
     compute the squared malhanobis distance for each gaussian.
-    sq_mal_dist(i,j) || x_i - mu_j||_Lambda^2.  I am the master of
-    computing Euclidean distances without for loops.
+    sq_mal_dist(i,j) || x_i - mu_j||_Lambda^2.
     */
-    val sqMahlist = (XSq * gmmVars.map(0.5 / _).t) - (X * (gmmMeans :/ gmmVars).t) + (DenseMatrix.ones[Double](numSamples, 1) * (sum(gmmMeans :* gmmMeans :/ gmmVars, Axis._1).t :* 0.5))
+    val sqMahlist = (XSq * gmmVars.map(0.5 / _).t) - (X * (gmmMeans :/ gmmVars).t) +
+        (DenseMatrix.ones[Double](numSamples, 1) * (sum(gmmMeans :* gmmMeans :/ gmmVars, Axis._1).t :* 0.5))
 
     // compute the log likelihood of the approximate posterior
-    val llh = DenseMatrix.ones[Double](numSamples, 1) * (-0.5 * numFeatures * math.log(2 * math.Pi) - 0.5 * sum(log(gmmVars), Axis._1).t + log(gmmWeights)) - sqMahlist
+    val llh = DenseMatrix.ones[Double](numSamples, 1) *
+        (-0.5 * numFeatures * math.log(2 * math.Pi) - 0.5 * sum(log(gmmVars), Axis._1).t + log(gmmWeights)) -
+        sqMahlist
 
     /*
     if we make progress, update our pseudo-likelihood for the E-step.
@@ -68,16 +72,15 @@ case class GaussianMixtureModel(
     llh(::, *) -= max(llh(*, ::))
     exp.inPlace(llh)
     llh(::, *) :/= sum(llh, Axis._1)
-    var q = llh
 
     /*
     aggressive posterior thresholding: suggested by Xerox.  Thresholds
     the really small weights to sparsify the assignments.
     */
-    q = q.map(x => if (x > weightThreshold) x else 0.0)
-    q(::, *) :/= sum(q, Axis._1)
+    val thresholdedLLH = llh.map(x => if (x > weightThreshold) x else 0.0)
+    thresholdedLLH(::, *) :/= sum(thresholdedLLH, Axis._1)
 
-    q
+    thresholdedLLH
   }
 
   override def apply(in: RDD[DenseVector[Double]]): RDD[DenseVector[Double]] = {

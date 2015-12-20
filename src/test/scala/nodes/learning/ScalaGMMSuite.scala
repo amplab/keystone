@@ -24,14 +24,15 @@ class ScalaGMMSuite extends FunSuite with LocalSparkContext with Logging {
 
     assert(gmm.means.t === center)
 
-    // TODO: TEST Variances!
     gmm.apply(data)
   }
 
-  test("GMM Two Centers") {
+  test("GMM Two Centers dataset 1") {
     sc = new SparkContext("local", "test")
-
     val k = 2
+
+    val gmmEst = ScalaGMMEstimator(k, minClusterSize = 1)
+
 
     val data = sc.parallelize(Array(
       DenseVector[Double](1.0, 2.0, 6.0),
@@ -45,18 +46,44 @@ class ScalaGMMSuite extends FunSuite with LocalSparkContext with Logging {
       DenseVector[Double](1.0, 3.0, 6.0)
     )
 
-    val gmm = ScalaGMMEstimator(k, minClusterSize = 1).fit(data)
-    // TODO: TEST Means & Variances!
+    val variances = Set(
+      DenseVector[Double](max(gmmEst.absoluteVarianceThreshold, 0.0), 1.0, 0.09),
+      DenseVector[Double](max(gmmEst.absoluteVarianceThreshold, 0.0), 1.0, 0.09)
+    )
 
-    /*val fitCenters = MatrixUtils.matrixToRowArray(kMeans.means).toSet
+    val gmm = gmmEst.fit(data)
+
+    val fitCenters = MatrixUtils.matrixToRowArray(gmm.means.t).toSet
     assert(fitCenters === centers )
 
-    val kMeans5 = KMeansPlusPlusEstimator(k, maxIterations = 5).fit(data)
-    val fitCenters5 = MatrixUtils.matrixToRowArray(kMeans5.means).toSet
-    assert(fitCenters5 === centers )
+    val fitVariances = MatrixUtils.matrixToRowArray(gmm.variances.t).toSet
+    assert(fitVariances === variances )
+  }
 
-    val out = kMeans.apply(data).collect()*/
-    logInfo("sup")
+  test("GMM Two Centers dataset 2") {
+    sc = new SparkContext("local", "test")
+    val k = 2
+
+    val gmmEst = ScalaGMMEstimator(k, minClusterSize = 1)
+
+
+    // Data, centers, variances from the Spark MLlib gaussian mixture suite
+    val data = sc.parallelize(Array(
+      DenseVector(-5.1971), DenseVector(-2.5359), DenseVector(-3.8220),
+      DenseVector(-5.2211), DenseVector(-5.0602), DenseVector( 4.7118),
+      DenseVector( 6.8989), DenseVector( 3.4592), DenseVector( 4.6322),
+      DenseVector( 5.7048), DenseVector( 4.6567), DenseVector( 5.5026),
+      DenseVector( 4.5605), DenseVector( 5.2043), DenseVector( 6.2734)
+    ))
+
+    val centers = new DenseMatrix[Double](1, 2, Array(5.1604, -4.3673))
+
+    val variances = new DenseMatrix[Double](1, 2, Array(0.86644, 1.1098))
+
+    val gmm = gmmEst.fit(data)
+
+    assert(Stats.aboutEq(centers, gmm.means, 1e-4))
+    assert(Stats.aboutEq(variances, gmm.variances, 1e-4))
   }
 
   test("GaussianMixtureModel test") {

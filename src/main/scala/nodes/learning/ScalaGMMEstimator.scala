@@ -13,7 +13,15 @@ import workflow.Estimator
  *
  * @param k Number of centers to estimate.
  */
-case class ScalaGMMEstimator(k: Int, maxIterations: Int = 100, minClusterSize: Int = 40, stopTolerance: Double = 1e-4, weightThreshold: Double = 1e-4, smallVarianceThreshold: Double = 1e-2, absoluteVarianceThreshold: Double = 1e-9) extends Estimator[DenseVector[Double], DenseVector[Double]] with Logging {
+case class ScalaGMMEstimator(
+    k: Int,
+    maxIterations: Int = 100,
+    minClusterSize: Int = 40,
+    stopTolerance: Double = 1e-4,
+    weightThreshold: Double = 1e-4,
+    smallVarianceThreshold: Double = 1e-2,
+    absoluteVarianceThreshold: Double = 1e-9)
+  extends Estimator[DenseVector[Double], DenseVector[Double]] with Logging {
   require(minClusterSize > 0, "Minimum cluster size must be positive")
   require(maxIterations > 0, "maxIterations must be positive")
 
@@ -69,13 +77,15 @@ case class ScalaGMMEstimator(k: Int, maxIterations: Int = 100, minClusterSize: I
 
       /*
       compute the squared malhanobis distance for each gaussian.
-      sq_mal_dist(i,j) || x_i - mu_j||_Lambda^2.  I am the master of
-      computing Euclidean distances without for loops.
+      sq_mal_dist(i,j) || x_i - mu_j||_Lambda^2.
       */
-      val sqMahlist = (XSq * gmmVars.map(0.5 / _).t) - (X * (gmmMeans :/ gmmVars).t) + (DenseMatrix.ones[Double](numSamples, 1) * (sum(gmmMeans :* gmmMeans :/ gmmVars, Axis._1).t :* 0.5))
+      val sqMahlist = (XSq * gmmVars.map(0.5 / _).t) - (X * (gmmMeans :/ gmmVars).t) +
+          (DenseMatrix.ones[Double](numSamples, 1) * (sum(gmmMeans :* gmmMeans :/ gmmVars, Axis._1).t :* 0.5))
 
       // compute the log likelihood of the approximate posterior
-      val llh = DenseMatrix.ones[Double](numSamples, 1) * (-0.5 * numFeatures * math.log(2 * math.Pi) - 0.5 * sum(bLog(gmmVars), Axis._1).t + bLog(gmmWeights)) - sqMahlist
+      val llh = DenseMatrix.ones[Double](numSamples, 1) *
+          (-0.5 * numFeatures * math.log(2 * math.Pi) - 0.5 * sum(bLog(gmmVars), Axis._1).t + bLog(gmmWeights)) -
+          sqMahlist
 
       /*
       compute the log likelihood of the model using the incremental
@@ -88,7 +98,11 @@ case class ScalaGMMEstimator(k: Int, maxIterations: Int = 100, minClusterSize: I
       while (cluster < k) {
         val deltaLSE = lseLLH - llh(::, cluster)
         val deltaLSEThreshold = min(max(deltaLSE, -30.0), 30.0)
-        val lseIncrement = (deltaLSE.map(x => if (x > 30.0) 1.0 else 0.0) :* deltaLSE) + (deltaLSE.map(x => if (x > -30.0) 1.0 else 0.0) :* deltaLSE.map(x => if (x <= 30.0) 1.0 else 0.0) :* bLog(exp(deltaLSEThreshold) + 1.0))
+        val lseIncrement = (deltaLSE.map(x => if (x > 30.0) 1.0 else 0.0) :* deltaLSE) + (
+            deltaLSE.map(x => if (x > -30.0) 1.0 else 0.0) :*
+            deltaLSE.map(x => if (x <= 30.0) 1.0 else 0.0) :*
+            bLog(exp(deltaLSEThreshold) + 1.0)
+        )
         lseLLH = llh(::, cluster) + lseIncrement
         cluster += 1
       }

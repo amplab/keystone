@@ -4,6 +4,7 @@ import breeze.linalg._
 import breeze.stats.distributions.Multinomial
 import breeze.stats.mean
 import org.apache.spark.rdd.RDD
+import pipelines.Logging
 import workflow.{Estimator, Transformer}
 import utils.MatrixUtils
 
@@ -21,16 +22,26 @@ case class KMeansModel(means: DenseMatrix[Double]) extends Transformer[DenseVect
   }
 
   def apply(in: DenseMatrix[Double]): DenseMatrix[Double] = {
-    val XSqNormHlf: DenseVector[Double] = sum(in :* in, Axis._1) / 2.0
+    val XSqNormHlf: DenseVector[Double] = (sum(in :* in, Axis._1) :*= 0.5)
     /* compute the distance to all of the centers and assign each point to its nearest center. */
     val sqDistToCenters = in * means.t
     sqDistToCenters :*= -1.0
     sqDistToCenters(::, *) += XSqNormHlf
     sqDistToCenters(*, ::) += (sum(means :* means, Axis._1) :*= 0.5)
 
+    /*
+    sqDistToCenters is numExamples by numCenters. This argmin uses Breeze broadcasting to find
+    the column index with the smallest value for each row (aka the nearest center for that example).
+    nearestCenter is a vector of size numExamples.
+    */
     val nearestCenter = argmin(sqDistToCenters(*, ::))
 
-    // reuse the previous (potentially large) matrix to keep memory usage down
+    /*
+    Now we construct a center assignments matrix.
+    It isa binary numExample by numCenters matrix that has the value 1.0 at a cell
+    if that center (column) is the closest center to that example (row), and 0.0 if it is not.
+    We reuse the previous (potentially large) matrix to minimize memory allocation.
+    */
     val centerAssign = sqDistToCenters
     var row: Int = 0
     while (row < in.rows) {
@@ -66,7 +77,8 @@ case class KMeansModel(means: DenseMatrix[Double]) extends Transformer[DenseVect
  * @param maxIterations
  * @param stopTolerance Tolerance used to decide when to terminate Lloyd's algorithm
  */
-case class KMeansPlusPlusEstimator(numMeans: Int, maxIterations: Int, stopTolerance: Double = 1e-3) extends Estimator[DenseVector[Double], DenseVector[Double]] {
+case class KMeansPlusPlusEstimator(numMeans: Int, maxIterations: Int, stopTolerance: Double = 1e-3)
+    extends Estimator[DenseVector[Double], DenseVector[Double]] with Logging {
   def fit(data: RDD[DenseVector[Double]]): KMeansModel = {
     val X = MatrixUtils.rowsToMatrix(data.collect())
     fit(X)
@@ -116,9 +128,19 @@ case class KMeansPlusPlusEstimator(numMeans: Int, maxIterations: Int, stopTolera
       val bestDist = min(sqDistToCenters(*, ::))
       curCost(iter) = mean(bestDist)
 
+      /*
+      sqDistToCenters is numExamples by numCenters. This argmin uses Breeze broadcasting to find
+      the column index with the smallest value for each row (aka the nearest center for that example).
+      nearestCenter is a vector of size numExamples.
+      */
       val nearestCenter = argmin(sqDistToCenters(*, ::))
 
-      // For memory efficiency reuse the big sqDistToCenters matrix
+      /*
+      Now we construct a center assignments matrix.
+      It isa binary numExample by numCenters matrix that has the value 1.0 at a cell
+      if that center (column) is the closest center to that example (row), and 0.0 if it is not.
+      We reuse the previous (potentially large) matrix to minimize memory allocation.
+      */
       val centerAssign = sqDistToCenters
       var row: Int = 0
       while (row < numSamples) {
@@ -138,7 +160,7 @@ case class KMeansPlusPlusEstimator(numMeans: Int, maxIterations: Int, stopTolera
 
       if (iter > 0) {
         costImproving = (curCost(iter - 1) - curCost(iter)) >= stopTolerance * math.abs(curCost(iter - 1))
-        println("Iteration: " + iter + " current cost " + curCost(iter) + " imp " + costImproving)
+        logInfo("Iteration: " + iter + " current cost " + curCost(iter) + " imp " + costImproving)
       }
 
       iter += 1

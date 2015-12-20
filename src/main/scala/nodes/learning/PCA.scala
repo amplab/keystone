@@ -102,10 +102,25 @@ class PCAEstimator(dims: Int) extends Estimator[DenseVector[Float], DenseVector[
 
     val pca = v1.t
 
-    // Mimic matlab
-    // Enforce a sign convention on the coefficients -- the largest element in
-    // each column will have a positive sign.
+    PCAEstimator.enforceMatlabPCASignConvention(pca)
 
+    // Return a subset of the columns.
+    pca(::, 0 until dims)
+  }
+}
+
+object PCAEstimator {
+  /**
+   * Mimic matlab sign convention for PCA matrices.
+   * This is an in-place operation and will modify your input matrix.
+   *
+   * Enforces a sign convention on the coefficients -- the largest element in
+   * each column will have a positive sign.
+   *
+   * @param pca
+   * @return
+   */
+  def enforceMatlabPCASignConvention(pca: DenseMatrix[Float]): Unit = {
     val colMaxs = max(pca(::, *)).toArray
     val absPCA = abs(pca)
     val absColMaxs = max(absPCA(::, *)).toArray
@@ -114,8 +129,5 @@ class PCAEstimator(dims: Int) extends Estimator[DenseVector[Float], DenseVector[
     }
 
     pca(*, ::) :*= new DenseVector(signs)
-
-    // Return a subset of the columns.
-    pca(::, 0 until dims)
   }
 }

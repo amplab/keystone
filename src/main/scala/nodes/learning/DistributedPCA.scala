@@ -24,7 +24,7 @@ class DistributedPCAEstimator(dims: Int) extends Estimator[DenseVector[Float], D
    *    https://www.cs.princeton.edu/picasso/mats/PCA-Tutorial-Intuition_jp.pdf
    *
    * @param samples Features to be reduced. Logically row-major.
-   * @return A PCA Matrix which will perform dimensionality reduction when applied to a data matrix.
+   * @return A PCA model which will perform dimensionality reduction when applied to data.
    */
   def fit(samples: RDD[DenseVector[Float]]): PCATransformer = {
     new PCATransformer(computePCA(samples, dims))
@@ -47,22 +47,11 @@ class DistributedPCAEstimator(dims: Int) extends Estimator[DenseVector[Float], D
 
     val svd.SVD(u, s, pcaT) = svd(rPart)
 
-    val pca = pcaT.t
+    val pca = convert(pcaT.t, Float)
 
-    // Mimic matlab
-    // Enforce a sign convention on the coefficients -- the largest element in
-    // each column will have a positive sign.
-
-    val colMaxs = max(pca(::, *)).toArray
-    val absPCA = abs(pca)
-    val absColMaxs = max(absPCA(::, *)).toArray
-    val signs = colMaxs.zip(absColMaxs).map { x =>
-      if (x._1 == x._2) 1.0 else -1.0
-    }
-
-    pca(*, ::) :*= new DenseVector(signs)
+    PCAEstimator.enforceMatlabPCASignConvention(pca)
 
     // Return a subset of the columns.
-    convert(pca(::, 0 until dims), Float)
+    pca(::, 0 until dims)
   }
 }

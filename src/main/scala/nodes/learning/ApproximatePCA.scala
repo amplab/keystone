@@ -11,9 +11,14 @@ import pipelines.Logging
 import workflow.Estimator
 
 /**
- * Created by tomerk11 on 12/16/15.
+ * Approximately estimates a PCA model for dimensionality reduction based on an input dataset.
+ *
+ * @param dims Dimensions to reduce input dataset to.
+ * @param q The number of iterations to use
+ * @param p The amount of padding to add beyond dims for the calculations
  */
-class ApproximatePCAEstimator(dims: Int, q: Int = 10, p: Int = 5) extends Estimator[DenseVector[Float], DenseVector[Float]] with Logging {
+class ApproximatePCAEstimator(dims: Int, q: Int = 10, p: Int = 5)
+    extends Estimator[DenseVector[Float], DenseVector[Float]] with Logging {
 
   /**
    * Adapted from the "PCA2" matlab code given in appendix B of this paper:
@@ -24,15 +29,15 @@ class ApproximatePCAEstimator(dims: Int, q: Int = 10, p: Int = 5) extends Estima
    */
   def fit(samples: RDD[DenseVector[Float]]): PCATransformer = {
     val samps = samples.collect.map(_.toArray)
-    val dataMat: DenseMatrix[Double] = convert(DenseMatrix(samps:_*), Double)
-    new PCATransformer(convert(approximatePCA(dataMat, dims, q, p), Float))
+    val dataMat: DenseMatrix[Float] = DenseMatrix(samps:_*)
+    new PCATransformer(approximatePCA(dataMat, dims, q, p))
   }
 
-  def approximatePCA(data: DenseMatrix[Double], k: Int, q: Int = 10, p: Int = 5): DenseMatrix[Double] = {
+  def approximatePCA(data: DenseMatrix[Float], k: Int, q: Int = 10, p: Int = 5): DenseMatrix[Float] = {
     //This algorithm corresponds to Algorithms 4.4 and 5.1 of Halko, Martinsson, and Tropp, 2011.
     //According to sections 9.3 and  9.4 of the same, Ming Gu argues for exponentially fast convergence.
 
-    val A = data
+    val A = convert(data, Double)
     val d = A.cols
 
     val l = k + p
@@ -51,21 +56,10 @@ class ApproximatePCAEstimator(dims: Int, q: Int = 10, p: Int = 5) extends Estima
 
     val B = Q.t * A //cpu: l*n*d, mem: l*d
     val usvt = svd.reduced(B) //cpu: l*d^2, mem: l*d
-    val pca = usvt.Vt.t
+    val pca = convert(usvt.Vt.t, Float)
     logInfo(s"shape of pca (${pca.rows},${pca.cols}")
 
-    // Mimic matlab
-    // Enforce a sign convention on the coefficients -- the largest element in
-    // each column will have a positive sign.
-
-    val colMaxs = max(pca(::, *)).toArray
-    val absPCA = abs(pca)
-    val absColMaxs = max(absPCA(::, *)).toArray
-    val signs = colMaxs.zip(absColMaxs).map { x =>
-      if (x._1 == x._2) 1.0 else -1.0
-    }
-
-    pca(*, ::) :*= new DenseVector(signs)
+    PCAEstimator.enforceMatlabPCASignConvention(pca)
 
     // Return a subset of the columns.
     pca(::, 0 until k)

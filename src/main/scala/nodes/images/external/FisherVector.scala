@@ -2,7 +2,8 @@ package nodes.images.external
 
 import breeze.linalg._
 import nodes.images.FisherVectorInterface
-import nodes.learning.{GaussianMixtureModelEstimator, GaussianMixtureModel}
+import nodes.learning.GaussianMixtureModel
+import nodes.learning.external.GaussianMixtureModelEstimator
 import org.apache.spark.rdd.RDD
 import utils.MatrixUtils
 import utils.external.EncEval

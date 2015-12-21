@@ -11,9 +11,15 @@ import workflow.Estimator
 /**
  * Fit a Gaussian Mixture model to Data.
  *
+ * Trains the GMM using the guidelines described in Appendix B of:
+ *
+ * Jorge Sanchez, Florent Perronnin, Thomas Mensink, Jakob Verbeek. Image Classification with
+ * the Fisher Vector: Theory and Practice. International Journal of Computer Vision, Springer
+ * Verlag, 2013, 105 (3), pp.222-245. <10.1007/s11263-013-0636-x>.
+ *
  * @param k Number of centers to estimate.
  */
-case class ScalaGMMEstimator(
+case class GaussianMixtureModelEstimator(
     k: Int,
     maxIterations: Int = 100,
     minClusterSize: Int = 40,

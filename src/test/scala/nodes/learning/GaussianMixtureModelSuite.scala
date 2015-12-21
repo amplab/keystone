@@ -6,7 +6,7 @@ import org.scalatest.FunSuite
 import pipelines._
 import utils.{MatrixUtils, Stats}
 
-class ScalaGMMSuite extends FunSuite with LocalSparkContext with Logging {
+class GaussianMixtureModelSuite extends FunSuite with LocalSparkContext with Logging {
 
   test("GMM Single Center") {
     sc = new SparkContext("local", "test")
@@ -20,7 +20,7 @@ class ScalaGMMSuite extends FunSuite with LocalSparkContext with Logging {
     ))
 
     val center = DenseVector[Double](1.0, 3.0, 4.0).asDenseMatrix
-    val gmm = ScalaGMMEstimator(k, minClusterSize = 1).fit(data)
+    val gmm = GaussianMixtureModelEstimator(k, minClusterSize = 1).fit(data)
 
     assert(gmm.means.t === center)
 
@@ -31,7 +31,7 @@ class ScalaGMMSuite extends FunSuite with LocalSparkContext with Logging {
     sc = new SparkContext("local", "test")
     val k = 2
 
-    val gmmEst = ScalaGMMEstimator(k, minClusterSize = 1)
+    val gmmEst = GaussianMixtureModelEstimator(k, minClusterSize = 1)
 
 
     val data = sc.parallelize(Array(
@@ -64,7 +64,7 @@ class ScalaGMMSuite extends FunSuite with LocalSparkContext with Logging {
     sc = new SparkContext("local", "test")
     val k = 2
 
-    val gmmEst = ScalaGMMEstimator(k, minClusterSize = 1)
+    val gmmEst = GaussianMixtureModelEstimator(k, minClusterSize = 1)
 
 
     // Data, centers, variances from the Spark MLlib gaussian mixture suite

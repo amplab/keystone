@@ -4,7 +4,8 @@ import java.io.File
 
 import breeze.linalg._
 import breeze.stats.distributions.Gaussian
-import nodes.learning.{GaussianMixtureModel, GaussianMixtureModelEstimator}
+import nodes.learning.GaussianMixtureModel
+import nodes.learning.external.GaussianMixtureModelEstimator
 import org.scalatest.FunSuite
 import pipelines.Logging
 import utils.{Stats, TestUtils}

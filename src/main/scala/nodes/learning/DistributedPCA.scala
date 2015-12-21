@@ -49,9 +49,9 @@ class DistributedPCAEstimator(dims: Int) extends Estimator[DenseVector[Float], D
 
     val pca = convert(pcaT.t, Float)
 
-    PCAEstimator.enforceMatlabPCASignConvention(pca)
+    val matlabConventionPCA = PCAEstimator.enforceMatlabPCASignConvention(pca)
 
     // Return a subset of the columns.
-    pca(::, 0 until dims)
+    matlabConventionPCA(::, 0 until dims)
   }
 }

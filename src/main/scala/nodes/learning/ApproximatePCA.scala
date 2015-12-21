@@ -59,9 +59,9 @@ class ApproximatePCAEstimator(dims: Int, q: Int = 10, p: Int = 5)
     val pca = convert(usvt.Vt.t, Float)
     logInfo(s"shape of pca (${pca.rows},${pca.cols}")
 
-    PCAEstimator.enforceMatlabPCASignConvention(pca)
+    val matlabConventionPCA = PCAEstimator.enforceMatlabPCASignConvention(pca)
 
     // Return a subset of the columns.
-    pca(::, 0 until k)
+    matlabConventionPCA(::, 0 until k)
   }
 }

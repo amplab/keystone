@@ -100,9 +100,7 @@ class PCAEstimator(dims: Int) extends Estimator[DenseVector[Float], DenseVector[
     // Perform the SVD with sgesvd
     lapack.sgesvd("N", "A", rows, cols, data.toArray, rows, s1.data, null, 1, v1.data, cols, workspace, workspace.length, info)
 
-    val pca = v1.t
-
-    PCAEstimator.enforceMatlabPCASignConvention(pca)
+    val pca = PCAEstimator.enforceMatlabPCASignConvention(v1.t)
 
     // Return a subset of the columns.
     pca(::, 0 until dims)
@@ -120,7 +118,7 @@ object PCAEstimator {
    * @param pca
    * @return
    */
-  def enforceMatlabPCASignConvention(pca: DenseMatrix[Float]): Unit = {
+  def enforceMatlabPCASignConvention(pca: DenseMatrix[Float]): DenseMatrix[Float] = {
     val colMaxs = max(pca(::, *)).toArray
     val absPCA = abs(pca)
     val absColMaxs = max(absPCA(::, *)).toArray
@@ -128,6 +126,6 @@ object PCAEstimator {
       if (x._1 == x._2) 1.0f else -1.0f
     }
 
-    pca(*, ::) :*= new DenseVector(signs)
+    pca(*, ::) :* new DenseVector(signs)
   }
 }

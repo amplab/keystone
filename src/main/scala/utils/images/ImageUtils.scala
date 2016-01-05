@@ -126,7 +126,7 @@ object ImageUtils extends Logging {
    * @param endY y-position (exclusive) to describe lower right corner of BB
    * @return new image of size (endX - startX, endY - startY)
    */
-  def crop(in: Image, startX: Int, startY: Int, endX: Int, endY: Int): Image = {
+  def crop(im: Image, startX: Int, startY: Int, endX: Int, endY: Int): Image = {
     val xDim = im.metadata.xDim
     val yDim = im.metadata.yDim
     val nChannels = im.metadata.numChannels
@@ -144,13 +144,13 @@ object ImageUtils extends Logging {
     val out = new Array[Double](newXDim * newYDim * nChannels)
 
     var c = 0
-    while (c < numChannels) {
+    while (c < nChannels) {
       var s = startX
       while (s < endX) {
         var b = startY
         while (b < endY) {
-          out(c + (s-startX)*numChannels +
-            (b-startY)*(endX-startX)*numChannels) = im.get(s, b, c)
+          out(c + (s-startX)*nChannels +
+            (b-startY)*(endX-startX)*nChannels) = im.get(s, b, c)
           b = b + 1
         }
         s = s + 1

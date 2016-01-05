@@ -76,14 +76,18 @@ class GaussianMixtureModelSuite extends FunSuite with LocalSparkContext with Log
       DenseVector( 4.5605), DenseVector( 5.2043), DenseVector( 6.2734)
     ))
 
-    val centers = new DenseMatrix[Double](1, 2, Array(5.1604, -4.3673))
+    val centersOrder1 = new DenseMatrix[Double](1, 2, Array(5.1604, -4.3673))
+    val centersOrder2 = new DenseMatrix[Double](1, 2, Array(-4.3673, 5.1604))
 
-    val variances = new DenseMatrix[Double](1, 2, Array(0.86644, 1.1098))
+    val variancesOrder1 = new DenseMatrix[Double](1, 2, Array(0.86644, 1.1098))
+    val variancesOrder2 = new DenseMatrix[Double](1, 2, Array(1.1098, 0.86644))
 
     val gmm = gmmEst.fit(data)
 
-    assert(Stats.aboutEq(centers, gmm.means, 1e-4))
-    assert(Stats.aboutEq(variances, gmm.variances, 1e-4))
+    val inOrder1 = Stats.aboutEq(centersOrder1, gmm.means, 1e-4) && Stats.aboutEq(variancesOrder1, gmm.variances, 1e-4)
+    val inOrder2 = Stats.aboutEq(centersOrder2, gmm.means, 1e-4) && Stats.aboutEq(variancesOrder2, gmm.variances, 1e-4)
+
+    assert(inOrder1 || inOrder2)
   }
 
   test("GaussianMixtureModel test") {

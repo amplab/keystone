@@ -12,6 +12,7 @@ import workflow.Estimator
 
 /**
  * Fit a Gaussian Mixture model to Data.
+ * We assume diagonal covariances.
  *
  * Trains the GMM using the guidelines described in Appendix B of:
  *
@@ -22,15 +23,15 @@ import workflow.Estimator
  * @param k Number of centers to estimate.
  */
 case class GaussianMixtureModelEstimator(
-                                          k: Int,
-                                          maxIterations: Int = 100,
-                                          minClusterSize: Int = 40,
-                                          stopTolerance: Double = 1e-4,
-                                          weightThreshold: Double = 1e-4,
-                                          smallVarianceThreshold: Double = 1e-2,
-                                          absoluteVarianceThreshold: Double = 1e-9,
-                                          initializationMethod: GMMInitializationMethod = KMEANS_PLUS_PLUS_INITIALIZATION,
-                                          seed: Int = 0)
+    k: Int,
+    maxIterations: Int = 100,
+    minClusterSize: Int = 40,
+    stopTolerance: Double = 1e-4,
+    weightThreshold: Double = 1e-4,
+    smallVarianceThreshold: Double = 1e-2,
+    absoluteVarianceThreshold: Double = 1e-9,
+    initializationMethod: GMMInitializationMethod = KMEANS_PLUS_PLUS_INITIALIZATION,
+    seed: Int = 0)
   extends Estimator[DenseVector[Double], DenseVector[Double]] with Logging {
   require(minClusterSize > 0, "Minimum cluster size must be positive")
   require(maxIterations > 0, "maxIterations must be positive")
@@ -75,21 +76,20 @@ case class GaussianMixtureModelEstimator(
 
         (gmmWeights, gmmMeans, gmmVars)
 
-      case ENCEVAL_INITIALIZATION =>
-        // ENC EVAL INITIALIZATION
+      case RANDOM_INITIALIZATION =>
+        // Random Initialization
         val colMin = min(X(::, *)).toDenseVector
         val colMax = max(X(::, *)).toDenseVector
         val colRange = colMax - colMin
 
         val rand = new RandBasis(new ThreadLocalRandomGenerator(new MersenneTwister(seed)))
 
-        val gmmMeans = MatrixUtils.rowsToMatrix((0 until colMin.length).map{ i =>
-          DenseVector.rand(k, Uniform(colMin(i), colMax(i))(rand))
-        }).t
+        val gmmMeans = DenseMatrix.rand(k, numFeatures, Uniform(0, 1)(rand))
+        gmmMeans(*, ::) :*= colRange
+        gmmMeans(*, ::) :+= colMin
 
-        val gmmVars = MatrixUtils.rowsToMatrix((0 until colMin.length).map{ i =>
-          DenseVector.fill(k, 0.1 * colRange(i) * colRange(i))
-        }).t
+        val gmmVars = DenseMatrix.fill(k, numFeatures)(0.1)
+        gmmVars(*, ::) :*= (colRange :* colRange)
 
         val gmmWeights = DenseVector.fill(k, 1.0 / k).asDenseMatrix
 
@@ -191,4 +191,9 @@ case class GaussianMixtureModelEstimator(
 
 sealed trait GMMInitializationMethod extends Serializable
 case object KMEANS_PLUS_PLUS_INITIALIZATION extends GMMInitializationMethod
-case object ENCEVAL_INITIALIZATION extends GMMInitializationMethod
+
+/**
+ * Randomly distributes the initial means within the minimum and maximum values
+ * seen in the training data, using a uniform distribution.
+ */
+case object RANDOM_INITIALIZATION extends GMMInitializationMethod

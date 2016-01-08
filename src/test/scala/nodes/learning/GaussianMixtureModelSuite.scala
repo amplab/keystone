@@ -4,7 +4,7 @@ import breeze.linalg._
 import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
 import pipelines._
-import utils.{MatrixUtils, Stats}
+import utils.{TestUtils, MatrixUtils, Stats}
 
 class GaussianMixtureModelSuite extends FunSuite with LocalSparkContext with Logging {
 
@@ -20,7 +20,7 @@ class GaussianMixtureModelSuite extends FunSuite with LocalSparkContext with Log
     ))
 
     val center = DenseVector[Double](1.0, 3.0, 4.0).asDenseMatrix
-    val gmm = GaussianMixtureModelEstimator(k, minClusterSize = 1).fit(data)
+    val gmm = GaussianMixtureModelEstimator(k, minClusterSize = 1, seed = 0).fit(data)
 
     assert(gmm.means.t === center)
 
@@ -31,7 +31,7 @@ class GaussianMixtureModelSuite extends FunSuite with LocalSparkContext with Log
     sc = new SparkContext("local", "test")
     val k = 2
 
-    val gmmEst = GaussianMixtureModelEstimator(k, minClusterSize = 1)
+    val gmmEst = GaussianMixtureModelEstimator(k, minClusterSize = 1, seed = 0)
 
 
     val data = sc.parallelize(Array(
@@ -64,7 +64,7 @@ class GaussianMixtureModelSuite extends FunSuite with LocalSparkContext with Log
     sc = new SparkContext("local", "test")
     val k = 2
 
-    val gmmEst = GaussianMixtureModelEstimator(k, minClusterSize = 1)
+    val gmmEst = GaussianMixtureModelEstimator(k, minClusterSize = 1, seed = 0)
 
 
     // Data, centers, variances from the Spark MLlib gaussian mixture suite
@@ -88,6 +88,31 @@ class GaussianMixtureModelSuite extends FunSuite with LocalSparkContext with Log
     val inOrder2 = Stats.aboutEq(centersOrder2, gmm.means, 1e-4) && Stats.aboutEq(variancesOrder2, gmm.variances, 1e-4)
 
     assert(inOrder1 || inOrder2)
+  }
+
+  test("GMM Two Centers dataset 3") {
+    sc = new SparkContext("local", "test")
+    val k = 2
+
+    val gmmEst = GaussianMixtureModelEstimator(k, minClusterSize = 1, seed = 0, stopTolerance = 0, maxIterations = 30)
+
+    val data = sc.parallelize(TestUtils.loadFile("gmm_data.txt"))
+    val parsedData = data.map(s => DenseVector[Double](s.trim.split(' ').map(_.toDouble))).cache()
+
+
+    val centers = DenseMatrix.zeros[Double](2, 2)
+
+    val variances = DenseMatrix((1.0, 25.0), (25.0, 1.0))
+
+    val weights = DenseVector(0.5, 0.5)
+
+    val gmm = gmmEst.fit(parsedData)
+
+    assert(Stats.aboutEq(centers, gmm.means.t, 0.5))
+
+    assert(Stats.aboutEq(variances, gmm.variances.t, 2.0))
+
+    assert(Stats.aboutEq(gmm.weights, weights, 0.05))
   }
 
   test("GaussianMixtureModel test") {

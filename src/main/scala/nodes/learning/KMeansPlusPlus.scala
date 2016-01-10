@@ -1,8 +1,9 @@
 package nodes.learning
 
 import breeze.linalg._
-import breeze.stats.distributions.Multinomial
+import breeze.stats.distributions.{ThreadLocalRandomGenerator, RandBasis, Multinomial}
 import breeze.stats.mean
+import org.apache.commons.math3.random.MersenneTwister
 import org.apache.spark.rdd.RDD
 import pipelines.Logging
 import workflow.{Estimator, Transformer}
@@ -77,7 +78,11 @@ case class KMeansModel(means: DenseMatrix[Double]) extends Transformer[DenseVect
  * @param maxIterations
  * @param stopTolerance Tolerance used to decide when to terminate Lloyd's algorithm
  */
-case class KMeansPlusPlusEstimator(numMeans: Int, maxIterations: Int, stopTolerance: Double = 1e-3)
+case class KMeansPlusPlusEstimator(
+    numMeans: Int,
+    maxIterations: Int,
+    stopTolerance: Double = 1e-3,
+    seed: Int = 0)
     extends Estimator[DenseVector[Double], DenseVector[Double]] with Logging {
   def fit(data: RDD[DenseVector[Double]]): KMeansModel = {
     val X = MatrixUtils.rowsToMatrix(data.collect())
@@ -91,6 +96,9 @@ case class KMeansPlusPlusEstimator(numMeans: Int, maxIterations: Int, stopTolera
     val XSqNormHlf: DenseVector[Double] = sum(X :* X, Axis._1) / 2.0
 
     val centers = Array.fill(numMeans)(0)
+    // Not happy about marking this implicit, but Breeze Multinomial only takes a RandBasis as an implicit w/ a
+    // whole bunch of other implicit things
+    implicit val implicitRand = new RandBasis(new ThreadLocalRandomGenerator(new MersenneTwister(seed)))
     centers(0) = Multinomial(DenseVector.fill(numSamples, 1.0/numSamples)).draw()
 
     var curSqDistanceToClusters: DenseVector[Double] = null

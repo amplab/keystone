@@ -3,6 +3,8 @@ package nodes.learning
 import breeze.linalg._
 import breeze.numerics.{exp, log => bLog}
 import breeze.stats._
+import breeze.stats.distributions.{Uniform, ThreadLocalRandomGenerator, RandBasis, Rand}
+import org.apache.commons.math3.random.MersenneTwister
 import org.apache.spark.rdd.RDD
 import pipelines.Logging
 import utils.MatrixUtils
@@ -10,6 +12,7 @@ import workflow.Estimator
 
 /**
  * Fit a Gaussian Mixture model to Data.
+ * We assume diagonal covariances.
  *
  * Trains the GMM using the guidelines described in Appendix B of:
  *
@@ -26,7 +29,9 @@ case class GaussianMixtureModelEstimator(
     stopTolerance: Double = 1e-4,
     weightThreshold: Double = 1e-4,
     smallVarianceThreshold: Double = 1e-2,
-    absoluteVarianceThreshold: Double = 1e-9)
+    absoluteVarianceThreshold: Double = 1e-9,
+    initializationMethod: GMMInitializationMethod = KMEANS_PLUS_PLUS_INITIALIZATION,
+    seed: Int = 0)
   extends Estimator[DenseVector[Double], DenseVector[Double]] with Logging {
   require(minClusterSize > 0, "Minimum cluster size must be positive")
   require(maxIterations > 0, "maxIterations must be positive")
@@ -51,11 +56,6 @@ case class GaussianMixtureModelEstimator(
 
     val X = MatrixUtils.rowsToMatrix(samples)
 
-    // Use KMeans++ initialization to get the GMM center initializations
-    val kMeansModel = KMeansPlusPlusEstimator(k, 1).fit(X)
-    val centerAssignment = kMeansModel.apply(X)
-    val assignMass = sum(centerAssignment, Axis._0).toDenseVector
-
     // gather data statistics
     val numSamples = X.rows
     val numFeatures = X.cols
@@ -63,12 +63,41 @@ case class GaussianMixtureModelEstimator(
     val XSq = X :* X
     val varianceGlobal = mean(XSq(::, *)) - (meanGlobal :* meanGlobal)
 
+    var (gmmWeights, gmmMeans, gmmVars) = initializationMethod match {
+      case KMEANS_PLUS_PLUS_INITIALIZATION =>
+        // Use KMeans++ initialization to get the GMM center initializations
+        val kMeansModel = KMeansPlusPlusEstimator(k, 1, seed = seed).fit(X)
+        val centerAssignment = kMeansModel.apply(X)
+        val assignMass = sum(centerAssignment, Axis._0).toDenseVector
+
+        val gmmWeights = assignMass.asDenseMatrix / numSamples.toDouble
+        val gmmMeans = diag(assignMass.map(1.0 / _)) * (centerAssignment.t * X)
+        val gmmVars = diag(assignMass.map(1.0 / _)) * (centerAssignment.t * XSq) - (gmmMeans :* gmmMeans)
+
+        (gmmWeights, gmmMeans, gmmVars)
+
+      case RANDOM_INITIALIZATION =>
+        // Random Initialization
+        val colMin = min(X(::, *)).toDenseVector
+        val colMax = max(X(::, *)).toDenseVector
+        val colRange = colMax - colMin
+
+        val rand = new RandBasis(new ThreadLocalRandomGenerator(new MersenneTwister(seed)))
+
+        val gmmMeans = DenseMatrix.rand(k, numFeatures, Uniform(0, 1)(rand))
+        gmmMeans(*, ::) :*= colRange
+        gmmMeans(*, ::) :+= colMin
+
+        val gmmVars = DenseMatrix.fill(k, numFeatures)(0.1)
+        gmmVars(*, ::) :*= (colRange :* colRange)
+
+        val gmmWeights = DenseVector.fill(k, 1.0 / k).asDenseMatrix
+
+        (gmmWeights, gmmMeans, gmmVars)
+    }
+
     // set the lower bound for the gmm_variance
     val gmmVarLB = max(smallVarianceThreshold * varianceGlobal, absoluteVarianceThreshold)
-
-    var gmmWeights = assignMass.asDenseMatrix / numSamples.toDouble
-    var gmmMeans = diag(assignMass.map(1.0 / _)) * (centerAssignment.t * X)
-    var gmmVars = diag(assignMass.map(1.0 / _)) * (centerAssignment.t * XSq) - (gmmMeans :* gmmMeans)
 
     // Threshold small variances
     gmmVars = max(gmmVars, DenseMatrix.ones[Double](k, 1) * gmmVarLB)
@@ -159,3 +188,12 @@ case class GaussianMixtureModelEstimator(
     GaussianMixtureModel(gmmMeans.t, gmmVars.t, gmmWeights.toDenseVector)
   }
 }
+
+sealed trait GMMInitializationMethod extends Serializable
+case object KMEANS_PLUS_PLUS_INITIALIZATION extends GMMInitializationMethod
+
+/**
+ * Randomly distributes the initial means within the minimum and maximum values
+ * seen in the training data, using a uniform distribution.
+ */
+case object RANDOM_INITIALIZATION extends GMMInitializationMethod

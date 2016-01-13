@@ -18,7 +18,8 @@ class VectorSplitter(
     (0 until numBlocks).map { blockNum =>
       in.map { vec =>
         // Expliclity call toArray as breeze's slice is lazy
-        DenseVector(vec.slice(blockNum * blockSize, (blockNum + 1) * blockSize).toArray)
+        val end = math.min(numFeatures, (blockNum + 1) * blockSize)
+        DenseVector(vec.slice(blockNum * blockSize, end).toArray)
       }
     }
   }

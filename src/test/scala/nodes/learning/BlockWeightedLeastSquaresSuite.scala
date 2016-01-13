@@ -25,9 +25,9 @@ class BlockWeightedLeastSquaresSuite extends FunSuite with Logging with LocalSpa
 
     val nTrain = trainingLabels.count
     val trainingLabelsMat = trainingLabels.mapPartitions(part =>
-      Iterator.single(MatrixUtils.rowsToMatrix(part)))
+      MatrixUtils.rowsToMatrixIter(part))
     val trainingFeaturesMat = trainingFeatures.mapPartitions(part =>
-      Iterator.single(MatrixUtils.rowsToMatrix(part)))
+      MatrixUtils.rowsToMatrixIter(part))
 
     val weights = trainingLabelsMat.map { mat =>
       val numPosEx = mat.rows
@@ -66,6 +66,49 @@ class BlockWeightedLeastSquaresSuite extends FunSuite with Logging with LocalSpa
     val fullARDD = sc.parallelize(MatrixUtils.matrixToRowArray(aMat), numParts).cache()
     val bRDD = sc.parallelize(MatrixUtils.matrixToRowArray(bMat), numParts).cache()
     (fullARDD, bRDD)
+  }
+
+  test("BlockWeighted solver solution should work with empty partitions") {
+    val blockSize = 4
+    val numIter = 50
+    val lambda = 0.1
+    val mixtureWeight = 0.3
+    val numParts = 3
+
+    sc = new SparkContext("local", "test")
+
+    val (fullARDD, bRDD) = loadMatrixRDDs("aMat.csv", "bMat.csv", numParts, sc)
+    // Throw away a partition in both features and labels
+    val partitionToEmpty = 1
+    val aProcessed = fullARDD.mapPartitionsWithIndex { case (idx, iter) =>
+      if (idx == partitionToEmpty) {
+        Iterator.empty
+      } else {
+        iter
+      }
+    }
+    val bProcessed = bRDD.mapPartitionsWithIndex { case (idx, iter) =>
+      if (idx == partitionToEmpty) {
+        Iterator.empty
+      } else {
+        iter
+      }
+    }
+
+    val wsq = new BlockWeightedLeastSquaresEstimator(blockSize, numIter, lambda,
+      mixtureWeight).fit(aProcessed, bProcessed)
+    // TODO: What can we test here ?
+    val finalFullModel = wsq.xs.reduceLeft { (a, b) =>
+      DenseMatrix.vertcat(a, b)
+    }
+
+    // norm(gradient) should be close to zero
+    val gradient = computeGradient(aProcessed, bProcessed, lambda, mixtureWeight, finalFullModel,
+      wsq.bOpt.get)
+
+    // TODO(shivaram): Gradient seems to be pretty-high here ?
+    // But we dropped an entire class ?
+    println("norm of gradient is " + norm(gradient.toDenseVector))
   }
 
   test("BlockWeighted solver solution should have zero gradient") {

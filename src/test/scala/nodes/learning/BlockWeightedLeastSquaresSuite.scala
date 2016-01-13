@@ -157,6 +157,32 @@ class BlockWeightedLeastSquaresSuite extends FunSuite with Logging with LocalSpa
     // Nothing to assert here ?
   }
 
+  test("BlockWeighted solver should work with nFeatures not divisible by blockSize") {
+    val blockSize = 5 // nFeatures is 12 here
+    val numIter = 10
+    val lambda = 0.1
+    val mixtureWeight = 0.3
+    val numParts = 3
+
+    sc = new SparkContext("local", "test")
+
+    val (fullARDD, bRDD) = loadMatrixRDDs("aMat.csv", "bMat.csv", numParts, sc)
+
+    val wsq = new BlockWeightedLeastSquaresEstimator(blockSize, numIter, lambda,
+      mixtureWeight).fit(fullARDD, bRDD)
+
+    val finalFullModel = wsq.xs.reduceLeft { (a, b) =>
+      DenseMatrix.vertcat(a, b)
+    }
+
+    // norm(gradient) should be close to zero
+    val gradient = computeGradient(fullARDD, bRDD, lambda, mixtureWeight, finalFullModel,
+      wsq.bOpt.get)
+
+    println("norm of gradient is " + norm(gradient.toDenseVector))
+    assert(Stats.aboutEq(norm(gradient.toDenseVector), 0, 1e-1))
+  }
+
   test("groupByClasses should work correctly") {
     val lambda = 0.1
     val mixtureWeight = 0.3

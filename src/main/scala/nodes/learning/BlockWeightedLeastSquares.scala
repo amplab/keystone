@@ -150,8 +150,7 @@ object BlockWeightedLeastSquaresEstimator extends Logging {
 
     // Initialize models to zero here. Each model is a (W, b)
     val models = trainingFeatures.map { block =>
-      // TODO: This assumes uniform block sizes. We should check the number of columns
-      // in each block to ensure safety.
+      // NOTE: We initialize this to blockSize but we adjust this in the first epoch of the solve.
       DenseMatrix.zeros[Double](blockSize, nClasses)
     }.toArray
 
@@ -196,7 +195,7 @@ object BlockWeightedLeastSquaresEstimator extends Logging {
             mean(mat(::, *)).toDenseVector * mixtureWeight + blockPopMean * (1.0 -
               mixtureWeight)
           }.cache().setName("jointMeans")
-          val blockJointMeans = DenseMatrix.zeros[Double](nClasses, blockSize)
+          val blockJointMeans = DenseMatrix.zeros[Double](nClasses, blockPopMean.length)
           val blockJointMeansData = blockJointMeansRDD.zip(classIdxs).collect()
           blockJointMeansData.foreach { x =>
             blockJointMeans(x._2, ::) := x._1.t
@@ -220,6 +219,10 @@ object BlockWeightedLeastSquaresEstimator extends Logging {
           val blockStat = blockStats(block).get 
           (blockStat.popCov, aTResidual / (nTrain.toDouble), blockStat.jointMeanRDD,
             blockStat.popMean)
+        }
+
+        if (pass == 0) {
+          models(block) = DenseMatrix.zeros[Double](popCov.rows, nClasses)
         }
 
         val popCovBC = sc.broadcast(popCov)

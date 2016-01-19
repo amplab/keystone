@@ -19,7 +19,7 @@ class LBFGSSuite extends FunSuite with LocalSparkContext with Logging {
     val Aary = A.rdd.flatMap(part => MatrixUtils.matrixToRowArray(part.mat).toIterator)
     val bary = b.rdd.flatMap(part => MatrixUtils.matrixToRowArray(part.mat).toIterator)
 
-    val mapper = new LBFGSwithL2(new LeastSquaresBatchGradient()).fit(Aary, bary)
+    val mapper = new DenseLBFGSwithL2(new LeastSquaresDenseGradient()).fit(Aary, bary)
 
     assert(Stats.aboutEq(mapper.x, x.t, 1e-6), "Coefficients from the solve must match the hand-created model.")
   }

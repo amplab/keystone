@@ -17,88 +17,39 @@
 
 package nodes.learning
 
-import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
-
 import breeze.linalg._
-import breeze.numerics._
-import breeze.math._
-import breeze.stats._
 import breeze.optimize.{CachedDiffFunction, DiffFunction, LBFGS => BreezeLBFGS}
-
 import edu.berkeley.cs.amplab.mlmatrix.util.{Utils => MLMatrixUtils}
-
+import nodes.stats.StandardScaler
+import org.apache.spark.mllib.feature.{StandardScaler => MLLibStandardScaler}
 import org.apache.spark.rdd.RDD
-
-import workflow.LabelEstimator
-import nodes.stats.{StandardScaler, StandardScalerModel}
 import pipelines.Logging
-import utils.{MatrixUtils, Stats}
+import utils.MLlibUtils._
+import workflow.LabelEstimator
 
-/**
- * :: DeveloperApi ::
- * Class used to solve an optimization problem using Limited-memory BFGS.
- * Reference: [[http://en.wikipedia.org/wiki/Limited-memory_BFGS]]
- * @param gradient Gradient function to be used.
- * @param numCorrections 3 < numCorrections < 10 is recommended.
- * @param convergenceTol convergence tolerance for L-BFGS
- * @param regParam L2 regularization
- * @param numIterations max number of iterations to run 
- */
-class LBFGSwithL2(
-  val gradient: BatchGradient,
-  val numCorrections: Int  = 10,
-  val convergenceTol: Double = 1e-4,
-  val numIterations: Int = 100,
-  val regParam: Double = 0.0)
-  extends LabelEstimator[DenseVector[Double], DenseVector[Double], DenseVector[Double]] {
-
-  def fit(data: RDD[DenseVector[Double]], labels: RDD[DenseVector[Double]]): LinearMapper = {
-    val featureScaler = new StandardScaler(normalizeStdDev = false).fit(data)
-    val labelScaler = new StandardScaler(normalizeStdDev = false).fit(labels)
-
-    val model = LBFGSwithL2.runLBFGS(
-      featureScaler.apply(data),
-      labelScaler.apply(labels),
-      gradient,
-      numCorrections,
-      convergenceTol,
-      numIterations,
-      regParam)
-    new LinearMapper(model, Some(labelScaler.mean), Some(featureScaler))
-  }
-
-}
+import scala.collection.mutable
 
 object LBFGSwithL2 extends Logging {
   /**
-   * Run Limited-memory BFGS (L-BFGS) in parallel.
-   * Averaging the subgradients over different partitions is performed using one standard
-   * spark map-reduce in each iteration.
-   */
-  def runLBFGS(
-    data: RDD[DenseVector[Double]],
-    labels: RDD[DenseVector[Double]],
-    gradient: BatchGradient,
-    numCorrections: Int,
-    convergenceTol: Double,
-    maxNumIterations: Int,
-    regParam: Double): DenseMatrix[Double] = {
+    * Run Limited-memory BFGS (L-BFGS) in parallel.
+    * Averaging the subgradients over different partitions is performed using one standard
+    * spark map-reduce in each iteration.
+    */
+  def runLBFGS[T <: Vector[Double]](
+                                     data: RDD[T],
+                                     labels: RDD[DenseVector[Double]],
+                                     gradient: Gradient[T],
+                                     numCorrections: Int,
+                                     convergenceTol: Double,
+                                     maxNumIterations: Int,
+                                     regParam: Double): DenseMatrix[Double] = {
 
     val lossHistory = mutable.ArrayBuilder.make[Double]
     val numExamples = data.count
     val numFeatures = data.first.length
     val numClasses = labels.first.length
 
-    val dataMat = data.mapPartitions { part =>
-      Iterator.single(MatrixUtils.rowsToMatrix(part))
-    }
-
-    val labelsMat = labels.mapPartitions { part =>
-      Iterator.single(MatrixUtils.rowsToMatrix(part))
-    }
-
-    val costFun = new CostFun(dataMat, labelsMat, gradient, regParam, numExamples, numFeatures,
+    val costFun = new CostFun(data, labels, gradient, regParam, numExamples, numFeatures,
       numClasses)
 
     val lbfgs = new BreezeLBFGS[DenseVector[Double]](maxNumIterations, numCorrections, convergenceTol)
@@ -109,9 +60,9 @@ object LBFGSwithL2 extends Logging {
       lbfgs.iterations(new CachedDiffFunction(costFun), initialWeights)
 
     /**
-     * NOTE: lossSum and loss is computed using the weights from the previous iteration
-     * and regVal is the regularization value computed in the previous iteration as well.
-     */
+      * NOTE: lossSum and loss is computed using the weights from the previous iteration
+      * and regVal is the regularization value computed in the previous iteration as well.
+      */
     var state = states.next()
     while (states.hasNext) {
       lossHistory += state.value
@@ -129,30 +80,37 @@ object LBFGSwithL2 extends Logging {
   }
 
   /**
-   * CostFun implements Breeze's DiffFunction[T], which returns the loss and gradient
-   * at a particular point (weights). It's used in Breeze's convex optimization routines.
-   */
-  private class CostFun(
-    dataMat: RDD[DenseMatrix[Double]],
-    labelsMat: RDD[DenseMatrix[Double]],
-    gradient: BatchGradient,
-    regParam: Double,
-    numExamples: Long,
-    numFeatures: Int,
-    numClasses: Int) extends DiffFunction[DenseVector[Double]] {
+    * CostFun implements Breeze's DiffFunction[T], which returns the loss and gradient
+    * at a particular point (weights). It's used in Breeze's convex optimization routines.
+    */
+  private class CostFun[T <: Vector[Double]](
+                                              data: RDD[T],
+                                              labels: RDD[DenseVector[Double]],
+                                              gradient: Gradient[T],
+                                              regParam: Double,
+                                              numExamples: Long,
+                                              numFeatures: Int,
+                                              numClasses: Int) extends DiffFunction[DenseVector[Double]] {
 
     override def calculate(weights: DenseVector[Double]): (Double, DenseVector[Double]) = {
       val weightsMat = weights.asDenseMatrix.reshape(numFeatures, numClasses)
       // Have a local copy to avoid the serialization of CostFun object which is not serializable.
-      val bcW = dataMat.context.broadcast(weightsMat)
+      val bcW = data.context.broadcast(weightsMat)
       val localGradient = gradient
+      val localNumFeatures = numFeatures
+      val localNumClasses = numClasses
 
-      val (gradientSum, lossSum) = MLMatrixUtils.treeReduce(dataMat.zip(labelsMat).map { x =>
-        localGradient.compute(x._1, x._2, bcW.value)
-      }, (a: (DenseMatrix[Double], Double), b: (DenseMatrix[Double], Double)) => {
-        a._1 += b._1
-        (a._1, a._2 + b._2)
+      val partitionGradientLosses = data.zipPartitions(labels) {
+        (partitionFeatures, partitionLabels) =>
+          Iterator.single(localGradient.compute(localNumFeatures, localNumClasses, partitionFeatures, partitionLabels, bcW.value))
       }
+
+      val (gradientSum, lossSum) = MLMatrixUtils.treeReduce(
+        partitionGradientLosses,
+        (a: (DenseMatrix[Double], Double), b: (DenseMatrix[Double], Double)) => {
+          a._1 += b._1
+          (a._1, a._2 + b._2)
+        }
       )
 
       // total loss = lossSum / nTrain + 1/2 * lambda * norm(W)^2
@@ -166,4 +124,102 @@ object LBFGSwithL2 extends Logging {
       (loss, gradientTotal.toDenseVector)
     }
   }
+}
+
+/**
+  * :: DeveloperApi ::
+  * Class used to solve an optimization problem using Limited-memory BFGS.
+  * Reference: [[http://en.wikipedia.org/wiki/Limited-memory_BFGS]]
+  * @param gradient Gradient function to be used.
+  * @param numCorrections 3 < numCorrections < 10 is recommended.
+  * @param convergenceTol convergence tolerance for L-BFGS
+  * @param regParam L2 regularization
+  * @param numIterations max number of iterations to run
+  */
+class DenseLBFGSwithL2(
+    val gradient: Gradient.DenseGradient,
+    val numCorrections: Int  = 10,
+    val convergenceTol: Double = 1e-4,
+    val numIterations: Int = 100,
+    val regParam: Double = 0.0)
+  extends LabelEstimator[DenseVector[Double], DenseVector[Double], DenseVector[Double]] {
+
+  def fit(data: RDD[DenseVector[Double]], labels: RDD[DenseVector[Double]]): LinearMapper = {
+    val featureScaler = new StandardScaler(normalizeStdDev = false).fit(data)
+    val labelScaler = new StandardScaler(normalizeStdDev = false).fit(labels)
+
+    val model = LBFGSwithL2.runLBFGS(
+      featureScaler.apply(data),
+      labelScaler.apply(labels),
+      gradient,
+      numCorrections,
+      convergenceTol,
+      numIterations,
+      regParam)
+    new LinearMapper(model, Some(labelScaler.mean), Some(featureScaler))
+  }
+}
+
+/**
+  * :: DeveloperApi ::
+  * Class used to solve an optimization problem using Limited-memory BFGS.
+  * Reference: [[http://en.wikipedia.org/wiki/Limited-memory_BFGS]]
+  * @param gradient Gradient function to be used.
+  * @param numCorrections 3 < numCorrections < 10 is recommended.
+  * @param convergenceTol convergence tolerance for L-BFGS
+  * @param regParam L2 regularization
+  * @param numIterations max number of iterations to run
+  */
+class SparseLBFGSwithL2(
+                         val gradient: Gradient.SparseGradient,
+                         val normalizeStdDev: Boolean,
+                         val numClasses: Int,
+                         val numCorrections: Int  = 10,
+                         val convergenceTol: Double = 1e-4,
+                         val numIterations: Int = 100,
+                         val regParam: Double = 0.0)
+  extends LabelEstimator[SparseVector[Double], DenseVector[Double], Int] {
+
+  def fit(data: RDD[SparseVector[Double]], labels: RDD[Int]): SparseLinearMapper = {
+
+    val dataVec = if (!normalizeStdDev) {
+      data
+    } else {
+      val scaler = new MLLibStandardScaler(withStd = true, withMean = false).fit(data.map(x =>
+        breezeVectorToMLlib(x)))
+      data.map { vec =>
+        val scaled = scaler.transform(
+          breezeVectorToMLlib(vec)).asInstanceOf[org.apache.spark.mllib.linalg.SparseVector]
+        new SparseVector[Double](scaled.indices, scaled.values, scaled.size)
+      }
+    }
+
+    // Convert labels to +1, -1
+    val labelsVec = if (numClasses == 2) {
+      labels.map { x =>
+        val out = DenseVector.ones[Double](1)
+        out(0) = 2.0*x - 1.0
+        out
+      }
+    } else {
+      labels.map { x =>
+        assert(x < numClasses)
+        val out = DenseVector.fill[Double](numClasses, -1.0)
+        out(x) = 1.0
+        out
+      }
+    }
+
+    val model = LBFGSwithL2.runLBFGS(
+      dataVec,
+      labelsVec,
+      gradient,
+      numCorrections,
+      convergenceTol,
+      numIterations,
+      regParam)
+
+    new SparseLinearMapper(model, None)
+  }
+
 }

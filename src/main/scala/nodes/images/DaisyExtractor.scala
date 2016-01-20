@@ -187,7 +187,7 @@ class DaisyExtractor(
       }
       x += 1
     }
-    out
+    out.t //Note: to match SIFT, the output should be daisyFeatureSize x num-descriptors.
   }
 
   def normalize(x: DenseVector[Double]): DenseVector[Double] = {

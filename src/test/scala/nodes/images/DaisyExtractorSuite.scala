@@ -14,7 +14,7 @@ class DaisyExtractorSuite extends FunSuite with Logging {
     val df = new DaisyExtractor()
     val daisyDescriptors = convert(df.apply(grayImage), Double)
 
-    val firstKeyPointSum = sum(daisyDescriptors(0, ::))
+    val firstKeyPointSum = sum(daisyDescriptors(::, 0))
     val fullFeatureSum = sum(daisyDescriptors)
 
     // Values found from running matlab code on same input file.

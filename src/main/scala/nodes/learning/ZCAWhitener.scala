@@ -22,6 +22,9 @@ class ZCAWhitener(val whitener: DenseMatrix[Double], val means: DenseVector[Doub
   * The "Z" in ZCA Whitening means that the solution will be as close to the original dataset as possible while having
   * this identity covariance property.
   *
+  * See here for more details:
+  * http://ufldl.stanford.edu/wiki/index.php/Whitening
+  *
   * @param eps Regularization Parameter
   */
 class ZCAWhitenerEstimator(val eps: Double = 0.1)

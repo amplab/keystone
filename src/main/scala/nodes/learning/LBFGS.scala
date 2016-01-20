@@ -24,6 +24,7 @@ import nodes.stats.StandardScaler
 import org.apache.spark.mllib.feature.{StandardScaler => MLLibStandardScaler}
 import org.apache.spark.rdd.RDD
 import pipelines.Logging
+import utils.MLlibUtils
 import utils.MLlibUtils._
 import workflow.LabelEstimator
 
@@ -36,13 +37,13 @@ object LBFGSwithL2 extends Logging {
     * spark map-reduce in each iteration.
     */
   def runLBFGS[T <: Vector[Double]](
-                                     data: RDD[T],
-                                     labels: RDD[DenseVector[Double]],
-                                     gradient: Gradient[T],
-                                     numCorrections: Int,
-                                     convergenceTol: Double,
-                                     maxNumIterations: Int,
-                                     regParam: Double): DenseMatrix[Double] = {
+      data: RDD[T],
+      labels: RDD[DenseVector[Double]],
+      gradient: Gradient[T],
+      numCorrections: Int,
+      convergenceTol: Double,
+      maxNumIterations: Int,
+      regParam: Double): DenseMatrix[Double] = {
 
     val lossHistory = mutable.ArrayBuilder.make[Double]
     val numExamples = data.count
@@ -84,13 +85,13 @@ object LBFGSwithL2 extends Logging {
     * at a particular point (weights). It's used in Breeze's convex optimization routines.
     */
   private class CostFun[T <: Vector[Double]](
-                                              data: RDD[T],
-                                              labels: RDD[DenseVector[Double]],
-                                              gradient: Gradient[T],
-                                              regParam: Double,
-                                              numExamples: Long,
-                                              numFeatures: Int,
-                                              numClasses: Int) extends DiffFunction[DenseVector[Double]] {
+      data: RDD[T],
+      labels: RDD[DenseVector[Double]],
+      gradient: Gradient[T],
+      regParam: Double,
+      numExamples: Long,
+      numFeatures: Int,
+      numClasses: Int) extends DiffFunction[DenseVector[Double]] {
 
     override def calculate(weights: DenseVector[Double]): (Double, DenseVector[Double]) = {
       val weightsMat = weights.asDenseMatrix.reshape(numFeatures, numClasses)
@@ -138,7 +139,7 @@ object LBFGSwithL2 extends Logging {
   */
 class DenseLBFGSwithL2(
     val gradient: Gradient.DenseGradient,
-    val numCorrections: Int  = 10,
+    val numCorrections: Int = 10,
     val convergenceTol: Double = 1e-4,
     val numIterations: Int = 100,
     val regParam: Double = 0.0)
@@ -171,55 +172,49 @@ class DenseLBFGSwithL2(
   * @param numIterations max number of iterations to run
   */
 class SparseLBFGSwithL2(
-                         val gradient: Gradient.SparseGradient,
-                         val normalizeStdDev: Boolean,
-                         val numClasses: Int,
-                         val numCorrections: Int  = 10,
-                         val convergenceTol: Double = 1e-4,
-                         val numIterations: Int = 100,
-                         val regParam: Double = 0.0)
-  extends LabelEstimator[SparseVector[Double], DenseVector[Double], Int] {
+    val gradient: Gradient.SparseGradient,
+    val normalizeStdDev: Boolean = false,
+    val numCorrections: Int = 10,
+    val convergenceTol: Double = 1e-4,
+    val numIterations: Int = 100,
+    val regParam: Double = 0.0)
+  extends LabelEstimator[SparseVector[Double], DenseVector[Double], DenseVector[Double]] {
 
-  def fit(data: RDD[SparseVector[Double]], labels: RDD[Int]): SparseLinearMapper = {
+  def fit(data: RDD[SparseVector[Double]], labels: RDD[DenseVector[Double]]): SparseLinearMapper = {
 
-    val dataVec = if (!normalizeStdDev) {
-      data
+    if (!normalizeStdDev) {
+      val model = LBFGSwithL2.runLBFGS(
+        data,
+        labels,
+        gradient,
+        numCorrections,
+        convergenceTol,
+        numIterations,
+        regParam)
+
+      new SparseLinearMapper(model, None)
+
     } else {
       val scaler = new MLLibStandardScaler(withStd = true, withMean = false).fit(data.map(x =>
         breezeVectorToMLlib(x)))
-      data.map { vec =>
+      val dataVec = data.map { vec =>
         val scaled = scaler.transform(
           breezeVectorToMLlib(vec)).asInstanceOf[org.apache.spark.mllib.linalg.SparseVector]
         new SparseVector[Double](scaled.indices, scaled.values, scaled.size)
       }
+
+      val model = LBFGSwithL2.runLBFGS(
+        dataVec,
+        labels,
+        gradient,
+        numCorrections,
+        convergenceTol,
+        numIterations,
+        regParam)
+
+      val stdDev = MLlibUtils.mllibVectorToDenseBreeze(scaler.std)
+      val scaledModel = model(::, *) :/ stdDev
+      new SparseLinearMapper(scaledModel, None)
     }
-
-    // Convert labels to +1, -1
-    val labelsVec = if (numClasses == 2) {
-      labels.map { x =>
-        val out = DenseVector.ones[Double](1)
-        out(0) = 2.0*x - 1.0
-        out
-      }
-    } else {
-      labels.map { x =>
-        assert(x < numClasses)
-        val out = DenseVector.fill[Double](numClasses, -1.0)
-        out(x) = 1.0
-        out
-      }
-    }
-
-    val model = LBFGSwithL2.runLBFGS(
-      dataVec,
-      labelsVec,
-      gradient,
-      numCorrections,
-      convergenceTol,
-      numIterations,
-      regParam)
-
-    new SparseLinearMapper(model, None)
   }
-
 }

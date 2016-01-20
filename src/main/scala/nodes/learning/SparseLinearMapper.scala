@@ -39,21 +39,11 @@ case class SparseLinearMapper(
    */
   def apply(in: SparseVector[Double]): DenseVector[Double] = {
     val out = x.t * in
-    val bout = bOpt.map { b =>
+    bOpt.foreach { b =>
       out :+= b
-    }.getOrElse(out)
-
-    if (bout.length == 1) {
-      val boutEx = (DenseVector.ones[Double](2) * -1.0)
-      if (bout(0) > 0) {
-        boutEx(1) = 1.0
-      } else {
-        boutEx(0) = 1.0
-      }
-      boutEx
-    } else {
-      out
     }
+
+    out
   }
 
   /**
@@ -67,21 +57,11 @@ case class SparseLinearMapper(
     val bBroadcast = in.context.broadcast(bOpt)
     in.map(row => {
       val out = modelBroadcast.value.t * row
-      val bout = bOpt.map { b =>
+      bBroadcast.value.foreach { b =>
         out :+= b
-      }.getOrElse(out)
-
-      if (bout.length == 1) {
-        val boutEx = (DenseVector.ones[Double](2) * -1.0)
-        if (bout(0) > 0) {
-          boutEx(1) = 1.0
-        } else {
-          boutEx(0) = 1.0
-        }
-        boutEx
-      } else {
-        out
       }
+
+      out
     })
   }
 }

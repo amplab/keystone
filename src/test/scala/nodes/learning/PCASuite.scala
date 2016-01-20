@@ -78,11 +78,11 @@ class PCATransformerSuite extends FunSuite with LocalSparkContext with Logging {
       x <- 0 until dimRed;
       y <- 0 until dimRed if x != y
     ) {
-      assert(Stats.aboutEq(redCov(x,y), 0.0, 1e-6), s"PCA Matrix should be 0 off-diagonal. $x,$y = ${redCov(x,y)}")
+      assert(Stats.aboutEq(redCov(x,y), 0.0, 1e-4), s"PCA Matrix should be 0 off-diagonal. $x,$y = ${redCov(x,y)}")
     }
   }
 
-  test("Distributed PCA Estimation should match local one") {
+  test("Covariance Matrix of Distributed PCA should match local one") {
     sc = new SparkContext("local", "test")
 
     val matRows = 1000
@@ -94,20 +94,77 @@ class PCATransformerSuite extends FunSuite with LocalSparkContext with Logging {
     val randMatrix = new DenseMatrix(matRows, matCols, gau.sample(matRows*matCols).toArray)
 
     // Parallelize and estimate the PCA.
-    val data = sc.parallelize(MatrixUtils.matrixToRowArray(randMatrix).map(x => convert(x, Float)))
+    val data = sc.parallelize(MatrixUtils.matrixToRowArray(randMatrix).map(x => convert(x, Float)), 4)
 
     val pcaDist = new DistributedPCAEstimator(dimRed).fit(data)
     val pcaLocal = new PCAEstimator(dimRed).fit(data)
 
+
     assert(Stats.aboutEq(convert(pcaDist.pcaMat, Double), convert(pcaLocal.pcaMat, Double), 1e-4))
   }
 
-  test("Approximate PCA Estimation should match local one") {
+  /**
+    * Generates a noisy low-rank matrix.
+    *
+    * Result is A*B + E,
+    *
+    * Where
+    * A is Gaussian(0,1) \in R^{n \times k}
+    * B is Gaussian(0,1) \in R^{k \times d}
+    * E is Gaussian(0,eps) in R^{n \times d}
+    *
+    * @param n Number of rows.
+    * @param d Number of columns.
+    * @param k Rank of factors.
+    * @param eps Variance of the Gaussian noise.
+    * @return A noisy low-rank matrix.
+    */
+  def lowRank(n: Int, d: Int, k: Int, eps: Double = 1e-4): DenseMatrix[Double] = {
+    val gau = new Gaussian(0.0, 1.0)
+
+    val leftPart = new DenseMatrix(n, k, gau.sample(n*k).toArray)
+    val rightPart = new DenseMatrix(k, d, gau.sample(k*d).toArray)
+
+    val noisyGau = new Gaussian(0.0, eps)
+    val noise = new DenseMatrix(n, d, noisyGau.sample(n*d).toArray)
+
+    leftPart*rightPart + noise
+  }
+
+  test("Sketch algorithm should produce a valid sketch of the matrix") {
+    val matRows = 200
+    val matCols = 100
+    val dimRed = 10
+
+    // Generate a random Gaussian matrix.
+    //val gau = new Gaussian(0.0, 1.0)
+    //val randMatrix = lowRank(matRows, matCols, dimRed)
+    val gau = new Gaussian(0.0, 1.0)
+    val randMatrix = new DenseMatrix(matRows, matCols, gau.sample(matRows*matCols).toArray)
+
+    // This mimic's matlab's matrix norm (returns the maximum svd of a matrix).
+    def norm(x: DenseMatrix[Double]): Double = max(svd(x).S)
+
+    for (
+      p <- 5 to 10;
+      k <- List(1, 5, 10, 20);
+      q <- 1 to 20
+    ) {
+      val Q = ApproximatePCAEstimator.approximateQ(randMatrix, k+p, q)
+      val eps = norm(randMatrix - Q*Q.t*randMatrix)
+
+      //From 1.9 of HMT2011
+      assert(eps < (1+9*math.sqrt(k+p)*math.min(matRows,matCols))*svd(randMatrix).S(k))
+    }
+
+  }
+
+  test("Singular values of low-rank projection should be similar regardless of method used.") {
     sc = new SparkContext("local", "test")
 
-    val matRows = 10000
+    val matRows = 200
     val matCols = 100
-    val dimRed = 5
+    val dimRed = 10
 
     // Generate a random Gaussian matrix.
     val gau = new Gaussian(0.0, 1.0)
@@ -116,14 +173,58 @@ class PCATransformerSuite extends FunSuite with LocalSparkContext with Logging {
     // Parallelize and estimate the PCA.
     val data = sc.parallelize(MatrixUtils.matrixToRowArray(randMatrix).map(x => convert(x, Float)))
 
-    val pcaApprox = new ApproximatePCAEstimator(dimRed, q = 500).fit(data)
+    val pcaApprox = new ApproximatePCAEstimator(dimRed, q = 10).fit(data)
     val pcaLocal = new PCAEstimator(dimRed).fit(data)
 
-    val meanAbsError = mean(abs(pcaLocal.pcaMat - pcaApprox.pcaMat))
-    val meanAbsLocal = mean(abs(pcaLocal.pcaMat))
+    val approxDimred = pcaApprox.apply(data)
+    val dimred = pcaLocal.apply(data)
 
-    // The matrices should be sufficiently similar
-    assert(Stats.aboutEq(meanAbsError / meanAbsLocal, 0, 0.05))
+    val approxDimredMat = MatrixUtils.rowsToMatrix(approxDimred.collect)
+    val dimredMat = MatrixUtils.rowsToMatrix(dimred.collect)
+
+
+    val approxSingularValues = svd(approxDimredMat).S
+    val exactSingularValues = svd(dimredMat).S
+
+    logDebug(s"Singular values of approx: $approxSingularValues")
+    logDebug(s"Singular values of exact: $exactSingularValues")
+
+    def mre(approx: DenseVector[Float], base: DenseVector[Float]): Float = mean(abs(approx-base)/abs(base))
+
+    //These should be off by less than one percent.
+    logDebug(s"mre: ${mre(approxSingularValues, exactSingularValues)}")
+    assert(mre(approxSingularValues, exactSingularValues) < 0.05)
   }
 
+  test("Approximate PCA application should result in a matrix that's basically diagonal covariance.") {
+    sc = new SparkContext("local", "test")
+
+    val matRows = 200
+    val matCols = 100
+    val dimRed = 10
+
+    // Generate a random Gaussian matrix.
+    val gau = new Gaussian(0.0, 1.0)
+    val randMatrix = new DenseMatrix(matRows, matCols, gau.sample(matRows*matCols).toArray)
+
+    // Parallelize and estimate the PCA.
+    val data = sc.parallelize(MatrixUtils.matrixToRowArray(randMatrix).map(x => convert(x, Float)))
+
+    val pcaApprox = new ApproximatePCAEstimator(dimRed, q = 10).fit(data)
+    val pcaLocal = new PCAEstimator(dimRed).fit(data)
+
+    val approxDimred = pcaApprox.apply(data)
+    val dimred = pcaLocal.apply(data)
+
+    val approxDimredMat = MatrixUtils.rowsToMatrix(approxDimred.collect)
+    val dimredMat = MatrixUtils.rowsToMatrix(dimred.collect)
+
+    val cadm = cov(convert(approxDimredMat, Double))
+    val offDiagCadm = cadm - (DenseMatrix.eye[Double](cadm.rows) :* cadm)
+
+    logDebug(s"offDiagCadm: $offDiagCadm")
+    logDebug(s"maximum off-diagonal covariance ${max(offDiagCadm)}")
+
+    assert(Stats.aboutEq(offDiagCadm, DenseMatrix.zeros[Double](cadm.rows, cadm.rows), 0.1))
+  }
 }

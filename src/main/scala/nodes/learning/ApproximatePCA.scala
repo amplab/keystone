@@ -21,8 +21,7 @@ class ApproximatePCAEstimator(dims: Int, q: Int = 10, p: Int = 5)
     extends Estimator[DenseVector[Float], DenseVector[Float]] with Logging {
 
   /**
-   * Adapted from the "PCA2" matlab code given in appendix B of this paper:
-   *    https://www.cs.princeton.edu/picasso/mats/PCA-Tutorial-Intuition_jp.pdf
+   * Computes the PCA using a sketch-based algorithm.
    *
    * @param samples A sample of features to be reduced. Often O(1e6). Logically row-major.
    * @return A PCA Matrix which will perform dimensionality reduction when applied to a data matrix.
@@ -38,9 +37,34 @@ class ApproximatePCAEstimator(dims: Int, q: Int = 10, p: Int = 5)
     //According to sections 9.3 and  9.4 of the same, Ming Gu argues for exponentially fast convergence.
 
     val A = convert(data, Double)
+
+    val Q = ApproximatePCAEstimator.approximateQ(A, k+p, q)
+
+    val B = Q.t * A //cpu: l*n*d, mem: l*d
+    val usvt = svd.reduced(B) //cpu: l*d^2, mem: l*d
+    val pca = convert(usvt.Vt.t, Float)
+    logInfo(s"shape of pca (${pca.rows},${pca.cols}")
+
+    val matlabConventionPCA = PCAEstimator.enforceMatlabPCASignConvention(pca)
+
+    // Return a subset of the columns.
+    matlabConventionPCA(::, 0 until k)
+  }
+}
+
+
+object ApproximatePCAEstimator {
+  /**
+   * This corresponds to algorithm 4.4 of HMT2011.
+   *
+   * @param A Data matrix to sketch.
+   * @param l Number of components in the sketch.
+   * @param q Number of iterations to use in the computation.
+   * @return An n x (k+p) matrix that approximates A
+   */
+  def approximateQ(A: DenseMatrix[Double], l: Int, q: Int): DenseMatrix[Double] = {
     val d = A.cols
 
-    val l = k + p
     val omega = new DenseMatrix(d, l, randn(d*l).toArray) //cpu: d*l, mem: d*l
     val y0 = A*omega //cpu: n*d*l, mem: n*l
 
@@ -54,14 +78,6 @@ class ApproximatePCAEstimator(dims: Int, q: Int = 10, p: Int = 5)
       Q = QRUtils.qrQR(Yj)._1 //cpu:  n*l^2, mem: n*l
     }
 
-    val B = Q.t * A //cpu: l*n*d, mem: l*d
-    val usvt = svd.reduced(B) //cpu: l*d^2, mem: l*d
-    val pca = convert(usvt.Vt.t, Float)
-    logInfo(s"shape of pca (${pca.rows},${pca.cols}")
-
-    val matlabConventionPCA = PCAEstimator.enforceMatlabPCASignConvention(pca)
-
-    // Return a subset of the columns.
-    matlabConventionPCA(::, 0 until k)
+    Q
   }
 }

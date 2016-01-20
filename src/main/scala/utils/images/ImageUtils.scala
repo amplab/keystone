@@ -116,6 +116,52 @@ object ImageUtils extends Logging {
   }
 
   /**
+   * Crop an input image to the given bounding box described by
+   * (startX, startY, endX, endY).
+   *
+   * @param in image to crop
+   * @param startX x-position (inclusive) to describe upper left corner of BB
+   * @param startY y-position (inclusive) to describe upper left corner of BB
+   * @param endX x-position (exclusive) to describe lower right corner of BB
+   * @param endY y-position (exclusive) to describe lower right corner of BB
+   * @return new image of size (endX - startX, endY - startY)
+   */
+  def crop(im: Image, startX: Int, startY: Int, endX: Int, endY: Int): Image = {
+    val xDim = im.metadata.xDim
+    val yDim = im.metadata.yDim
+    val nChannels = im.metadata.numChannels
+
+    if (startX < 0 || startX > xDim || endX < 0 || endX > xDim)
+      throw new IllegalArgumentException("invalid x coordiate given")
+    if (startY < 0 || startY > yDim || endY < 0 || endY > yDim)
+      throw new IllegalArgumentException("invalid y coordinate given")
+    if (startX > endX || startY > endY)
+      throw new IllegalArgumentException("startX > endX or startY > endY encountered")
+
+    val newXDim = endX - startX
+    val newYDim = endY - startY
+
+    val out = new Array[Double](newXDim * newYDim * nChannels)
+
+    var c = 0
+    while (c < nChannels) {
+      var s = startX
+      while (s < endX) {
+        var b = startY
+        while (b < endY) {
+          out(c + (s-startX)*nChannels +
+            (b-startY)*(endX-startX)*nChannels) = im.get(s, b, c)
+          b = b + 1
+        }
+        s = s + 1
+      }
+      c = c + 1
+    }
+
+    new ChannelMajorArrayVectorizedImage(out, ImageMetadata(newXDim, newYDim, nChannels))
+  }
+
+  /**
    * Combine two images applying a function on corresponding pixels.
    * Requires both images to be of the same size
    *
@@ -295,7 +341,7 @@ object ImageUtils extends Logging {
         }
         x = x + 1
       }
-      out(c) = a 
+      out(c) = a
       c = c + 1
     }
     out

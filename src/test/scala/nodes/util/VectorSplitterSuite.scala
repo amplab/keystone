@@ -31,8 +31,6 @@ class VectorSplitterSuite extends FunSuite {
       val sp = new VectorSplitter(bs, feats)
       val vec = rand(bs*mul + off)
 
-      val expectedSplits = (bs*mul + off) / bs + (if ((bs*mul+off) % bs == 0) 0 else 1)
-
       assert(DenseVector.vertcat(sp.splitVector(vec):_*) === vec,
         s"Recombinded split vector of length ${bs*mul + off} with block size $bs did not match its input")
     }

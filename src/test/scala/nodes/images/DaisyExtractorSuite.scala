@@ -1,6 +1,7 @@
 package nodes.images
 
 import breeze.linalg._
+import nodes.images.external.SIFTExtractor
 import org.scalatest.FunSuite
 
 import pipelines.Logging
@@ -14,7 +15,7 @@ class DaisyExtractorSuite extends FunSuite with Logging {
     val df = new DaisyExtractor()
     val daisyDescriptors = convert(df.apply(grayImage), Double)
 
-    val firstKeyPointSum = sum(daisyDescriptors(0, ::))
+    val firstKeyPointSum = sum(daisyDescriptors(::, 0))
     val fullFeatureSum = sum(daisyDescriptors)
 
     // Values found from running matlab code on same input file.
@@ -27,5 +28,19 @@ class DaisyExtractorSuite extends FunSuite with Logging {
       "First keypoint sum must match for Daisy")
     assert(Stats.aboutEq((fullFeatureSum - matlabFullFeatureSum)/matlabFullFeatureSum, 0, 1e-7),
       "Sum of Daisys must match expected sum")
+  }
+
+  test("Daisy and SIFT extractors should have same row/column ordering.") {
+    val testImage = TestUtils.loadTestImage("images/gantrycrane.png")
+    val grayImage = ImageUtils.toGrayScale(testImage)
+
+    val df = new DaisyExtractor()
+    val daisyDescriptors = convert(df.apply(grayImage), Double)
+
+    val se = SIFTExtractor(scaleStep = 2)
+    val siftDescriptors = se.apply(grayImage)
+
+    assert(daisyDescriptors.rows == df.daisyFeatureSize && siftDescriptors.rows == se.descriptorSize)
+
   }
 }

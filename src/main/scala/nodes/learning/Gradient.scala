@@ -5,8 +5,8 @@ import nodes.learning.Gradient.{SparseGradient, DenseGradient}
 import utils.MatrixUtils
 
 /**
-  * Created by tomerk11 on 1/19/16.
-  */
+ * Computes a gradient given vectors as data, labels, and model weights
+ */
 trait Gradient[T <: Vector[Double]] extends Serializable {
 
   def compute(
@@ -23,6 +23,9 @@ object Gradient {
   type SparseGradient = Gradient[SparseVector[Double]]
 }
 
+/**
+ * Computes a Least Squares loss gradient given [[DenseVector]]s as data
+ */
 class LeastSquaresDenseGradient extends DenseGradient {
 
   def compute(
@@ -49,6 +52,9 @@ class LeastSquaresDenseGradient extends DenseGradient {
   }
 }
 
+/**
+ * Computes a Least Squares loss gradient given [[SparseVector]]s as data
+ */
 class LeastSquaresSparseGradient extends SparseGradient {
   override def compute(
     numFeatures: Int,

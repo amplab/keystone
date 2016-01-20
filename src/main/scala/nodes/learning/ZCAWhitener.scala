@@ -17,7 +17,14 @@ class ZCAWhitener(val whitener: DenseMatrix[Double], val means: DenseVector[Doub
   }
 }
 
-class ZCAWhitenerEstimator(val eps: Double = 1e-12)
+/**
+  * Computes a ZCA Whitener, which is intended to rotate an input dataset to identity covariance.
+  * The "Z" in ZCA Whitening means that the solution will be as close to the original dataset as possible while having
+  * this identity covariance property.
+  *
+  * @param eps Regularization Parameter
+  */
+class ZCAWhitenerEstimator(val eps: Double = 0.1)
   extends Estimator[DenseMatrix[Double],DenseMatrix[Double]] {
 
   def fit(in: RDD[DenseMatrix[Double]]): ZCAWhitener = {

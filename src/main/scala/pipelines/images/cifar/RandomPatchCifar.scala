@@ -38,7 +38,7 @@ object RandomPatchCifar extends Serializable with Logging {
     val (filters, whitener): (DenseMatrix[Double], ZCAWhitener) = {
         val baseFilters = patchExtractor(trainImages)
         val baseFilterMat = Stats.normalizeRows(MatrixUtils.rowsToMatrix(baseFilters), 10.0)
-        val whitener = new ZCAWhitenerEstimator().fitSingle(baseFilterMat)
+        val whitener = new ZCAWhitenerEstimator(eps=conf.whiteningEpsilon).fitSingle(baseFilterMat)
 
         //Normalize them.
         val sampleFilters = MatrixUtils.sampleRows(baseFilterMat, conf.numFilters)
@@ -89,6 +89,7 @@ object RandomPatchCifar extends Serializable with Logging {
       trainLocation: String = "",
       testLocation: String = "",
       numFilters: Int = 100,
+      whiteningEpsilon: Double = 0.1,
       patchSize: Int = 6,
       patchSteps: Int = 1,
       poolSize: Int = 14,
@@ -102,6 +103,7 @@ object RandomPatchCifar extends Serializable with Logging {
     help("help") text("prints this usage text")
     opt[String]("trainLocation") required() action { (x,c) => c.copy(trainLocation=x) }
     opt[String]("testLocation") required() action { (x,c) => c.copy(testLocation=x) }
+    opt[Double]("whiteningEpsilon") required() action { (x,c) => c.copy(whiteningEpsilon=x) }
     opt[Int]("numFilters") action { (x,c) => c.copy(numFilters=x) }
     opt[Int]("patchSize") action { (x,c) => c.copy(patchSize=x) }
     opt[Int]("patchSteps") action { (x,c) => c.copy(patchSteps=x) }

@@ -119,9 +119,9 @@ private[workflow] class ConcretePipeline[A, B](
     }
   }
 
-  override def apply(in: A): B = apply(in, Some(Optimizer))
+  override def apply(in: A): B = apply(in, Some(DefaultOptimizer))
 
-  override def apply(in: RDD[A]): RDD[B] = apply(in, Some(Optimizer))
+  override def apply(in: RDD[A]): RDD[B] = apply(in, Some(DefaultOptimizer))
 
   def apply(in: A, optimizer: Option[RuleExecutor]): B = {
     optimizer match {

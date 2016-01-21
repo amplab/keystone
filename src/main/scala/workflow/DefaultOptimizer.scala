@@ -3,7 +3,7 @@ package workflow
 /**
  * Optimizes a Pipeline DAG
  */
-object Optimizer extends RuleExecutor {
+object DefaultOptimizer extends Optimizer {
   protected val batches: Seq[Batch] = Batch("DAG Optimization", FixedPoint(100), EquivalentNodeMerger) :: Nil
 }
 

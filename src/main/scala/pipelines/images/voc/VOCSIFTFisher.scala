@@ -14,7 +14,7 @@ import nodes.util.{Cacher, ClassLabelIndicatorsFromIntArrayLabels, FloatToDouble
 import org.apache.spark.{SparkConf, SparkContext}
 import pipelines.Logging
 import scopt.OptionParser
-import workflow.Optimizer
+import workflow.DefaultOptimizer
 
 object VOCSIFTFisher extends Serializable with Logging {
   val appName = "VOCSIFTFisher"

@@ -21,11 +21,8 @@ import breeze.linalg._
 import breeze.optimize.{CachedDiffFunction, DiffFunction, LBFGS => BreezeLBFGS}
 import edu.berkeley.cs.amplab.mlmatrix.util.{Utils => MLMatrixUtils}
 import nodes.stats.StandardScaler
-import org.apache.spark.mllib.feature.{StandardScaler => MLLibStandardScaler}
 import org.apache.spark.rdd.RDD
 import pipelines.Logging
-import utils.MLlibUtils
-import utils.MLlibUtils._
 import workflow.LabelEstimator
 
 import scala.collection.mutable
@@ -43,7 +40,8 @@ object LBFGSwithL2 extends Logging {
       numCorrections: Int,
       convergenceTol: Double,
       maxNumIterations: Int,
-      regParam: Double): DenseMatrix[Double] = {
+      regParam: Double,
+      weightsIncludeBias: Boolean = false): DenseMatrix[Double] = {
 
     val lossHistory = mutable.ArrayBuilder.make[Double]
     val numExamples = data.count
@@ -91,7 +89,8 @@ object LBFGSwithL2 extends Logging {
       regParam: Double,
       numExamples: Long,
       numFeatures: Int,
-      numClasses: Int) extends DiffFunction[DenseVector[Double]] {
+      numClasses: Int,
+      weightsIncludeBias: Boolean = false) extends DiffFunction[DenseVector[Double]] {
 
     override def calculate(weights: DenseVector[Double]): (Double, DenseVector[Double]) = {
       val weightsMat = weights.asDenseMatrix.reshape(numFeatures, numClasses)
@@ -115,7 +114,11 @@ object LBFGSwithL2 extends Logging {
       )
 
       // total loss = lossSum / nTrain + 1/2 * lambda * norm(W)^2
-      val normWSquared = math.pow(norm(weights), 2)
+      val normWSquared = if (weightsIncludeBias) {
+        math.pow(norm(weights(0 until (weights.length - 1))), 2)
+      } else {
+        math.pow(norm(weights), 2)
+      }
       val regVal = 0.5 * regParam * normWSquared
       val loss = lossSum / numExamples + regVal
 
@@ -132,6 +135,7 @@ object LBFGSwithL2 extends Logging {
   * Class used to solve an optimization problem using Limited-memory BFGS.
   * Reference: [[http://en.wikipedia.org/wiki/Limited-memory_BFGS]]
   * @param gradient Gradient function to be used.
+  * @param fitIntercept Whether to fit the intercepts or not.
   * @param numCorrections 3 < numCorrections < 10 is recommended.
   * @param convergenceTol convergence tolerance for L-BFGS
   * @param regParam L2 regularization
@@ -139,6 +143,7 @@ object LBFGSwithL2 extends Logging {
   */
 class DenseLBFGSwithL2(
     val gradient: Gradient.DenseGradient,
+    val fitIntercept: Boolean = true,
     val numCorrections: Int = 10,
     val convergenceTol: Double = 1e-4,
     val numIterations: Int = 100,
@@ -146,18 +151,30 @@ class DenseLBFGSwithL2(
   extends LabelEstimator[DenseVector[Double], DenseVector[Double], DenseVector[Double]] {
 
   def fit(data: RDD[DenseVector[Double]], labels: RDD[DenseVector[Double]]): LinearMapper = {
-    val featureScaler = new StandardScaler(normalizeStdDev = false).fit(data)
-    val labelScaler = new StandardScaler(normalizeStdDev = false).fit(labels)
+    if (fitIntercept) {
+      val featureScaler = new StandardScaler(normalizeStdDev = false).fit(data)
+      val labelScaler = new StandardScaler(normalizeStdDev = false).fit(labels)
 
-    val model = LBFGSwithL2.runLBFGS(
-      featureScaler.apply(data),
-      labelScaler.apply(labels),
-      gradient,
-      numCorrections,
-      convergenceTol,
-      numIterations,
-      regParam)
-    new LinearMapper(model, Some(labelScaler.mean), Some(featureScaler))
+      val model = LBFGSwithL2.runLBFGS(
+        featureScaler.apply(data),
+        labelScaler.apply(labels),
+        gradient,
+        numCorrections,
+        convergenceTol,
+        numIterations,
+        regParam)
+      new LinearMapper(model, Some(labelScaler.mean), Some(featureScaler))
+    } else {
+      val model = LBFGSwithL2.runLBFGS(
+        data,
+        labels,
+        gradient,
+        numCorrections,
+        convergenceTol,
+        numIterations,
+        regParam)
+      new LinearMapper(model, None, None)
+    }
   }
 }
 
@@ -166,6 +183,7 @@ class DenseLBFGSwithL2(
   * Class used to solve an optimization problem using Limited-memory BFGS.
   * Reference: [[http://en.wikipedia.org/wiki/Limited-memory_BFGS]]
   * @param gradient Gradient function to be used.
+  * @param fitIntercept Whether to fit the intercepts or not.
   * @param numCorrections 3 < numCorrections < 10 is recommended.
   * @param convergenceTol convergence tolerance for L-BFGS
   * @param regParam L2 regularization
@@ -173,7 +191,7 @@ class DenseLBFGSwithL2(
   */
 class SparseLBFGSwithL2(
     val gradient: Gradient.SparseGradient,
-    val normalizeStdDev: Boolean = false,
+    val fitIntercept: Boolean = true,
     val numCorrections: Int = 10,
     val convergenceTol: Double = 1e-4,
     val numIterations: Int = 100,
@@ -181,8 +199,34 @@ class SparseLBFGSwithL2(
   extends LabelEstimator[SparseVector[Double], DenseVector[Double], DenseVector[Double]] {
 
   def fit(data: RDD[SparseVector[Double]], labels: RDD[DenseVector[Double]]): SparseLinearMapper = {
+    if (fitIntercept) {
+      // To fit the intercept, we add a column of ones to the data
+      val dataWithOnesColumn = data.map { vec =>
+        val out = SparseVector.zeros[Double](vec.length + 1)
+        for ((i, v) <- vec.activeIterator) {
+          out(i) = v
+        }
 
-    if (!normalizeStdDev) {
+        out(vec.length) = 1.0
+        out
+      }
+
+      val model = LBFGSwithL2.runLBFGS(
+        dataWithOnesColumn,
+        labels,
+        gradient,
+        numCorrections,
+        convergenceTol,
+        numIterations,
+        regParam,
+        weightsIncludeBias = true)
+
+      // We separate the model into the weights and the intercept
+      val weights = model(0 until (model.rows - 1), ::).copy
+      val intercept = model(model.rows - 1, ::).t
+
+      new SparseLinearMapper(weights, Some(intercept))
+    } else {
       val model = LBFGSwithL2.runLBFGS(
         data,
         labels,
@@ -193,28 +237,6 @@ class SparseLBFGSwithL2(
         regParam)
 
       new SparseLinearMapper(model, None)
-
-    } else {
-      val scaler = new MLLibStandardScaler(withStd = true, withMean = false).fit(data.map(x =>
-        breezeVectorToMLlib(x)))
-      val dataVec = data.map { vec =>
-        val scaled = scaler.transform(
-          breezeVectorToMLlib(vec)).asInstanceOf[org.apache.spark.mllib.linalg.SparseVector]
-        new SparseVector[Double](scaled.indices, scaled.values, scaled.size)
-      }
-
-      val model = LBFGSwithL2.runLBFGS(
-        dataVec,
-        labels,
-        gradient,
-        numCorrections,
-        convergenceTol,
-        numIterations,
-        regParam)
-
-      val stdDev = MLlibUtils.mllibVectorToDenseBreeze(scaler.std)
-      val scaledModel = model(::, *) :/ stdDev
-      new SparseLinearMapper(scaledModel, None)
     }
   }
 }

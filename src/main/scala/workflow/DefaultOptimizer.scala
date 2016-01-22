@@ -17,7 +17,7 @@ object DefaultOptimizer extends Optimizer {
 object EquivalentNodeMerger extends Rule {
   def apply[A, B](plan: Pipeline[A, B]): Pipeline[A, B] = {
     val fullNodes = plan.nodes.zip(plan.dataDeps.zip(plan.fitDeps)).zipWithIndex
-    val mergableNodes = fullNodes.groupBy(_._1).mapValues(_.map(_._2)).toSeq
+    val mergableNodes = fullNodes.groupBy(_._1).mapValues(_.map(_._2)).toSeq.sortBy(_._2.min)
 
     if (mergableNodes.size == plan.nodes.size) {
       // no nodes are mergable

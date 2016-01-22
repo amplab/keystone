@@ -49,7 +49,7 @@ object LBFGSwithL2 extends Logging {
     val numClasses = labels.first.length
 
     val costFun = new CostFun(data, labels, gradient, regParam, numExamples, numFeatures,
-      numClasses)
+      numClasses, weightsIncludeBias)
 
     val lbfgs = new BreezeLBFGS[DenseVector[Double]](maxNumIterations, numCorrections, convergenceTol)
 
@@ -90,7 +90,7 @@ object LBFGSwithL2 extends Logging {
       numExamples: Long,
       numFeatures: Int,
       numClasses: Int,
-      weightsIncludeBias: Boolean = false) extends DiffFunction[DenseVector[Double]] {
+      weightsIncludeBias: Boolean) extends DiffFunction[DenseVector[Double]] {
 
     override def calculate(weights: DenseVector[Double]): (Double, DenseVector[Double]) = {
       val weightsMat = weights.asDenseMatrix.reshape(numFeatures, numClasses)
@@ -115,7 +115,9 @@ object LBFGSwithL2 extends Logging {
 
       // total loss = lossSum / nTrain + 1/2 * lambda * norm(W)^2
       val normWSquared = if (weightsIncludeBias) {
-        math.pow(norm(weights(0 until (weights.length - 1))), 2)
+        val weightsMinusBias = weightsMat(0 until (numFeatures - 1), ::)
+        val weightsNorm: Double = norm(weightsMinusBias.flatten())
+        weightsNorm * weightsNorm
       } else {
         math.pow(norm(weights), 2)
       }

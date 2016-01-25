@@ -115,7 +115,7 @@ trait Pipeline[A, B] {
   final def toDOTString: String = {
     val nodeLabels: Seq[String] = "-1 [label=\"In\" shape=\"Msquare\"]" +: nodes.zipWithIndex.map {
       case (data: DataNode, id)  => s"$id [label=${'"' + data.label + '"'} shape=${"\"box\""} style=${"\"filled\""}]"
-      case (transformer: TransformerNode[_], id) => s"$id [label=${'"' + transformer.label + '"'}]"
+      case (transformer: TransformerNode, id) => s"$id [label=${'"' + transformer.label + '"'}]"
       case (delTransformer: DelegatingTransformerNode, id) => s"$id [label=${'"' + delTransformer.label + '"'}]"
       case (estimator: EstimatorNode, id) => s"$id [label=${'"' + estimator.label + '"'} shape=${"\"box\""}]"
     } :+ s"${nodes.size} [label=${"\"Out\""} shape=${"\"Msquare\""}]"

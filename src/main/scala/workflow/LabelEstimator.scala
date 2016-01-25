@@ -37,7 +37,7 @@ abstract class LabelEstimator[A, B, L] extends EstimatorNode {
    */
   protected def fit(data: RDD[A], labels: RDD[L]): Transformer[A, B]
 
-  private[workflow] final def fit(dependencies: Seq[RDD[_]]): TransformerNode[_] = fit(dependencies(0).asInstanceOf[RDD[A]], dependencies(1).asInstanceOf[RDD[L]])
+  private[workflow] final def fit(dependencies: Seq[RDD[_]]): TransformerNode = fit(dependencies(0).asInstanceOf[RDD[A]], dependencies(1).asInstanceOf[RDD[L]])
 }
 
 object LabelEstimator extends Serializable {

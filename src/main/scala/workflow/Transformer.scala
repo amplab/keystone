@@ -13,7 +13,7 @@ import scala.reflect.ClassTag
  * @tparam A input item type the transformer takes
  * @tparam B output item type the transformer produces
  */
-abstract class Transformer[A, B : ClassTag] extends TransformerNode[B] with Pipeline[A, B] {
+abstract class Transformer[A, B : ClassTag] extends TransformerNode with Pipeline[A, B] {
   private[workflow] override val nodes: Seq[Node] = Seq(this)
   private[workflow] override val dataDeps: Seq[Seq[Int]] = Seq(Seq(Pipeline.SOURCE))
   private[workflow] override val fitDeps: Seq[Option[Int]] = Seq(None)

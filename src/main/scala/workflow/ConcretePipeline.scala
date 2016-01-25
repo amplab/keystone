@@ -17,7 +17,7 @@ private[workflow] class ConcretePipeline[A, B](
 
   validate()
 
-  private val fitCache: Array[Option[TransformerNode[_]]] = nodes.map(_ => None).toArray
+  private val fitCache: Array[Option[TransformerNode]] = nodes.map(_ => None).toArray
   private val dataCache: mutable.Map[(Int, RDD[_]), RDD[_]] = new mutable.HashMap()
 
   /** validates (returns an exception if false) that
@@ -48,7 +48,7 @@ private[workflow] class ConcretePipeline[A, B](
       x => if (x._1.isInstanceOf[EstimatorNode] && x._2.isEmpty) false else true
     }, "Estimators must have data dependencies")
     require(nodeTuples.forall {
-      x => if (x._1.isInstanceOf[TransformerNode[_]] && x._2.isEmpty) false else true
+      x => if (x._1.isInstanceOf[TransformerNode] && x._2.isEmpty) false else true
     }, "Transformers must have data dependencies")
 
     require(dataDeps.forall {
@@ -64,11 +64,11 @@ private[workflow] class ConcretePipeline[A, B](
     */
   }
 
-  final private[workflow] def fitEstimator(node: Int): TransformerNode[_] = fitCache(node).getOrElse {
+  final private[workflow] def fitEstimator(node: Int): TransformerNode = fitCache(node).getOrElse {
     nodes(node) match {
       case _: DataNode =>
         throw new RuntimeException("Pipeline DAG error: Cannot have a fit dependency on a DataNode")
-      case _: TransformerNode[_] =>
+      case _: TransformerNode =>
         throw new RuntimeException("Pipeline DAG error: Cannot have a data dependency on a Transformer")
       case _: DelegatingTransformerNode =>
         throw new RuntimeException("Pipeline DAG error: Cannot have a data dependency on a Transformer")
@@ -87,7 +87,7 @@ private[workflow] class ConcretePipeline[A, B](
       in
     } else {
       nodes(node) match {
-        case transformer: TransformerNode[_] =>
+        case transformer: TransformerNode =>
           val nodeDataDeps = dataDeps(node).map(x => singleDataEval(x, in))
           transformer.transform(nodeDataDeps)
         case delTransformer: DelegatingTransformerNode =>
@@ -111,7 +111,7 @@ private[workflow] class ConcretePipeline[A, B](
       dataCache.getOrElse((node, in), {
         nodes(node) match {
           case DataNode(rdd) => rdd
-          case transformer: TransformerNode[_] =>
+          case transformer: TransformerNode =>
             val nodeDataDeps = dataDeps(node).map(x => rddDataEval(x, in))
             val outputData = transformer.transformRDD(nodeDataDeps)
             dataCache((node, in)) = outputData

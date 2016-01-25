@@ -71,16 +71,21 @@ object WorkflowUtils {
   ): (Map[Int, Int], Seq[Instruction]) = {
     var curIdMap = nodeIdToInstructionId
     var curInstructions = instructions
-    for (dep <- fitDeps(current).filter(_ != Pipeline.SOURCE).filter(!nodeIdToInstructionId.contains(_))) {
-      val (newIdMap, newInstructions) = pipelineRecurse(dep, nodes, dataDeps, fitDeps, curIdMap, curInstructions)
-      curIdMap = newIdMap
-      curInstructions = newInstructions
+    System.out.println(current)
+    for (dep <- fitDeps(current)) {
+      if (!curIdMap.contains(dep) && dep != Pipeline.SOURCE) {
+        val (newIdMap, newInstructions) = pipelineRecurse(dep, nodes, dataDeps, fitDeps, curIdMap, curInstructions)
+        curIdMap = newIdMap
+        curInstructions = newInstructions
+      }
     }
 
-    for (dep <- dataDeps(current).filter(_ != Pipeline.SOURCE).filter(!nodeIdToInstructionId.contains(_))) {
-      val (newIdMap, newInstructions) = pipelineRecurse(dep, nodes, dataDeps, fitDeps, curIdMap, curInstructions)
-      curIdMap = newIdMap
-      curInstructions = newInstructions
+    for (dep <- dataDeps(current)) {
+      if (!curIdMap.contains(dep) && dep != Pipeline.SOURCE) {
+        val (newIdMap, newInstructions) = pipelineRecurse(dep, nodes, dataDeps, fitDeps, curIdMap, curInstructions)
+        curIdMap = newIdMap
+        curInstructions = newInstructions
+      }
     }
 
     nodes(current) match {

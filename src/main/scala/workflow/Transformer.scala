@@ -16,7 +16,7 @@ import scala.reflect.ClassTag
 abstract class Transformer[A, B : ClassTag] extends TransformerNode[B] with Pipeline[A, B] {
   private[workflow] override val nodes: Seq[Node] = Seq(this)
   private[workflow] override val dataDeps: Seq[Seq[Int]] = Seq(Seq(Pipeline.SOURCE))
-  private[workflow] override val fitDeps: Seq[Seq[Int]] = Seq(Seq())
+  private[workflow] override val fitDeps: Seq[Option[Int]] = Seq(None)
   private[workflow] override val sink: Int = 0
 
   /**
@@ -35,15 +35,11 @@ abstract class Transformer[A, B : ClassTag] extends TransformerNode[B] with Pipe
   def apply(in: A): B
   def apply(in: A, optimizer: Option[RuleExecutor]): B = apply(in)
 
-  private[workflow] final def transform(
-    dataDependencies: Seq[_],
-    fitDependencies: Seq[TransformerNode[_]]): B = {
+  private[workflow] final def transform(dataDependencies: Seq[_]): B = {
     apply(dataDependencies.head.asInstanceOf[A])
   }
 
-  private[workflow] final def transformRDD(
-    dataDependencies: Seq[RDD[_]],
-    fitDependencies: Seq[TransformerNode[_]]): RDD[B] = {
+  private[workflow] final def transformRDD(dataDependencies: Seq[RDD[_]]): RDD[B] = {
     apply(dataDependencies.head.asInstanceOf[RDD[A]])
   }
 }

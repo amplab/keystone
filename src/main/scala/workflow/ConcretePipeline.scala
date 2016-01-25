@@ -12,7 +12,7 @@ import scala.collection.mutable
 private[workflow] class ConcretePipeline[A, B](
   private[workflow] override val nodes: Seq[Node],
   private[workflow] override val dataDeps: Seq[Seq[Int]],
-  private[workflow] override val fitDeps: Seq[Seq[Int]],
+  private[workflow] override val fitDeps: Seq[Option[Int]],
   private[workflow] override val sink: Int) extends Pipeline[A, B] with Logging {
 
   validate()
@@ -21,15 +21,15 @@ private[workflow] class ConcretePipeline[A, B](
   private val dataCache: mutable.Map[(Int, RDD[_]), RDD[_]] = new mutable.HashMap()
 
   /** validates (returns an exception if false) that
-    - nodes.size = dataDeps.size == fitDeps.size
+    *- nodes.size = dataDeps.size == fitDeps.size
 
-    - there is a valid sink
-    - data nodes must have no deps
-    - estimators may not have fit deps, must have data deps
-    - transformers must have data deps, allowed to have fit deps
+    *- there is a valid sink
+    *- data nodes must have no deps
+    *- estimators may not have fit deps, must have data deps
+    *- transformers must have data deps, allowed to have fit deps
 
-    - data deps may not point at estimators
-    - fit deps may only point to estimators
+    *- data deps may not point at estimators
+    *- fit deps may only point to estimators
     */
   private[workflow] def validate(): Unit = {
     require(nodes.size == dataDeps.size && nodes.size == fitDeps.size,
@@ -70,6 +70,8 @@ private[workflow] class ConcretePipeline[A, B](
         throw new RuntimeException("Pipeline DAG error: Cannot have a fit dependency on a DataNode")
       case _: TransformerNode[_] =>
         throw new RuntimeException("Pipeline DAG error: Cannot have a data dependency on a Transformer")
+      case _: DelegatingTransformerNode =>
+        throw new RuntimeException("Pipeline DAG error: Cannot have a data dependency on a Transformer")
       case estimator: EstimatorNode =>
         val nodeDataDeps = dataDeps(node).map(x => rddDataEval(x, null))
         logInfo(s"Fitting '${estimator.label}' [$node]")
@@ -86,9 +88,12 @@ private[workflow] class ConcretePipeline[A, B](
     } else {
       nodes(node) match {
         case transformer: TransformerNode[_] =>
-          val nodeFitDeps = fitDeps(node).map(fitEstimator)
           val nodeDataDeps = dataDeps(node).map(x => singleDataEval(x, in))
-          transformer.transform(nodeDataDeps, nodeFitDeps)
+          transformer.transform(nodeDataDeps)
+        case delTransformer: DelegatingTransformerNode =>
+          val nodeFitDep = fitDeps(node).map(fitEstimator).get
+          val nodeDataDeps = dataDeps(node).map(x => singleDataEval(x, in))
+          nodeFitDep.transform(nodeDataDeps)
         case _: DataNode => throw new RuntimeException(
           "Pipeline DAG error: came across an RDD data dependency when trying to do a single item apply"
         )
@@ -107,9 +112,14 @@ private[workflow] class ConcretePipeline[A, B](
         nodes(node) match {
           case DataNode(rdd) => rdd
           case transformer: TransformerNode[_] =>
-            val nodeFitDeps = fitDeps(node).map(fitEstimator)
             val nodeDataDeps = dataDeps(node).map(x => rddDataEval(x, in))
-            val outputData = transformer.transformRDD(nodeDataDeps, nodeFitDeps)
+            val outputData = transformer.transformRDD(nodeDataDeps)
+            dataCache((node, in)) = outputData
+            outputData
+          case delTransformer: DelegatingTransformerNode =>
+            val nodeFitDep = fitDeps(node).map(fitEstimator).get
+            val nodeDataDeps = dataDeps(node).map(x => rddDataEval(x, in))
+            val outputData = nodeFitDep.transformRDD(nodeDataDeps)
             dataCache((node, in)) = outputData
             outputData
           case _: EstimatorNode =>

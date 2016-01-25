@@ -21,7 +21,7 @@ abstract class LabelEstimator[A, B, L] extends EstimatorNode {
    * @param labels The training labels
    */
   def withData(data: RDD[A], labels: RDD[L]): Pipeline[A, B] = {
-    val nodes: Seq[Node] = Seq(DataNode(data), DataNode(labels), this, new DelegatingTransformerNode(this.label + ".fit"))
+    val nodes: Seq[Node] = Seq(SourceNode(data), SourceNode(labels), this, new DelegatingTransformerNode(this.label + ".fit"))
     val dataDeps = Seq(Seq(), Seq(), Seq(0, 1), Seq(Pipeline.SOURCE))
     val fitDeps = Seq(None, None, None, Some(2))
     val sink = nodes.size - 1

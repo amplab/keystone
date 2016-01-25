@@ -21,15 +21,15 @@ private[workflow] class ConcretePipeline[A, B](
   private val dataCache: mutable.Map[(Int, RDD[_]), RDD[_]] = new mutable.HashMap()
 
   /** validates (returns an exception if false) that
-    *- nodes.size = dataDeps.size == fitDeps.size
+   * - nodes.size = dataDeps.size == fitDeps.size
 
-    *- there is a valid sink
-    *- data nodes must have no deps
-    *- estimators may not have fit deps, must have data deps
-    *- transformers must have data deps, allowed to have fit deps
+   * - there is a valid sink
+   * - data nodes must have no deps
+   * - estimators may not have fit deps, must have data deps
+   * - transformers must have data deps, allowed to have fit deps
 
-    *- data deps may not point at estimators
-    *- fit deps may only point to estimators
+   * - data deps may not point at estimators
+   * - fit deps may only point to estimators
     */
   private[workflow] def validate(): Unit = {
     require(nodes.size == dataDeps.size && nodes.size == fitDeps.size,
@@ -39,7 +39,7 @@ private[workflow] class ConcretePipeline[A, B](
 
     val nodeTuples = nodes.zip(dataDeps).zip(fitDeps).map(x => (x._1._1, x._1._2, x._2))
     require(nodeTuples.forall {
-      x => if (x._1.isInstanceOf[DataNode] && (x._2.nonEmpty || x._3.nonEmpty)) false else true
+      x => if (x._1.isInstanceOf[SourceNode] && (x._2.nonEmpty || x._3.nonEmpty)) false else true
     }, "DataNodes may not have dependencies")
     require(nodeTuples.forall {
       x => if (x._1.isInstanceOf[EstimatorNode] && x._3.nonEmpty) false else true
@@ -66,7 +66,7 @@ private[workflow] class ConcretePipeline[A, B](
 
   final private[workflow] def fitEstimator(node: Int): TransformerNode = fitCache(node).getOrElse {
     nodes(node) match {
-      case _: DataNode =>
+      case _: SourceNode =>
         throw new RuntimeException("Pipeline DAG error: Cannot have a fit dependency on a DataNode")
       case _: TransformerNode =>
         throw new RuntimeException("Pipeline DAG error: Cannot have a data dependency on a Transformer")
@@ -94,7 +94,7 @@ private[workflow] class ConcretePipeline[A, B](
           val nodeFitDep = fitDeps(node).map(fitEstimator).get
           val nodeDataDeps = dataDeps(node).map(x => singleDataEval(x, in))
           nodeFitDep.transform(nodeDataDeps)
-        case _: DataNode => throw new RuntimeException(
+        case _: SourceNode => throw new RuntimeException(
           "Pipeline DAG error: came across an RDD data dependency when trying to do a single item apply"
         )
         case _: EstimatorNode => throw new RuntimeException(
@@ -110,7 +110,7 @@ private[workflow] class ConcretePipeline[A, B](
     } else {
       dataCache.getOrElse((node, in), {
         nodes(node) match {
-          case DataNode(rdd) => rdd
+          case SourceNode(rdd) => rdd
           case transformer: TransformerNode =>
             val nodeDataDeps = dataDeps(node).map(x => rddDataEval(x, in))
             val outputData = transformer.transformRDD(nodeDataDeps)

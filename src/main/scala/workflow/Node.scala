@@ -7,11 +7,6 @@ sealed trait Instruction {
   def mapDependencies(func: Int => Int): Instruction
 }
 
-case class SourceNode(rdd: RDD[_]) extends Instruction {
-  override def getDependencies: Seq[Int] = Seq()
-  override def mapDependencies(func: (Int) => Int): SourceNode = this
-}
-
 case class TransformerApplyNode(transformer: Int, inputs: Seq[Int]) extends Instruction {
   override def getDependencies: Seq[Int] = Seq(transformer) ++ inputs
   override def mapDependencies(func: (Int) => Int): TransformerApplyNode = {
@@ -47,9 +42,11 @@ private[workflow] abstract class TransformerNode extends Node with Serializable 
   override def mapDependencies(func: (Int) => Int): TransformerNode = this
 }
 
-private[workflow] case class DataNode(rdd: RDD[_]) extends Node {
+private[workflow] case class SourceNode(rdd: RDD[_]) extends Node with Instruction {
   override def label: String = "%s[%d]".format(
     Option(rdd.name).map(_ + " ").getOrElse(""), rdd.id)
+  override def getDependencies: Seq[Int] = Seq()
+  override def mapDependencies(func: (Int) => Int): SourceNode = this
 }
 
 /**

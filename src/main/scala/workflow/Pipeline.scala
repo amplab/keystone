@@ -66,7 +66,7 @@ trait Pipeline[A, B] {
   final def andThen[C](est: Estimator[B, C], data: RDD[A]): PipelineWithFittedTransformer[A, B, C] = {
     val transformerLabel = est.label + ".fit"
 
-    val newNodes = this.nodes :+ est :+ DataNode(data) :+ new DelegatingTransformerNode(transformerLabel)
+    val newNodes = this.nodes :+ est :+ SourceNode(data) :+ new DelegatingTransformerNode(transformerLabel)
     val newDataDeps = this.dataDeps.map(_.map {
       x => if (x == Pipeline.SOURCE) this.nodes.size + 1 else x
     }) :+ Seq(this.sink) :+ Seq() :+ Seq(Pipeline.SOURCE)
@@ -89,8 +89,8 @@ trait Pipeline[A, B] {
 
     val newNodes = this.nodes :+
         est :+
-        DataNode(data) :+
-        DataNode(labels) :+
+        SourceNode(data) :+
+        SourceNode(labels) :+
         new DelegatingTransformerNode(transformerLabel)
     val newDataDeps = this.dataDeps.map(_.map {
       x => if (x == Pipeline.SOURCE) this.nodes.size + 1 else x
@@ -114,7 +114,7 @@ trait Pipeline[A, B] {
    */
   final def toDOTString: String = {
     val nodeLabels: Seq[String] = "-1 [label=\"In\" shape=\"Msquare\"]" +: nodes.zipWithIndex.map {
-      case (data: DataNode, id)  => s"$id [label=${'"' + data.label + '"'} shape=${"\"box\""} style=${"\"filled\""}]"
+      case (data: SourceNode, id)  => s"$id [label=${'"' + data.label + '"'} shape=${"\"box\""} style=${"\"filled\""}]"
       case (transformer: TransformerNode, id) => s"$id [label=${'"' + transformer.label + '"'}]"
       case (delTransformer: DelegatingTransformerNode, id) => s"$id [label=${'"' + delTransformer.label + '"'}]"
       case (estimator: EstimatorNode, id) => s"$id [label=${'"' + estimator.label + '"'} shape=${"\"box\""}]"

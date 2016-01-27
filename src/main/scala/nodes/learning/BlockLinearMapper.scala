@@ -137,6 +137,61 @@ class BlockLinearMapper(
   }
 }
 
+object BlockLeastSquaresEstimator {
+
+  def computeCost(
+      trainingFeatures: Seq[RDD[DenseVector[Double]]],
+      trainingLabels: RDD[DenseVector[Double]],
+      lambda: Double,
+      xs: Seq[DenseMatrix[Double]],
+      bOpt: Option[DenseVector[Double]]): Double = {
+
+    val nTrain = trainingLabels.count
+
+    val res = trainingFeatures.zip(xs).map {
+      case (rdd, x) => {
+        val modelBroadcast = rdd.context.broadcast(x)
+        rdd.mapPartitions(rows => {
+          if (!rows.isEmpty) {
+            Iterator.single(MatrixUtils.rowsToMatrix(rows) * modelBroadcast.value)
+          } else {
+            Iterator.empty
+          }
+        })
+      }
+    }
+
+    val matOut = res.reduceLeft((sum, next) => sum.zip(next).map(c => c._1 + c._2))
+
+    // Add the intercept here
+    val bBroadcast = matOut.context.broadcast(bOpt)
+    val matOutWithIntercept = matOut.map { mat =>
+      bOpt.map { b =>
+        mat(*, ::) :+= b
+        mat
+      }.getOrElse(mat)
+    }
+
+    val axb = matOutWithIntercept.flatMap(x => MatrixUtils.matrixToRowArray(x))
+
+    val cost = axb.zip(trainingLabels).map { part =>
+      val axb = part._1
+      val labels = part._2
+      val out = axb - labels
+      math.pow(norm(out), 2)
+    }.reduce(_ + _)
+
+    if (lambda == 0) {
+      cost/(2.0*nTrain.toDouble)
+    } else {
+      val wNorm = xs.map(part => math.pow(norm(part.toDenseVector), 2)).reduce(_+_)
+      cost/(2.0*nTrain.toDouble) + lambda/2.0 * wNorm
+    }
+
+  }
+
+}
+
 /**
  * Fits a least squares model using block coordinate descent with provided
  * training features and labels
@@ -176,8 +231,13 @@ class BlockLeastSquaresEstimator(blockSize: Int, numIter: Int, lambda: Double = 
     }
 
     val bcd = new BlockCoordinateDescent()
-    val models = bcd.solveLeastSquaresWithL2(
-      A, b, Array(lambda), numIter, new NormalEquations()).transpose
+    val models = if (numIter > 1) {
+      bcd.solveLeastSquaresWithL2(
+        A, b, Array(lambda), numIter, new NormalEquations()).transpose
+    } else {
+      bcd.solveOnePassL2(A.iterator, b, Array(lambda), new NormalEquations()).toSeq.transpose
+    }
+
     new BlockLinearMapper(models.head, blockSize, Some(labelScaler.mean), Some(featureScalers))
   }
 

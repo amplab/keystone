@@ -1,20 +1,3 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package nodes.learning
 
 import breeze.linalg._
@@ -29,10 +12,10 @@ import scala.collection.mutable
 
 object LBFGSwithL2 extends Logging {
   /**
-    * Run Limited-memory BFGS (L-BFGS) in parallel.
-    * Averaging the subgradients over different partitions is performed using one standard
-    * spark map-reduce in each iteration.
-    */
+   * Run Limited-memory BFGS (L-BFGS) in parallel.
+   * Averaging the subgradients over different partitions is performed using one standard
+   * spark map-reduce in each iteration.
+   */
   def runLBFGS[T <: Vector[Double]](
       data: RDD[T],
       labels: RDD[DenseVector[Double]],
@@ -59,9 +42,9 @@ object LBFGSwithL2 extends Logging {
       lbfgs.iterations(new CachedDiffFunction(costFun), initialWeights)
 
     /**
-      * NOTE: lossSum and loss is computed using the weights from the previous iteration
-      * and regVal is the regularization value computed in the previous iteration as well.
-      */
+     * NOTE: lossSum and loss is computed using the weights from the previous iteration
+     * and regVal is the regularization value computed in the previous iteration as well.
+     */
     var state = states.next()
     while (states.hasNext) {
       lossHistory += state.value
@@ -79,9 +62,9 @@ object LBFGSwithL2 extends Logging {
   }
 
   /**
-    * CostFun implements Breeze's DiffFunction[T], which returns the loss and gradient
-    * at a particular point (weights). It's used in Breeze's convex optimization routines.
-    */
+   * CostFun implements Breeze's DiffFunction[T], which returns the loss and gradient
+   * at a particular point (weights). It's used in Breeze's convex optimization routines.
+   */
   private class CostFun[T <: Vector[Double]](
       data: RDD[T],
       labels: RDD[DenseVector[Double]],
@@ -102,7 +85,12 @@ object LBFGSwithL2 extends Logging {
 
       val partitionGradientLosses = data.zipPartitions(labels) {
         (partitionFeatures, partitionLabels) =>
-          Iterator.single(localGradient.compute(localNumFeatures, localNumClasses, partitionFeatures, partitionLabels, bcW.value))
+          Iterator.single(localGradient.compute(
+            localNumFeatures,
+            localNumClasses,
+            partitionFeatures,
+            partitionLabels,
+            bcW.value))
       }
 
       val (gradientSum, lossSum) = MLMatrixUtils.treeReduce(
@@ -133,16 +121,15 @@ object LBFGSwithL2 extends Logging {
 }
 
 /**
-  * :: DeveloperApi ::
-  * Class used to solve an optimization problem using Limited-memory BFGS.
-  * Reference: [[http://en.wikipedia.org/wiki/Limited-memory_BFGS]]
-  * @param gradient Gradient function to be used.
-  * @param fitIntercept Whether to fit the intercepts or not.
-  * @param numCorrections 3 < numCorrections < 10 is recommended.
-  * @param convergenceTol convergence tolerance for L-BFGS
-  * @param regParam L2 regularization
-  * @param numIterations max number of iterations to run
-  */
+ * Class used to solve an optimization problem using Limited-memory BFGS.
+ * Reference: [[http://en.wikipedia.org/wiki/Limited-memory_BFGS]]
+ * @param gradient Gradient function to be used.
+ * @param fitIntercept Whether to fit the intercepts or not.
+ * @param numCorrections 3 < numCorrections < 10 is recommended.
+ * @param convergenceTol convergence tolerance for L-BFGS
+ * @param regParam L2 regularization
+ * @param numIterations max number of iterations to run
+ */
 class DenseLBFGSwithL2(
     val gradient: Gradient.DenseGradient,
     val fitIntercept: Boolean = true,
@@ -181,16 +168,15 @@ class DenseLBFGSwithL2(
 }
 
 /**
-  * :: DeveloperApi ::
-  * Class used to solve an optimization problem using Limited-memory BFGS.
-  * Reference: [[http://en.wikipedia.org/wiki/Limited-memory_BFGS]]
-  * @param gradient Gradient function to be used.
-  * @param fitIntercept Whether to fit the intercepts or not.
-  * @param numCorrections 3 < numCorrections < 10 is recommended.
-  * @param convergenceTol convergence tolerance for L-BFGS
-  * @param regParam L2 regularization
-  * @param numIterations max number of iterations to run
-  */
+ * Class used to solve an optimization problem using Limited-memory BFGS.
+ * Reference: [[http://en.wikipedia.org/wiki/Limited-memory_BFGS]]
+ * @param gradient Gradient function to be used.
+ * @param fitIntercept Whether to fit the intercepts or not.
+ * @param numCorrections 3 < numCorrections < 10 is recommended.
+ * @param convergenceTol convergence tolerance for L-BFGS
+ * @param regParam L2 regularization
+ * @param numIterations max number of iterations to run
+ */
 class SparseLBFGSwithL2(
     val gradient: Gradient.SparseGradient,
     val fitIntercept: Boolean = true,

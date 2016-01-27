@@ -129,14 +129,19 @@ object BlockWeightedLeastSquaresEstimator extends Logging {
     }
 
     val classIdxs = labels.mapPartitions { iter =>
-      Iterator.single(iter.map(label => label.toArray.indexOf(label.max)).toSeq.distinct.head)
+      if (iter.hasNext) {
+        Iterator.single(iter.map(label => label.toArray.indexOf(label.max)).toSeq.distinct.head)
+      } else {
+        Iterator.empty
+      }
     }.cache().setName("classIdxs")
 
     val nTrain = labels.count
     val nClasses = labels.first.length.toInt
 
-    val labelsMat = labels.mapPartitions(part =>
-      Iterator.single(MatrixUtils.rowsToMatrix(part)))
+    val labelsMat = labels.mapPartitions { part =>
+      MatrixUtils.rowsToMatrixIter(part)
+    }
 
     val jointLabelMeanData = labelsMat.zip(classIdxs).map { x =>
       (x._2, 2*mixtureWeight + (2*(1.0-mixtureWeight) * x._1.rows/nTrain.toDouble) - 1)
@@ -176,8 +181,8 @@ object BlockWeightedLeastSquaresEstimator extends Logging {
         logInfo(s"Running pass $pass block $block")
         val blockFeatures = features(block)
 
-        val blockFeaturesMat = blockFeatures.mapPartitions { part => 
-          Iterator.single(MatrixUtils.rowsToMatrix(part))
+        val blockFeaturesMat = blockFeatures.mapPartitions { part =>
+          MatrixUtils.rowsToMatrixIter(part)
         }.cache().setName("blockFeaturesMat")
 
         val treeBranchingFactor = sc.getConf.getInt("spark.mlmatrix.treeBranchingFactor", 2).toInt

@@ -43,10 +43,29 @@ object MatrixUtils extends Serializable {
    * Converts a sequence of DenseVector to a matrix where each vector is a row.
    *
    * @param in Sequence of of DenseVectors (rows)
+   * @return Iterator with a single element if rows is non-empty. Empty iterator otherwise.
+   */
+  def rowsToMatrixIter[T: ClassTag](in: TraversableOnce[DenseVector[T]]): Iterator[DenseMatrix[T]] =
+  {
+    if (!in.isEmpty) {
+      Iterator.single(rowsToMatrix(in))
+    } else {
+      Iterator.empty
+    }
+  }
+
+  /**
+   * Converts a sequence of DenseVector to a matrix where each vector is a row.
+   *
+   * @param in Sequence of of DenseVectors (rows)
    * @return A row matrix.
    */
   def rowsToMatrix[T : ClassTag](in: TraversableOnce[DenseVector[T]]): DenseMatrix[T] = {
-    rowsToMatrix(in.toArray)
+    if (!in.isEmpty) {
+      rowsToMatrix(in.toArray)
+    } else {
+      new DenseMatrix[T](0, 0)
+    }
   }
 
   /**

@@ -31,8 +31,6 @@ fi
 
 EXECUTOR_OMP_NUM_THREADS=${EXECUTOR_OMP_NUM_THREADS:-1}
 
-echo $OMP_NUM_THREADS $CORES $EXECUTOR_OMP_NUM_THREADS
-
 if [[ -z "$SPARK_HOME" ]]; then
   echo "SPARK_HOME is not set, running pipeline locally"
   $FWDIR/run-main.sh $CLASS "$@"

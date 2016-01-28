@@ -8,13 +8,14 @@ shift
 
 # Set OMP_NUM_THREADS on workers and driver to something appropriate.
 # This is due to OpenBLAS not handling large numbers of cores very well.
+# See: https://github.com/amplab/keystone/issues/198 for more information. 
 
 if [[ -z "$OMP_NUM_THREADS" ]]; then
   # Determine number of cores. We assume that hyperthreading is enabled and thus divide cores by two.
   unamestr=`uname`
-  if [[ unamestr -eq "Darwin" ]]; then
+  if [[ $unamestr == "Darwin" ]]; then
     CORES=$((`sysctl -n hw.ncpu`/2))
-  elif [[ unamestr -eq "Linux" ]]; then
+  elif [[ $unamestr == "Linux" ]]; then
     CORES=$((`cat /proc/cpuinfo | grep processor | wc -l`/2))
   else # Windows,BSD? Do the safest thing.
     CORES=1
@@ -28,9 +29,9 @@ else
   fi
 fi
 
-if [[ -z "$EXECUTOR_OMP_NUM_THREADS" ]]; then
-  EXECUTOR_OMP_NUM_THREADS=1
-fi  
+EXECUTOR_OMP_NUM_THREADS=${EXECUTOR_OMP_NUM_THREADS:-1}
+
+echo $OMP_NUM_THREADS $CORES $EXECUTOR_OMP_NUM_THREADS
 
 if [[ -z "$SPARK_HOME" ]]; then
   echo "SPARK_HOME is not set, running pipeline locally"

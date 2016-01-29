@@ -53,7 +53,7 @@ class BlockWeightedLeastSquaresEstimator(
    */
   def fit(
       trainingFeatures: Seq[RDD[DenseVector[Double]]],
-      trainingLabels: RDD[DenseVector[Double]]): BlockLinearMapper = {
+      trainingLabels: RDD[DenseVector[Double]]): BlockLinearMapper[DenseVector[Double]] = {
     BlockWeightedLeastSquaresEstimator.trainWithL2(
       trainingFeatures,
       trainingLabels,
@@ -75,7 +75,7 @@ class BlockWeightedLeastSquaresEstimator(
    */
   override def fit(
       trainingFeatures: RDD[DenseVector[Double]],
-      trainingLabels: RDD[DenseVector[Double]]): BlockLinearMapper = {
+      trainingLabels: RDD[DenseVector[Double]]): BlockLinearMapper[DenseVector[Double]] = {
     val trainingFeaturesSplit = new VectorSplitter(blockSize, numFeaturesOpt).apply(trainingFeatures)
     fit(trainingFeaturesSplit, trainingLabels)
   }
@@ -103,7 +103,7 @@ object BlockWeightedLeastSquaresEstimator extends Logging {
       blockSize: Int,
       numIter: Int,
       lambda: Double,
-      mixtureWeight: Double): BlockLinearMapper = {
+      mixtureWeight: Double): BlockLinearMapper[DenseVector[Double]] = {
     val sc = trainingFeatures.head.context
 
     val reshuffleData = {

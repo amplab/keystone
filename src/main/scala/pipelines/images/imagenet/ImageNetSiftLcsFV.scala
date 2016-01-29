@@ -21,7 +21,7 @@ import nodes.stats._
 import nodes.util._
 
 import utils.{Image, MatrixUtils, Stats}
-import workflow.{Optimizer, Pipeline}
+import workflow.{DefaultOptimizer, Pipeline}
 
 object ImageNetSiftLcsFV extends Serializable with Logging {
   val appName = "ImageNetSiftLcsFV"

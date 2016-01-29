@@ -83,3 +83,5 @@ abstract class RuleExecutor extends Logging {
     curPlan
   }
 }
+
+abstract class Optimizer extends RuleExecutor

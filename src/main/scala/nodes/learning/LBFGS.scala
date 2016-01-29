@@ -130,22 +130,27 @@ object LBFGSwithL2 extends Logging {
  * @param regParam L2 regularization
  * @param numIterations max number of iterations to run
  */
-class DenseLBFGSwithL2(
+class DenseLBFGSwithL2[T <: Vector[Double]](
     val gradient: Gradient.DenseGradient,
     val fitIntercept: Boolean = true,
     val numCorrections: Int = 10,
     val convergenceTol: Double = 1e-4,
     val numIterations: Int = 100,
     val regParam: Double = 0.0)
-  extends LabelEstimator[DenseVector[Double], DenseVector[Double], DenseVector[Double]] {
+  extends LabelEstimator[T, DenseVector[Double], DenseVector[Double]] {
 
-  def fit(data: RDD[DenseVector[Double]], labels: RDD[DenseVector[Double]]): LinearMapper = {
+  def fit(data: RDD[T], labels: RDD[DenseVector[Double]]): LinearMapper[T] = {
+    val denseData = data.map {
+      case denseVec: DenseVector[Double] => denseVec
+      case vec => vec.toDenseVector
+    }
+
     if (fitIntercept) {
-      val featureScaler = new StandardScaler(normalizeStdDev = false).fit(data)
+      val featureScaler = new StandardScaler(normalizeStdDev = false).fit(denseData)
       val labelScaler = new StandardScaler(normalizeStdDev = false).fit(labels)
 
       val model = LBFGSwithL2.runLBFGS(
-        featureScaler.apply(data),
+        featureScaler.apply(denseData),
         labelScaler.apply(labels),
         gradient,
         numCorrections,
@@ -155,7 +160,7 @@ class DenseLBFGSwithL2(
       new LinearMapper(model, Some(labelScaler.mean), Some(featureScaler))
     } else {
       val model = LBFGSwithL2.runLBFGS(
-        data,
+        denseData,
         labels,
         gradient,
         numCorrections,
@@ -177,19 +182,24 @@ class DenseLBFGSwithL2(
  * @param regParam L2 regularization
  * @param numIterations max number of iterations to run
  */
-class SparseLBFGSwithL2(
+class SparseLBFGSwithL2[T <: Vector[Double]](
     val gradient: Gradient.SparseGradient,
     val fitIntercept: Boolean = true,
     val numCorrections: Int = 10,
     val convergenceTol: Double = 1e-4,
     val numIterations: Int = 100,
     val regParam: Double = 0.0)
-  extends LabelEstimator[SparseVector[Double], DenseVector[Double], DenseVector[Double]] {
+  extends LabelEstimator[T, DenseVector[Double], DenseVector[Double]] {
 
-  def fit(data: RDD[SparseVector[Double]], labels: RDD[DenseVector[Double]]): SparseLinearMapper = {
+  def fit(data: RDD[T], labels: RDD[DenseVector[Double]]): LinearMapper[T] = {
+    val sparseData = data.map {
+      case sparseVec: SparseVector[Double] => sparseVec
+      case vec => SparseVector(vec.toArray)
+    }
+
     if (fitIntercept) {
       // To fit the intercept, we add a column of ones to the data
-      val dataWithOnesColumn = data.map { vec =>
+      val dataWithOnesColumn = sparseData.map { vec =>
         val out = SparseVector.zeros[Double](vec.length + 1)
         for ((i, v) <- vec.activeIterator) {
           out(i) = v
@@ -213,10 +223,10 @@ class SparseLBFGSwithL2(
       val weights = model(0 until (model.rows - 1), ::).copy
       val intercept = model(model.rows - 1, ::).t
 
-      new SparseLinearMapper(weights, Some(intercept))
+      new LinearMapper(weights, bOpt = Some(intercept), featureScaler = None)
     } else {
       val model = LBFGSwithL2.runLBFGS(
-        data,
+        sparseData,
         labels,
         gradient,
         numCorrections,
@@ -224,7 +234,7 @@ class SparseLBFGSwithL2(
         numIterations,
         regParam)
 
-      new SparseLinearMapper(model, None)
+      new LinearMapper(model, bOpt = None, featureScaler = None)
     }
   }
 }

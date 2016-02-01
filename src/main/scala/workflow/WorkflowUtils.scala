@@ -1,5 +1,7 @@
 package workflow
 
+import org.apache.spark.rdd.RDD
+
 object WorkflowUtils {
   def instructionsToPipeline[A, B](instructions: Seq[Instruction]): Pipeline[A, B] = {
     val (newNodes, newDataDeps, newFitDeps, _) = instructions.indices.foldLeft(
@@ -89,5 +91,46 @@ object WorkflowUtils {
         (newIdMap + (current -> (newInstructions.length + 1)),
           newInstructions ++ Seq(est, EstimatorFitNode(newInstructions.length, dataInputs)))
     }
+  }
+
+  /**
+   * Get the set of all instruction ids depending on the result of a given instruction
+   *
+   * @param id
+   * @param instructions
+   * @return
+   */
+  def getChildren(id: Int, instructions: Seq[Instruction]): Set[Int] = {
+    val children = scala.collection.mutable.Set[Int]()
+
+    for ((instruction, index) <- instructions.zipWithIndex) {
+      if (instruction.getDependencies.exists { x =>
+        children.contains(x) || x == id
+      }) {
+        children.add(index)
+      }
+    }
+
+    children.toSet
+  }
+
+  /**
+   * Get the set of all instruction ids on whose results a given instruction depends
+   *
+   * @param id
+   * @param instructions
+   * @return
+   */
+  def getParents(id: Int, instructions: Seq[Instruction]): Set[Int] = {
+    val dependencies = if (id != Pipeline.SOURCE) instructions(id).getDependencies else Seq()
+    dependencies.map {
+      parent => getParents(parent, instructions) + parent
+    }.fold(Set())(_ union _)
+  }
+
+  def numPerPartition[T](rdd: RDD[T]): Map[Int, Int] = {
+    rdd.mapPartitionsWithIndex {
+      case (id, partition) => Iterator.single((id, partition.length))
+    }.collect().toMap
   }
 }

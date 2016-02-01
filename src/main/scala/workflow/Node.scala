@@ -41,7 +41,7 @@ sealed trait Node  {
 }
 
 private[workflow] abstract class EstimatorNode extends Node with Serializable with Instruction {
-  private[workflow] def fit(dependencies: Seq[RDD[_]]): TransformerNode
+  private[workflow] def fitRDDs(dependencies: Seq[RDD[_]]): TransformerNode
   override def getDependencies: Seq[Int] = Seq()
   override def mapDependencies(func: (Int) => Int): EstimatorNode = this
 }

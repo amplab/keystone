@@ -75,7 +75,7 @@ private[workflow] class ConcretePipeline[A, B](
       case estimator: EstimatorNode =>
         val nodeDataDeps = dataDeps(node).map(x => rddDataEval(x, null))
         logInfo(s"Fitting '${estimator.label}' [$node]")
-        val fitOut = estimator.fit(nodeDataDeps)
+        val fitOut = estimator.fitRDDs(nodeDataDeps)
         fitCache(node) = Some(fitOut)
         logInfo(s"Finished fitting '${estimator.label}' [$node]")
         fitOut

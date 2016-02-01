@@ -4,8 +4,6 @@ import java.io.Serializable
 
 import org.apache.spark.rdd.RDD
 
-import scala.reflect.ClassTag
-
 /**
  * A label estimator has a `fit` method which takes input data & labels and emits a [[Transformer]]
  * @tparam A The type of the input data
@@ -37,7 +35,9 @@ abstract class LabelEstimator[A, B, L] extends EstimatorNode {
    */
   protected def fit(data: RDD[A], labels: RDD[L]): Transformer[A, B]
 
-  private[workflow] final def fit(dependencies: Seq[RDD[_]]): TransformerNode = fit(dependencies(0).asInstanceOf[RDD[A]], dependencies(1).asInstanceOf[RDD[L]])
+  private[workflow] final def fitRDDs(dependencies: Seq[RDD[_]]): TransformerNode = {
+    fit(dependencies(0).asInstanceOf[RDD[A]], dependencies(1).asInstanceOf[RDD[L]])
+  }
 }
 
 object LabelEstimator extends Serializable {

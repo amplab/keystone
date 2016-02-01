@@ -4,7 +4,7 @@ import org.apache.spark.rdd.RDD
 
 import scala.reflect.ClassTag
 
-private[workflow] class GatherTransformer[T] extends TransformerNode {
+private[workflow] case class GatherTransformer[T]() extends TransformerNode {
   def transform(dataDependencies: Seq[_]): Seq[T] = dataDependencies.map(_.asInstanceOf[T])
 
   def transformRDD(dataDependencies: Seq[RDD[_]]): RDD[Seq[T]] = {

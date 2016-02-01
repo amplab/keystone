@@ -29,9 +29,9 @@ class LBFGSSuite extends FunSuite with LocalSparkContext with Logging {
     val solverResult = MatrixUtils.rowsToMatrix(mapper(Aary).collect())
 
     assert(Stats.aboutEq(trueResult, solverResult, 1e-5), "Results from the solve must match the hand-created model.")
-    assert(Stats.aboutEq(mapper.x, x.t, 1e-6), "Model weights from the solve must match the hand-created model.")
-    assert(Stats.aboutEq(mapper.bOpt.get, extraBias, 1e-6), "Learned intercept must match the hand-created model.")
-    assert(Stats.aboutEq(mapper.featureScaler.get.mean, dataMean, 1e-6),
+    assert(Stats.aboutEq(mapper.x, x.t, 1e-5), "Model weights from the solve must match the hand-created model.")
+    assert(Stats.aboutEq(mapper.bOpt.get, extraBias, 1e-5), "Learned intercept must match the hand-created model.")
+    assert(Stats.aboutEq(mapper.featureScaler.get.mean, dataMean, 1e-5),
       "Learned intercept must match the hand-created model.")
 
   }
@@ -53,7 +53,7 @@ class LBFGSSuite extends FunSuite with LocalSparkContext with Logging {
     val solverResult = MatrixUtils.rowsToMatrix(mapper(Aary).collect())
 
     assert(Stats.aboutEq(trueResult, solverResult, 1e-5), "Results from the solve must match the hand-created model.")
-    assert(Stats.aboutEq(mapper.x, x.t, 1e-6), "Model weights from the solve must match the hand-created model.")
+    assert(Stats.aboutEq(mapper.x, x.t, 1e-5), "Model weights from the solve must match the hand-created model.")
     assert(mapper.bOpt.isEmpty, "Not supposed to have learned an intercept.")
     assert(mapper.featureScaler.isEmpty, "Not supposed to have learned an intercept.")
   }
@@ -102,7 +102,7 @@ class LBFGSSuite extends FunSuite with LocalSparkContext with Logging {
     val solverResult = MatrixUtils.rowsToMatrix(mapper(Aary).collect())
 
     assert(Stats.aboutEq(trueResult, solverResult, 1e-5), "Results from the solve must match the hand-created model.")
-    assert(Stats.aboutEq(mapper.x, x.t, 1e-6), "Model weights from the solve must match the hand-created model.")
+    assert(Stats.aboutEq(mapper.x, x.t, 1e-5), "Model weights from the solve must match the hand-created model.")
     assert(mapper.bOpt.isEmpty, "Not supposed to have learned an intercept.")
   }
 }

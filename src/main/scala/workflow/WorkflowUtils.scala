@@ -28,10 +28,11 @@ object WorkflowUtils {
               dataDeps.append(inputs.map(instructionIdToNodeId.apply))
               fitDeps.append(None)
             }
-            case estimatorFitNode: EstimatorFitNode => {
+            case EstimatorFitNode(est, estInputs) => {
               instructionIdToNodeId.put(instruction, nodes.length)
-              // TODO: Get more reasonable label...
-              nodes.append(new DelegatingTransformerNode("Estimator fit"))
+
+              val label = s"Fit[${instructions(est).asInstanceOf[EstimatorNode].label}]"
+              nodes.append(new DelegatingTransformerNode(label))
               dataDeps.append(inputs.map(instructionIdToNodeId.apply))
               fitDeps.append(Some(instructionIdToNodeId(transformer)))
             }
@@ -68,55 +69,33 @@ object WorkflowUtils {
       nodeIdToInstructionId: Map[Int, Int],
       instructions: Seq[Instruction]
     ): (Map[Int, Int], Seq[Instruction]) = {
-    var curIdMap = nodeIdToInstructionId
-    var curInstructions = instructions
 
-    for (dep <- fitDeps(current)) {
-      if (!curIdMap.contains(dep) && dep != Pipeline.SOURCE) {
-        val (newIdMap, newInstructions) = pipelineToInstructionsRecursion(dep, nodes, dataDeps, fitDeps, curIdMap, curInstructions)
-        curIdMap = newIdMap
-        curInstructions = newInstructions
-      }
+    val (newIdMap, newInstructions) = (fitDeps(current) ++ dataDeps(current))
+      .foldLeft((nodeIdToInstructionId, instructions)) {
+      case ((curIdMap, curInstructions), dep)
+        if !curIdMap.contains(dep) && dep != Pipeline.SOURCE =>
+        pipelineToInstructionsRecursion(dep, nodes, dataDeps, fitDeps, curIdMap, curInstructions)
+      case ((curIdMap, curInstructions), _) => (curIdMap, curInstructions)
     }
 
-    for (dep <- dataDeps(current)) {
-      if (!curIdMap.contains(dep) && dep != Pipeline.SOURCE) {
-        val (newIdMap, newInstructions) = pipelineToInstructionsRecursion(dep, nodes, dataDeps, fitDeps, curIdMap, curInstructions)
-        curIdMap = newIdMap
-        curInstructions = newInstructions
-      }
-    }
+    val dataInputs = dataDeps(current).map(newIdMap.apply)
 
     nodes(current) match {
-      case source: SourceNode => {
-        curIdMap = curIdMap + (current -> curInstructions.length)
-        curInstructions = curInstructions :+ source
-        (curIdMap, curInstructions)
-      }
+      case source: SourceNode =>
+        (newIdMap + (current -> newInstructions.length), newInstructions :+ source)
 
-      case transformer: TransformerNode => {
-        curInstructions = curInstructions :+ transformer
-        val inputs = dataDeps(current).map(curIdMap.apply)
-        curIdMap = curIdMap + (current -> curInstructions.length)
-        curInstructions = curInstructions :+ TransformerApplyNode(curInstructions.length - 1, inputs)
-        (curIdMap, curInstructions)
-      }
+      case transformer: TransformerNode =>
+        (newIdMap + (current -> (newInstructions.length + 1)),
+          newInstructions ++ Seq(transformer, TransformerApplyNode(newInstructions.length, dataInputs)))
 
-      case delTransformer: DelegatingTransformerNode => {
-        val transformerId = curIdMap(fitDeps(current).get)
-        val dataInputs = dataDeps(current).map(curIdMap.apply)
-        curIdMap = curIdMap + (current -> curInstructions.length)
-        curInstructions = curInstructions :+ TransformerApplyNode(transformerId, dataInputs)
-        (curIdMap, curInstructions)
-      }
+      case delTransformer: DelegatingTransformerNode =>
+        val transformerId = newIdMap(fitDeps(current).get)
+        (newIdMap + (current -> newInstructions.length),
+          newInstructions :+ TransformerApplyNode(transformerId, dataInputs))
 
-      case est: EstimatorNode => {
-        curInstructions = curInstructions :+ est
-        val inputs = dataDeps(current).map(curIdMap.apply)
-        curIdMap = curIdMap + (current -> curInstructions.length)
-        curInstructions = curInstructions :+ EstimatorFitNode(curInstructions.length - 1, inputs)
-        (curIdMap, curInstructions)
-      }
+      case est: EstimatorNode =>
+        (newIdMap + (current -> (newInstructions.length + 1)),
+          newInstructions ++ Seq(est, EstimatorFitNode(newInstructions.length, dataInputs)))
     }
   }
 }

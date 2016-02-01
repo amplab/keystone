@@ -140,7 +140,7 @@ private[workflow] class ConcretePipeline[A, B](
     }
   }
 
-  def apply(in: RDD[A], optimizer: Option[RuleExecutor]): RDD[B] = {
+  def apply(in: RDD[A], optimizer: Option[Optimizer]): RDD[B] = {
     optimizer match {
       case Some(opt) => opt.execute(this).apply(in, None)
       case None => rddDataEval(sink, in).asInstanceOf[RDD[B]]

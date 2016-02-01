@@ -9,7 +9,6 @@ import nodes.util.{CommonSparseFeatures, MaxClassifier}
 import org.apache.spark.{SparkConf, SparkContext}
 import pipelines.Logging
 import scopt.OptionParser
-import workflow.Optimizer
 
 object NewsgroupsPipeline extends Logging {
   val appName = "NewsgroupsPipeline"

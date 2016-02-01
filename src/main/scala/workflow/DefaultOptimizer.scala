@@ -3,7 +3,7 @@ package workflow
 /**
  * Optimizes a Pipeline DAG
  */
-object Optimizer extends RuleExecutor {
+object DefaultOptimizer extends Optimizer {
   protected val batches: Seq[Batch] = Batch("DAG Optimization", FixedPoint(100), EquivalentNodeMerger) :: Nil
 }
 
@@ -17,7 +17,7 @@ object Optimizer extends RuleExecutor {
 object EquivalentNodeMerger extends Rule {
   def apply[A, B](plan: Pipeline[A, B]): Pipeline[A, B] = {
     val fullNodes = plan.nodes.zip(plan.dataDeps.zip(plan.fitDeps)).zipWithIndex
-    val mergableNodes = fullNodes.groupBy(_._1).mapValues(_.map(_._2)).toSeq
+    val mergableNodes = fullNodes.groupBy(_._1).mapValues(_.map(_._2)).toSeq.sortBy(_._2.min)
 
     if (mergableNodes.size == plan.nodes.size) {
       // no nodes are mergable

@@ -12,25 +12,25 @@ import scala.collection.mutable
 private[workflow] class ConcretePipeline[A, B](
   private[workflow] override val nodes: Seq[Node],
   private[workflow] override val dataDeps: Seq[Seq[Int]],
-  private[workflow] override val fitDeps: Seq[Seq[Int]],
+  private[workflow] override val fitDeps: Seq[Option[Int]],
   private[workflow] override val sink: Int) extends Pipeline[A, B] with Logging {
 
   validate()
 
-  private val fitCache: Array[Option[TransformerNode[_]]] = nodes.map(_ => None).toArray
+  private val fitCache: Array[Option[TransformerNode]] = nodes.map(_ => None).toArray
   private val dataCache: mutable.Map[(Int, RDD[_]), RDD[_]] = new mutable.HashMap()
 
   /** validates (returns an exception if false) that
-    - nodes.size = dataDeps.size == fitDeps.size
+   * - nodes.size = dataDeps.size == fitDeps.size
 
-    - there is a valid sink
-    - data nodes must have no deps
-    - estimators may not have fit deps, must have data deps
-    - transformers must have data deps, allowed to have fit deps
+   * - there is a valid sink
+   * - data nodes must have no deps
+   * - estimators may not have fit deps, must have data deps
+   * - transformers must have data deps, allowed to have fit deps
 
-    - data deps may not point at estimators
-    - fit deps may only point to estimators
-    */
+   * - data deps may not point at estimators
+   * - fit deps may only point to estimators
+   */
   private[workflow] def validate(): Unit = {
     require(nodes.size == dataDeps.size && nodes.size == fitDeps.size,
       "nodes.size must equal dataDeps.size and fitDeps.size")
@@ -39,7 +39,7 @@ private[workflow] class ConcretePipeline[A, B](
 
     val nodeTuples = nodes.zip(dataDeps).zip(fitDeps).map(x => (x._1._1, x._1._2, x._2))
     require(nodeTuples.forall {
-      x => if (x._1.isInstanceOf[DataNode] && (x._2.nonEmpty || x._3.nonEmpty)) false else true
+      x => if (x._1.isInstanceOf[SourceNode] && (x._2.nonEmpty || x._3.nonEmpty)) false else true
     }, "DataNodes may not have dependencies")
     require(nodeTuples.forall {
       x => if (x._1.isInstanceOf[EstimatorNode] && x._3.nonEmpty) false else true
@@ -48,7 +48,7 @@ private[workflow] class ConcretePipeline[A, B](
       x => if (x._1.isInstanceOf[EstimatorNode] && x._2.isEmpty) false else true
     }, "Estimators must have data dependencies")
     require(nodeTuples.forall {
-      x => if (x._1.isInstanceOf[TransformerNode[_]] && x._2.isEmpty) false else true
+      x => if (x._1.isInstanceOf[TransformerNode] && x._2.isEmpty) false else true
     }, "Transformers must have data dependencies")
 
     require(dataDeps.forall {
@@ -64,11 +64,13 @@ private[workflow] class ConcretePipeline[A, B](
     */
   }
 
-  final private[workflow] def fitEstimator(node: Int): TransformerNode[_] = fitCache(node).getOrElse {
+  final private[workflow] def fitEstimator(node: Int): TransformerNode = fitCache(node).getOrElse {
     nodes(node) match {
-      case _: DataNode =>
+      case _: SourceNode =>
         throw new RuntimeException("Pipeline DAG error: Cannot have a fit dependency on a DataNode")
-      case _: TransformerNode[_] =>
+      case _: TransformerNode =>
+        throw new RuntimeException("Pipeline DAG error: Cannot have a data dependency on a Transformer")
+      case _: DelegatingTransformerNode =>
         throw new RuntimeException("Pipeline DAG error: Cannot have a data dependency on a Transformer")
       case estimator: EstimatorNode =>
         val nodeDataDeps = dataDeps(node).map(x => rddDataEval(x, null))
@@ -85,12 +87,15 @@ private[workflow] class ConcretePipeline[A, B](
       in
     } else {
       nodes(node) match {
-        case transformer: TransformerNode[_] =>
-          val nodeFitDeps = fitDeps(node).map(fitEstimator)
+        case transformer: TransformerNode =>
           val nodeDataDeps = dataDeps(node).map(x => singleDataEval(x, in))
-          transformer.transform(nodeDataDeps, nodeFitDeps)
-        case _: DataNode => throw new RuntimeException(
-          "Pipeline DAG error: came across an RDD data dependency when trying to do a single item apply"
+          transformer.transform(nodeDataDeps)
+        case delTransformer: DelegatingTransformerNode =>
+          val nodeFitDep = fitDeps(node).map(fitEstimator).get
+          val nodeDataDeps = dataDeps(node).map(x => singleDataEval(x, in))
+          nodeFitDep.transform(nodeDataDeps)
+        case _: SourceNode => throw new RuntimeException(
+          "Pipeline DAG error: came across an RDD source dependency when trying to do a single item apply"
         )
         case _: EstimatorNode => throw new RuntimeException(
           "Pipeline DAG error: Cannot have a data dependency on an Estimator"
@@ -105,11 +110,16 @@ private[workflow] class ConcretePipeline[A, B](
     } else {
       dataCache.getOrElse((node, in), {
         nodes(node) match {
-          case DataNode(rdd) => rdd
-          case transformer: TransformerNode[_] =>
-            val nodeFitDeps = fitDeps(node).map(fitEstimator)
+          case SourceNode(rdd) => rdd
+          case transformer: TransformerNode =>
             val nodeDataDeps = dataDeps(node).map(x => rddDataEval(x, in))
-            val outputData = transformer.transformRDD(nodeDataDeps, nodeFitDeps)
+            val outputData = transformer.transformRDD(nodeDataDeps)
+            dataCache((node, in)) = outputData
+            outputData
+          case delTransformer: DelegatingTransformerNode =>
+            val nodeFitDep = fitDeps(node).map(fitEstimator).get
+            val nodeDataDeps = dataDeps(node).map(x => rddDataEval(x, in))
+            val outputData = nodeFitDep.transformRDD(nodeDataDeps)
             dataCache((node, in)) = outputData
             outputData
           case _: EstimatorNode =>
@@ -119,18 +129,18 @@ private[workflow] class ConcretePipeline[A, B](
     }
   }
 
-  override def apply(in: A): B = apply(in, Some(Optimizer))
+  override def apply(in: A): B = apply(in, Some(DefaultOptimizer))
 
-  override def apply(in: RDD[A]): RDD[B] = apply(in, Some(Optimizer))
+  override def apply(in: RDD[A]): RDD[B] = apply(in, Some(DefaultOptimizer))
 
-  def apply(in: A, optimizer: Option[RuleExecutor]): B = {
+  def apply(in: A, optimizer: Option[Optimizer]): B = {
     optimizer match {
       case Some(opt) => opt.execute(this).apply(in, None)
       case None => singleDataEval(sink, in).asInstanceOf[B]
     }
   }
 
-  def apply(in: RDD[A], optimizer: Option[RuleExecutor]): RDD[B] = {
+  def apply(in: RDD[A], optimizer: Option[Optimizer]): RDD[B] = {
     optimizer match {
       case Some(opt) => opt.execute(this).apply(in, None)
       case None => rddDataEval(sink, in).asInstanceOf[RDD[B]]

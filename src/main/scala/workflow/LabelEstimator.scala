@@ -21,9 +21,9 @@ abstract class LabelEstimator[A, B, L] extends EstimatorNode {
    * @param labels The training labels
    */
   def withData(data: RDD[A], labels: RDD[L]): Pipeline[A, B] = {
-    val nodes: Seq[Node] = Seq(DataNode(data), DataNode(labels), this, new DelegatingTransformer[B](this.label + ".fit"))
+    val nodes: Seq[Node] = Seq(SourceNode(data), SourceNode(labels), this, new DelegatingTransformerNode(this.label + ".fit"))
     val dataDeps = Seq(Seq(), Seq(), Seq(0, 1), Seq(Pipeline.SOURCE))
-    val fitDeps = Seq(Seq(), Seq(), Seq(), Seq(2))
+    val fitDeps = Seq(None, None, None, Some(2))
     val sink = nodes.size - 1
 
     Pipeline[A, B](nodes, dataDeps, fitDeps, sink)
@@ -37,7 +37,7 @@ abstract class LabelEstimator[A, B, L] extends EstimatorNode {
    */
   protected def fit(data: RDD[A], labels: RDD[L]): Transformer[A, B]
 
-  private[workflow] final def fit(dependencies: Seq[RDD[_]]): TransformerNode[_] = fit(dependencies(0).asInstanceOf[RDD[A]], dependencies(1).asInstanceOf[RDD[L]])
+  private[workflow] final def fit(dependencies: Seq[RDD[_]]): TransformerNode = fit(dependencies(0).asInstanceOf[RDD[A]], dependencies(1).asInstanceOf[RDD[L]])
 }
 
 object LabelEstimator extends Serializable {

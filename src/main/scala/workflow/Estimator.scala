@@ -19,7 +19,7 @@ abstract class Estimator[A, B] extends EstimatorNode  {
    */
   protected def fit(data: RDD[A]): Transformer[A, B]
 
-  private[workflow] final def fit(dependencies: Seq[RDD[_]]): TransformerNode[_] = fit(dependencies.head.asInstanceOf[RDD[A]])
+  private[workflow] final def fit(dependencies: Seq[RDD[_]]): TransformerNode = fit(dependencies.head.asInstanceOf[RDD[A]])
 
   /**
    * Constructs a pipeline from a single estimator and training data.
@@ -28,9 +28,9 @@ abstract class Estimator[A, B] extends EstimatorNode  {
    * @param data The training data
    */
   def withData(data: RDD[A]): Pipeline[A, B] = {
-    val nodes: Seq[Node] = Seq(DataNode(data), this, new DelegatingTransformer[B](this.label + ".fit"))
+    val nodes: Seq[Node] = Seq(SourceNode(data), this, new DelegatingTransformerNode(this.label + ".fit"))
     val dataDeps = Seq(Seq(), Seq(0), Seq(Pipeline.SOURCE))
-    val fitDeps = Seq(Seq(), Seq(), Seq(1))
+    val fitDeps = Seq(None, None, Some(1))
     val sink = nodes.size - 1
 
     Pipeline[A, B](nodes, dataDeps, fitDeps, sink)

@@ -28,11 +28,11 @@ trait Pipeline[A, B] {
   private[workflow] val dataDeps: Seq[Seq[Int]]
 
   /**
-   * Edges pointing towards the Estimators a given Transformer is fit by.
-   * (Only non-empty for Transformer nodes)
+   * Edges pointing towards the Estimators a given Delegating Transformer is fit by.
+   * (Only non-empty for Delegating Transformer nodes)
    * The indices of these edges map to the node indices.
    */
-  private[workflow] val fitDeps: Seq[Seq[Int]]
+  private[workflow] val fitDeps: Seq[Option[Int]]
 
   /**
    * Index of the last node in the DAG before the transformed data is returned.
@@ -40,13 +40,14 @@ trait Pipeline[A, B] {
   private[workflow] val sink: Int
 
   def apply(in: A): B
-  def apply(in: A, optimizer: Option[RuleExecutor]): B
+  def apply(in: A, optimizer: Option[Optimizer]): B
 
   def apply(in: RDD[A]): RDD[B]
-  def apply(in: RDD[A], optimizer: Option[RuleExecutor]): RDD[B]
+  def apply(in: RDD[A], optimizer: Option[Optimizer]): RDD[B]
 
   /**
    * Chains a pipeline onto the end of this one, producing a new pipeline.
+   *
    * @param next the pipeline to chain
    */
   final def andThen[C](next: Pipeline[B, C]): Pipeline[A, C] = {
@@ -65,11 +66,11 @@ trait Pipeline[A, B] {
   final def andThen[C](est: Estimator[B, C], data: RDD[A]): PipelineWithFittedTransformer[A, B, C] = {
     val transformerLabel = est.label + ".fit"
 
-    val newNodes = this.nodes :+ est :+ DataNode(data) :+ new DelegatingTransformer[C](transformerLabel)
+    val newNodes = this.nodes :+ est :+ SourceNode(data) :+ new DelegatingTransformerNode(transformerLabel)
     val newDataDeps = this.dataDeps.map(_.map {
       x => if (x == Pipeline.SOURCE) this.nodes.size + 1 else x
     }) :+ Seq(this.sink) :+ Seq() :+ Seq(Pipeline.SOURCE)
-    val newFitDeps = this.fitDeps :+ Seq() :+ Seq() :+ Seq(this.nodes.size)
+    val newFitDeps = this.fitDeps :+ None :+ None :+ Some(this.nodes.size)
     val newSink = newNodes.size - 1
 
     val fittedTransformer = Pipeline[B, C](newNodes, newDataDeps, newFitDeps, newSink)
@@ -88,13 +89,13 @@ trait Pipeline[A, B] {
 
     val newNodes = this.nodes :+
         est :+
-        DataNode(data) :+
-        DataNode(labels) :+
-        new DelegatingTransformer[C](transformerLabel)
+        SourceNode(data) :+
+        SourceNode(labels) :+
+        new DelegatingTransformerNode(transformerLabel)
     val newDataDeps = this.dataDeps.map(_.map {
       x => if (x == Pipeline.SOURCE) this.nodes.size + 1 else x
     }) :+ Seq(this.sink, this.nodes.size + 2) :+ Seq() :+ Seq() :+ Seq(Pipeline.SOURCE)
-    val newFitDeps = this.fitDeps :+ Seq() :+ Seq() :+ Seq() :+ Seq(this.nodes.size)
+    val newFitDeps = this.fitDeps :+ None :+ None :+ None :+ Some(this.nodes.size)
     val newSink = newNodes.size - 1
 
     val fittedTransformer = Pipeline[B, C](newNodes, newDataDeps, newFitDeps, newSink)
@@ -113,8 +114,9 @@ trait Pipeline[A, B] {
    */
   final def toDOTString: String = {
     val nodeLabels: Seq[String] = "-1 [label=\"In\" shape=\"Msquare\"]" +: nodes.zipWithIndex.map {
-      case (data: DataNode, id)  => s"$id [label=${'"' + data.label + '"'} shape=${"\"box\""} style=${"\"filled\""}]"
-      case (transformer: TransformerNode[_], id) => s"$id [label=${'"' + transformer.label + '"'}]"
+      case (data: SourceNode, id)  => s"$id [label=${'"' + data.label + '"'} shape=${"\"box\""} style=${"\"filled\""}]"
+      case (transformer: TransformerNode, id) => s"$id [label=${'"' + transformer.label + '"'}]"
+      case (delTransformer: DelegatingTransformerNode, id) => s"$id [label=${'"' + delTransformer.label + '"'}]"
       case (estimator: EstimatorNode, id) => s"$id [label=${'"' + estimator.label + '"'} shape=${"\"box\""}]"
     } :+ s"${nodes.size} [label=${"\"Out\""} shape=${"\"Msquare\""}]"
 
@@ -158,7 +160,7 @@ object Pipeline {
   private[workflow] def apply[A, B](
     nodes: Seq[Node],
     dataDeps: Seq[Seq[Int]],
-    fitDeps: Seq[Seq[Int]],
+    fitDeps: Seq[Option[Int]],
     sink: Int): Pipeline[A, B] = {
     new ConcretePipeline(nodes, dataDeps, fitDeps, sink)
   }
@@ -185,7 +187,7 @@ object Pipeline {
     val newFitDeps = branchesWithNodeOffsets.map { case (offset, branch) =>
       val fitDeps = branch.fitDeps
       fitDeps.map(_.map(x => if (x == Pipeline.SOURCE) Pipeline.SOURCE else x + offset))
-    }.reduceLeft(_ ++ _) :+  Seq()
+    }.reduceLeft(_ ++ _) :+  None
 
     val newSink = newNodes.size - 1
     Pipeline(newNodes, newDataDeps, newFitDeps, newSink)
@@ -195,7 +197,7 @@ object Pipeline {
 class PipelineWithFittedTransformer[A, B, C] private[workflow] (
     nodes: Seq[Node],
     dataDeps: Seq[Seq[Int]],
-    fitDeps: Seq[Seq[Int]],
+    fitDeps: Seq[Option[Int]],
     sink: Int,
     val fittedTransformer: Pipeline[B, C])
     extends ConcretePipeline[A, C](nodes, dataDeps, fitDeps, sink)

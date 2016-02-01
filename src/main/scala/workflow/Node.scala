@@ -7,6 +7,12 @@ sealed trait Instruction {
   def mapDependencies(func: Int => Int): Instruction
 }
 
+/**
+ * An Instruction that represents the application of a transformer to data inputs.
+ *
+ * @param transformer The index of the [[TransformerNode]] in the instructions
+ * @param inputs The indices of the data inputs in the instructions
+ */
 case class TransformerApplyNode(transformer: Int, inputs: Seq[Int]) extends Instruction {
   override def getDependencies: Seq[Int] = Seq(transformer) ++ inputs
   override def mapDependencies(func: (Int) => Int): TransformerApplyNode = {
@@ -14,6 +20,12 @@ case class TransformerApplyNode(transformer: Int, inputs: Seq[Int]) extends Inst
   }
 }
 
+/**
+ * An Instruction that represents the fitting of an estimator with data inputs.
+ *
+ * @param est The index of the [[EstimatorNode]] in the instructions
+ * @param inputs The indices of the data inputs in the instructions
+ */
 case class EstimatorFitNode(est: Int, inputs: Seq[Int]) extends Instruction {
   override def getDependencies: Seq[Int] = Seq(est) ++ inputs
   override def mapDependencies(func: (Int) => Int): EstimatorFitNode = {
@@ -50,11 +62,11 @@ private[workflow] case class SourceNode(rdd: RDD[_]) extends Node with Instructi
 }
 
 /**
-  * A transformer used internally to apply the fit output of an Estimator onto data dependencies.
-  * Takes one fit dependency, and directly applies its transform onto the data dependencies.
-  *
-  * Only expects one fit dependency. This is because the DSL will place a new DelegatingTransformer
-  * after each Estimator whenever chaining an Estimator, and connect it via a fit dependency.
-  */
+ * A node used internally to apply the fit output of an Estimator onto data dependencies.
+ * Takes one fit dependency, and directly applies its transform onto the data dependencies.
+ *
+ * Only expects one fit dependency. This is because the DSL will place a new DelegatingTransformer
+ * after each Estimator whenever chaining an Estimator, and connect it via a fit dependency.
+ */
 private[workflow] class DelegatingTransformerNode(override val label: String)
   extends Node with Serializable

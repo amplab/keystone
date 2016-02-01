@@ -47,8 +47,8 @@ trait Pipeline[A, B] {
 
   /**
    * Chains a pipeline onto the end of this one, producing a new pipeline.
-    *
-    * @param next the pipeline to chain
+   *
+   * @param next the pipeline to chain
    */
   final def andThen[C](next: Pipeline[B, C]): Pipeline[A, C] = {
     val nodes = this.nodes ++ next.nodes

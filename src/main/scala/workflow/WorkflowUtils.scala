@@ -2,7 +2,6 @@ package workflow
 
 import scala.collection.mutable.ArrayBuffer
 
-
 object WorkflowUtils {
   def instructionsToPipeline[A, B](instructions: Seq[Instruction]): Pipeline[A, B] = {
     val nodes = new ArrayBuffer[Node]()
@@ -11,7 +10,7 @@ object WorkflowUtils {
     val instructionIdToNodeId = scala.collection.mutable.Map.empty[Int, Int]
     instructionIdToNodeId.put(Pipeline.SOURCE, Pipeline.SOURCE)
 
-    for (instruction <- 0 until instructions.length) {
+    for (instruction <- instructions.indices) {
       instructions(instruction) match {
         case est: EstimatorNode => Unit
         case transformer: TransformerNode => Unit
@@ -58,23 +57,23 @@ object WorkflowUtils {
     val fitDeps = pipeline.fitDeps
     val sink = pipeline.sink
 
-    pipelineRecurse(sink, nodes, dataDeps, fitDeps, Map(Pipeline.SOURCE -> Pipeline.SOURCE), Seq())._2
+    pipelineToInstructionsRecursion(sink, nodes, dataDeps, fitDeps, Map(Pipeline.SOURCE -> Pipeline.SOURCE), Seq())._2
   }
 
-  def pipelineRecurse(
-    current: Int,
-    nodes: Seq[Node],
-    dataDeps: Seq[Seq[Int]],
-    fitDeps: Seq[Option[Int]],
-    nodeIdToInstructionId: Map[Int, Int],
-    instructions: Seq[Instruction]
-  ): (Map[Int, Int], Seq[Instruction]) = {
+  def pipelineToInstructionsRecursion(
+      current: Int,
+      nodes: Seq[Node],
+      dataDeps: Seq[Seq[Int]],
+      fitDeps: Seq[Option[Int]],
+      nodeIdToInstructionId: Map[Int, Int],
+      instructions: Seq[Instruction]
+    ): (Map[Int, Int], Seq[Instruction]) = {
     var curIdMap = nodeIdToInstructionId
     var curInstructions = instructions
-    System.out.println(current)
+
     for (dep <- fitDeps(current)) {
       if (!curIdMap.contains(dep) && dep != Pipeline.SOURCE) {
-        val (newIdMap, newInstructions) = pipelineRecurse(dep, nodes, dataDeps, fitDeps, curIdMap, curInstructions)
+        val (newIdMap, newInstructions) = pipelineToInstructionsRecursion(dep, nodes, dataDeps, fitDeps, curIdMap, curInstructions)
         curIdMap = newIdMap
         curInstructions = newInstructions
       }
@@ -82,7 +81,7 @@ object WorkflowUtils {
 
     for (dep <- dataDeps(current)) {
       if (!curIdMap.contains(dep) && dep != Pipeline.SOURCE) {
-        val (newIdMap, newInstructions) = pipelineRecurse(dep, nodes, dataDeps, fitDeps, curIdMap, curInstructions)
+        val (newIdMap, newInstructions) = pipelineToInstructionsRecursion(dep, nodes, dataDeps, fitDeps, curIdMap, curInstructions)
         curIdMap = newIdMap
         curInstructions = newInstructions
       }
@@ -119,6 +118,5 @@ object WorkflowUtils {
         (curIdMap, curInstructions)
       }
     }
-
   }
 }

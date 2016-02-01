@@ -15,7 +15,7 @@ import nodes.stats.{CosineRandomFeatures, StandardScaler}
 import nodes.util.{VectorCombiner, ClassLabelIndicatorsFromIntLabels, MaxClassifier}
 
 import pipelines._
-import workflow.{DefaultOptimizer, Pipeline}
+import workflow.Pipeline
 
 
 object TimitPipeline extends Logging {

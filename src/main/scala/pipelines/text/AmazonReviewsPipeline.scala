@@ -9,7 +9,6 @@ import nodes.util.CommonSparseFeatures
 import org.apache.spark.{SparkConf, SparkContext}
 import pipelines.Logging
 import scopt.OptionParser
-import workflow.DefaultOptimizer
 
 object AmazonReviewsPipeline extends Logging {
   val appName = "AmazonReviewsPipeline"

@@ -30,7 +30,7 @@ private[workflow] class ConcretePipeline[A, B](
 
    * - data deps may not point at estimators
    * - fit deps may only point to estimators
-    */
+   */
   private[workflow] def validate(): Unit = {
     require(nodes.size == dataDeps.size && nodes.size == fitDeps.size,
       "nodes.size must equal dataDeps.size and fitDeps.size")
@@ -95,7 +95,7 @@ private[workflow] class ConcretePipeline[A, B](
           val nodeDataDeps = dataDeps(node).map(x => singleDataEval(x, in))
           nodeFitDep.transform(nodeDataDeps)
         case _: SourceNode => throw new RuntimeException(
-          "Pipeline DAG error: came across an RDD data dependency when trying to do a single item apply"
+          "Pipeline DAG error: came across an RDD source dependency when trying to do a single item apply"
         )
         case _: EstimatorNode => throw new RuntimeException(
           "Pipeline DAG error: Cannot have a data dependency on an Estimator"
@@ -133,7 +133,7 @@ private[workflow] class ConcretePipeline[A, B](
 
   override def apply(in: RDD[A]): RDD[B] = apply(in, Some(DefaultOptimizer))
 
-  def apply(in: A, optimizer: Option[RuleExecutor]): B = {
+  def apply(in: A, optimizer: Option[Optimizer]): B = {
     optimizer match {
       case Some(opt) => opt.execute(this).apply(in, None)
       case None => singleDataEval(sink, in).asInstanceOf[B]

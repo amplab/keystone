@@ -33,7 +33,7 @@ class NodeOptimizationRule(sampleFraction: Double = 0.01, seed: Long = 0) extend
 
     // Execute the minimal amount necessary of the pipeline on sampled nodes, and optimize the optimizable nodes
     val optimizedInstructions = instructions.toArray
-    val registers = new Array[Any](instructions.length)
+    val registers = new Array[InstructionOutput](instructions.length)
     val numPerPartitionPerNode = Array.fill[Option[Map[Int, Int]]](instructions.length)(None)
 
     for ((instruction, index) <- instructions.zipWithIndex) {
@@ -41,50 +41,52 @@ class NodeOptimizationRule(sampleFraction: Double = 0.01, seed: Long = 0) extend
         instruction match {
           case SourceNode(rdd) =>
             val sampledRDD = rdd.sample(withReplacement = false, sampleFraction, seed)
-            registers(index) = sampledRDD
+            registers(index) = RDDOutput(sampledRDD)
             numPerPartitionPerNode(index) = Some(WorkflowUtils.numPerPartition(rdd))
-
-          case transformer: TransformerNode =>
-            registers(index) = transformer
-
-          case estimator: EstimatorNode =>
-            registers(index) = estimator
 
           case TransformerApplyNode(tIndex, inputIndices) =>
             val numPerPartition = numPerPartitionPerNode(inputIndices.head)
-            val inputs = inputIndices.map(registers(_).asInstanceOf[RDD[_]].cache())
+            val inputs = inputIndices.map(registers).collect {
+              case RDDOutput(rdd) => rdd.cache()
+            }
             inputs.foreach(_.count())
-            val transformer = registers(tIndex).asInstanceOf[TransformerNode]
 
             // Optimize the transformer if possible
-            val optimizedTransformer = transformer match {
-              case ot: OptimizableTransformer[a, b] =>
+            val transformer = registers(tIndex) match {
+              case TransformerOutput(ot: OptimizableTransformer[a, b]) =>
                 ot.optimize(inputs.head.asInstanceOf[RDD[a]], numPerPartition.get)
-              case _ => transformer
+              case TransformerOutput(t) => t
+              case _ => throw new ClassCastException("TransformerApplyNode dep wasn't pointing at a transformer")
             }
 
-            registers(index) = optimizedTransformer.transformRDD(inputs)
-            optimizedInstructions(tIndex) = optimizedTransformer
+            registers(index) = RDDOutput(transformer.transformRDD(inputs))
+            optimizedInstructions(tIndex) = transformer
             numPerPartitionPerNode(index) = numPerPartition
 
           case EstimatorFitNode(estIndex, inputIndices) =>
             val numPerPartition = numPerPartitionPerNode(inputIndices.head)
-            val inputs = inputIndices.map(registers(_).asInstanceOf[RDD[_]].cache())
+            val inputs = inputIndices.map(registers).collect {
+              case RDDOutput(rdd) => rdd.cache()
+            }
             inputs.foreach(_.count())
-            val estimator = registers(estIndex).asInstanceOf[EstimatorNode]
 
             // Optimize the estimator if possible
-            val optimizedEstimator = estimator match {
-              case ot: OptimizableEstimator[a, b] =>
-                ot.optimize(inputs.head.asInstanceOf[RDD[a]], numPerPartition.get)
-              case ot: OptimizableLabelEstimator[a, b, l] =>
-                ot.optimize(inputs.head.asInstanceOf[RDD[a]], inputs(1).asInstanceOf[RDD[l]], numPerPartition.get)
-              case _ => estimator
+            val estimator = registers(estIndex) match {
+              case EstimatorOutput(oe: OptimizableEstimator[a, b]) =>
+                oe.optimize(inputs.head.asInstanceOf[RDD[a]], numPerPartition.get)
+              case EstimatorOutput(oe: OptimizableLabelEstimator[a, b, l]) =>
+                oe.optimize(inputs.head.asInstanceOf[RDD[a]], inputs(1).asInstanceOf[RDD[l]], numPerPartition.get)
+              case EstimatorOutput(e) => e
+              case _ => throw new ClassCastException("EstimatorFitNode dep wasn't pointing at an estimator")
             }
 
-            registers(index) = optimizedEstimator.fitRDDs(inputs)
-            optimizedInstructions(estIndex) = optimizedEstimator
+            registers(index) = TransformerOutput(estimator.fitRDDs(inputs))
+            optimizedInstructions(estIndex) = estimator
             numPerPartitionPerNode(index) = numPerPartition
+
+          case node: Instruction =>
+            val deps = node.getDependencies.map(registers)
+            registers(index) = node.execute(deps)
         }
       }
     }

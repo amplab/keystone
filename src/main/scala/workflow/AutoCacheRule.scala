@@ -12,9 +12,9 @@ case class Profile(ns: Long, mem: Long) {
 case class SampleProfile(scale: Long, profile: Profile)
 
 class AutoCacheRule(
-                     profileScales: Seq[Long] = Seq(500, 1000),
-                     numProfileTrials: Int = 2
-                   ) extends Rule with Logging {
+  profileScales: Seq[Long] = Seq(500, 1000),
+  numProfileTrials: Int = 2
+) extends Rule with Logging {
 
   /**
    * Get the node weights: estimates for how many passes an instruction will make over its input dependencies
@@ -91,20 +91,20 @@ class AutoCacheRule(
   }
 
   def profileInstructions(
-                           instructions: Seq[Instruction],
-                           scales: Seq[Long],
-                           numTrials: Int
-                         ): Map[Int, Profile] = {
+    instructions: Seq[Instruction],
+    scales: Seq[Long],
+    numTrials: Int
+  ): Map[Int, Profile] = {
     val instructionsToProfile = instructions.indices.toSet -- WorkflowUtils.getChildren(Pipeline.SOURCE, instructions)
 
-    val registers = scala.collection.mutable.Map[Int, Any]()
+    val registers = new Array[InstructionOutput](instructions.length)
     val numPerPartitionPerNode = scala.collection.mutable.Map[Int, Map[Int, Int]]()
     val profiles = scala.collection.mutable.Map[Int, Profile]()
 
     val sortedScales = scales.sorted
     for ((instruction, i) <- instructions.zipWithIndex if instructionsToProfile.contains(i)) {
       instruction match {
-        case SourceNode(rdd) =>
+        case SourceNode(rdd) => {
           val npp = WorkflowUtils.numPerPartition(rdd)
           numPerPartitionPerNode(i) = npp
 
@@ -133,7 +133,7 @@ class AutoCacheRule(
 
             // If this sample was computed using the final and largest scale, add it to the registers
             if ((scaleIndex == (sortedScales.length - 1)) && (trial == numTrials)) {
-              registers(i) = sample
+              registers(i) = RDDOutput(sample)
             } else {
               sample.unpersist()
             }
@@ -142,21 +142,23 @@ class AutoCacheRule(
           }
 
           profiles(i) = generalizeProfiles(totalCount, sampleProfiles)
+        }
 
-        case transformer: TransformerNode =>
-          registers(i) = transformer
-
-        case estimator: EstimatorNode =>
-          registers(i) = estimator
-
-        case TransformerApplyNode(tIndex, inputIndices) =>
+        case TransformerApplyNode(tIndex, inputIndices) => {
           // We assume that all input rdds to this transformer have equal, zippable partitioning
           val npp = numPerPartitionPerNode(inputIndices.head)
           numPerPartitionPerNode(i) = npp
           val totalCount = npp.values.map(_.toLong).sum
 
-          val transformer = registers(tIndex).asInstanceOf[TransformerNode]
-          val inputs = inputIndices.map(x => registers(x).asInstanceOf[RDD[_]])
+
+          val transformer = registers(tIndex) match {
+            case TransformerOutput(t) => t
+            case _ => throw new ClassCastException("TransformerApplyNode dep wasn't pointing at a transformer")
+          }
+          val inputs = inputIndices.map(registers).collect {
+            case RDDOutput(rdd) => rdd.cache()
+          }
+          inputs.foreach(_.count())
 
           val sampleProfiles = for (
             (scale, scaleIndex) <- sortedScales.zipWithIndex;
@@ -172,7 +174,6 @@ class AutoCacheRule(
             val sampledInputs = inputs.map(_.mapPartitionsWithIndex {
               case (pid, partition) => partition.take(scaledNumPerPartition(pid))
             })
-            sampledInputs.foreach(_.count())
 
             // Profile sample timing
             val start = System.nanoTime()
@@ -186,7 +187,7 @@ class AutoCacheRule(
 
             // If this sample was computed using the final and largest scale, add it to the registers
             if ((scaleIndex == (sortedScales.length - 1)) && (trial == numTrials)) {
-              registers(i) = sample
+              registers(i) = RDDOutput(sample)
             } else {
               sample.unpersist()
             }
@@ -195,11 +196,12 @@ class AutoCacheRule(
           }
 
           profiles(i) = generalizeProfiles(totalCount, sampleProfiles)
+        }
 
-        case EstimatorFitNode(estIndex, inputIndices) =>
-          val estimator = registers(estIndex).asInstanceOf[EstimatorNode]
-          val inputs = inputIndices.map(x => registers(x).asInstanceOf[RDD[_]])
-          registers(i) = estimator.fitRDDs(inputs)
+        case node: Instruction => {
+          val deps = node.getDependencies.map(registers)
+          registers(i) = node.execute(deps)
+        }
       }
     }
 

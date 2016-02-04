@@ -19,7 +19,7 @@ abstract class Estimator[A, B] extends EstimatorNode  {
    */
   protected def fit(data: RDD[A]): Transformer[A, B]
 
-  private[workflow] final def fit(dependencies: Seq[RDD[_]]): TransformerNode = fit(dependencies.head.asInstanceOf[RDD[A]])
+  private[workflow] final def fitRDDs(dependencies: Seq[RDD[_]]): TransformerNode = fit(dependencies.head.asInstanceOf[RDD[A]])
 
   /**
    * Constructs a pipeline from a single estimator and training data.

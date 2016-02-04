@@ -57,7 +57,7 @@ class WorkflowUtilsSuite extends FunSuite with LocalSparkContext with Logging {
       (plusDataPlusLabelEstimator, trainData, labelData)
 
     val initialPipeline = new Optimizer {
-      protected val batches: Seq[Batch] = Batch("DAG Optimization", FixedPoint(100), EquivalentNodeMerger) :: Nil
+      protected val batches: Seq[Batch] = Batch("DAG Optimization", FixedPoint(100), EquivalentNodeMergeRule) :: Nil
     }.execute(Pipeline.gather {
       firstPipeline :: secondPipeline :: thirdPipeline :: Nil
     })

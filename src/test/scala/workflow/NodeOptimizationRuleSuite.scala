@@ -92,7 +92,12 @@ class NodeOptimizationRuleSuite extends FunSuite with LocalSparkContext with Log
 }
 
 object NodeOptimizationRuleSuite {
-  case class State(choice: Option[Boolean] = None, transformerChoice: Option[Boolean] = None, estimatorChoice: Option[Boolean] = None, labelEstimatorChoice: Option[Boolean] = None)
+  case class State(
+    choice: Option[Boolean] = None,
+    transformerChoice: Option[Boolean] = None,
+    estimatorChoice: Option[Boolean] = None,
+    labelEstimatorChoice: Option[Boolean] = None
+  )
 
   val transformerDoNothing = Transformer[State, State] { x =>
     assert(x.choice.isEmpty, "The default transformer must only be used on test data")

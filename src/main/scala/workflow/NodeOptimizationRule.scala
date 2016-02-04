@@ -39,12 +39,13 @@ class NodeOptimizationRule(sampleFraction: Double = 0.01, seed: Long = 0) extend
     for ((instruction, index) <- instructions.zipWithIndex) {
       if (instructionsToExecute.contains(index)) {
         instruction match {
-          case SourceNode(rdd) =>
+          case SourceNode(rdd) => {
             val sampledRDD = rdd.sample(withReplacement = false, sampleFraction, seed)
             registers(index) = RDDOutput(sampledRDD)
             numPerPartitionPerNode(index) = Some(WorkflowUtils.numPerPartition(rdd))
+          }
 
-          case TransformerApplyNode(tIndex, inputIndices) =>
+          case TransformerApplyNode(tIndex, inputIndices) => {
             val numPerPartition = numPerPartitionPerNode(inputIndices.head)
             val inputs = inputIndices.map(registers).collect {
               case RDDOutput(rdd) => rdd.cache()
@@ -62,8 +63,9 @@ class NodeOptimizationRule(sampleFraction: Double = 0.01, seed: Long = 0) extend
             registers(index) = RDDOutput(transformer.transformRDD(inputs))
             optimizedInstructions(tIndex) = transformer
             numPerPartitionPerNode(index) = numPerPartition
+          }
 
-          case EstimatorFitNode(estIndex, inputIndices) =>
+          case EstimatorFitNode(estIndex, inputIndices) => {
             val numPerPartition = numPerPartitionPerNode(inputIndices.head)
             val inputs = inputIndices.map(registers).collect {
               case RDDOutput(rdd) => rdd.cache()
@@ -75,7 +77,7 @@ class NodeOptimizationRule(sampleFraction: Double = 0.01, seed: Long = 0) extend
               case EstimatorOutput(oe: OptimizableEstimator[a, b]) =>
                 oe.optimize(inputs.head.asInstanceOf[RDD[a]], numPerPartition.get)
               case EstimatorOutput(oe: OptimizableLabelEstimator[a, b, l]) =>
-                oe.optimize(inputs.head.asInstanceOf[RDD[a]], inputs(1).asInstanceOf[RDD[l]], numPerPartition.get)
+                oe.optimize(inputs(0).asInstanceOf[RDD[a]], inputs(1).asInstanceOf[RDD[l]], numPerPartition.get)
               case EstimatorOutput(e) => e
               case _ => throw new ClassCastException("EstimatorFitNode dep wasn't pointing at an estimator")
             }
@@ -83,10 +85,12 @@ class NodeOptimizationRule(sampleFraction: Double = 0.01, seed: Long = 0) extend
             registers(index) = TransformerOutput(estimator.fitRDDs(inputs))
             optimizedInstructions(estIndex) = estimator
             numPerPartitionPerNode(index) = numPerPartition
+          }
 
-          case node: Instruction =>
+          case node: Instruction => {
             val deps = node.getDependencies.map(registers)
             registers(index) = node.execute(deps)
+          }
         }
       }
     }

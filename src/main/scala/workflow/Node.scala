@@ -16,7 +16,8 @@ case class EstimatorOutput(estimatorNode: EstimatorNode) extends InstructionOutp
 case class TransformerOutput(transformerNode: TransformerNode) extends InstructionOutput
 
 /**
- * An Instruction that represents the application of a transformer to data inputs.
+ * TransformerApplyNode is an Instruction that represents the
+ * application of a transformer to data inputs.
  *
  * @param transformer The index of the [[TransformerNode]] in the instructions
  * @param inputs The indices of the data inputs in the instructions

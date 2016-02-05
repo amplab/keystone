@@ -4,6 +4,7 @@ import breeze.linalg.{max, DenseVector, DenseMatrix}
 import nodes.util.Cacher
 import org.apache.spark.rdd.RDD
 import pipelines.Logging
+import workflow.AutoCacheRule.{GreedyCache, NaiveCache, CachingStrategy}
 
 case class Profile(ns: Long, mem: Long) {
   def +(p: Profile) = Profile(this.ns + p.ns, this.mem + p.mem)
@@ -12,8 +13,7 @@ case class Profile(ns: Long, mem: Long) {
 case class SampleProfile(scale: Long, profile: Profile)
 
 class AutoCacheRule(
-  profileScales: Seq[Long] = Seq(500, 1000),
-  numProfileTrials: Int = 2
+  cachingMode: CachingStrategy
 ) extends Rule with Logging {
 
   /**
@@ -38,7 +38,7 @@ class AutoCacheRule(
    * Note: This doesn't capture how many times each child depended on the instruction
    */
   def getImmediateChildrenByInstruction(instructions: Seq[Instruction]): Map[Int, Set[Int]] = {
-    instructions.indices.map(i => (i, WorkflowUtils.getChildren(i, instructions))).toMap
+    instructions.indices.map(i => (i, WorkflowUtils.getImmediateChildren(i, instructions))).toMap
   }
 
   /**
@@ -53,7 +53,8 @@ class AutoCacheRule(
         runsByIndex + (i -> 1)
       }
       else {
-        val runs = immediateChildrenByInstruction(i).map(j => if (cache.contains(j)) {
+        // Must do a toSeq here otherwise it stays a Set and merges equal weights
+        val runs = immediateChildrenByInstruction(i).toSeq.map(j => if (cache.contains(j)) {
           nodeWeights(j)
         } else {
           nodeWeights(j) * runsByIndex(j)
@@ -225,15 +226,17 @@ class AutoCacheRule(
    */
   def makeCachedPipeline(pipe: Seq[Instruction], cached: Set[Int]): Seq[Instruction] = {
     // Find the indexes of the new caching nodes. We only cache instructions that produce RDDs
-    val filteredCaches = pipe.zipWithIndex.filter {
+    val dataOutputtingInstructions = pipe.zipWithIndex.filter {
       case (TransformerApplyNode(_, _), _) => true
       case (SourceNode(_), _) => true
       case _ => false
     }.map(_._2).toSet
 
-    val toCache = cached.intersect(filteredCaches)
+    val toCache = cached.intersect(dataOutputtingInstructions)
 
-    pipe.indices.foldLeft((Seq[Instruction](), pipe.indices.zipWithIndex.toMap)) {
+    pipe.indices.foldLeft (
+      (Seq[Instruction](), pipe.indices.zipWithIndex.toMap + (Pipeline.SOURCE -> Pipeline.SOURCE))
+    ) {
       case ((newPipe, oldToNewIndexMap), i) if toCache.contains(i) =>
         (newPipe ++ Seq(
           pipe(i).mapDependencies(oldToNewIndexMap),
@@ -249,11 +252,49 @@ class AutoCacheRule(
     }._1
   }
 
+  def naiveCache(instructions: Seq[Instruction]): Seq[Instruction] = {
+    val immediateChildren = getImmediateChildrenByInstruction(instructions)
+    val nodeWeights = getNodeWeights(instructions)
+
+    val childrenOfSource = WorkflowUtils.getChildren(Pipeline.SOURCE, instructions)
+
+    // Cache any node whose direct output is used more than once while training
+    val instructionsToCache = instructions.indices.filter {
+      // Must do a toSeq here otherwise it stays a Set and merges equal weights
+      i => immediateChildren(i).diff(childrenOfSource).toSeq.map(nodeWeights).sum > 1
+    }.toSet
+
+    makeCachedPipeline(instructions, instructionsToCache)
+  }
+
+  def greedyCache(
+    instructions: Seq[Instruction],
+    profileScales: Seq[Long],
+    numProfileTrials: Int
+  ): Seq[Instruction] = {
+    val profiles = profileInstructions(instructions, profileScales, numProfileTrials)
+    null
+  }
+
   override def apply[A, B](plan: Pipeline[A, B]): Pipeline[A, B] = {
     val instructions = WorkflowUtils.pipelineToInstructions(plan)
 
-    val profiles = profileInstructions(instructions, profileScales, numProfileTrials)
-
-    null
+    WorkflowUtils.instructionsToPipeline(cachingMode match {
+      case NaiveCache => naiveCache(instructions)
+      case GreedyCache(profileScales, numProfileTrials) => greedyCache(instructions, profileScales, numProfileTrials)
+    })
   }
+}
+
+object AutoCacheRule {
+  sealed trait CachingStrategy
+  /**
+   * NaiveCache is the optimal caching strategy assuming infinite memory and zero caching overhead
+   * (cache at every node with > 1 direct output dependency edge during training)
+   */
+  case object NaiveCache extends CachingStrategy
+  case class GreedyCache(
+    profileScales: Seq[Long] = Seq(500, 1000),
+    numProfileTrials: Int = 2
+  ) extends CachingStrategy
 }

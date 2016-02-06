@@ -36,7 +36,7 @@ class AutoCacheRule(
    * Get a map representing the immediate children for each instruction
    * Note: This doesn't capture how many times each child depended on the instruction
    */
-  def getImmediateChildrenByInstruction(instructions: Seq[Instruction]): Map[Int, Set[Int]] = {
+  def getImmediateChildrenByInstruction(instructions: Seq[Instruction]): Map[Int, Seq[Int]] = {
     instructions.indices.map(i => (i, WorkflowUtils.getImmediateChildren(i, instructions))).toMap
   }
 
@@ -52,8 +52,7 @@ class AutoCacheRule(
         runsByIndex + (i -> 1)
       }
       else {
-        // Must do a toSeq here otherwise it stays a Set and merges equal weights
-        val runs = immediateChildrenByInstruction(i).toSeq.map(j => if (cache.contains(j)) {
+        val runs = immediateChildrenByInstruction(i).map(j => if (cache.contains(j)) {
           nodeWeights(j)
         } else {
           nodeWeights(j) * runsByIndex(j)
@@ -266,8 +265,7 @@ class AutoCacheRule(
 
     // Cache any node whose direct output is used more than once while training
     val instructionsToCache = instructions.indices.filter {
-      // Must do a toSeq here otherwise it stays a Set and merges equal weights
-      i => immediateChildren(i).diff(childrenOfSource).toSeq.map(nodeWeights).sum > 1
+      i => immediateChildren(i).filterNot(childrenOfSource).map(nodeWeights).sum > 1
     }.toSet
 
     makeCachedPipeline(instructions, instructionsToCache)

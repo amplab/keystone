@@ -119,23 +119,23 @@ object WorkflowUtils {
   }
 
   /**
-   * Get the set of all instruction ids with the result of a given instruction in their
+   * Get a seq of all instruction ids with the result of a given instruction in their
    * direct dependencies. (Does not include transitive dependencies)
    *
-   * Note: This does not capture the number of times that each instruction depends on
-   * the input id
+   * Note: This includes ids as many times in the seq as they have dependencies on
+   * the given instruction
    *
    * @param id
    * @param instructions
    * @return
    */
-  def getImmediateChildren(id: Int, instructions: Seq[Instruction]): Set[Int] = {
+  def getImmediateChildren(id: Int, instructions: Seq[Instruction]): Seq[Int] = {
     // Todo: Can optimize by looking at only instructions > id
     // Todo: Could also make a more optimized implementation
     // by calculating it for all instructions at once
-    instructions.indices.filter {
-      i => instructions(i).getDependencies.contains(id)
-    }.toSet
+    instructions.indices.foldLeft(Seq[Int]()) {
+      case (children, i) => children ++ instructions(i).getDependencies.filter(_ == id).map(x => i)
+    }
   }
 
   /**

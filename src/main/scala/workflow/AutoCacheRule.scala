@@ -2,7 +2,6 @@ package workflow
 
 import breeze.linalg.{max, DenseVector, DenseMatrix}
 import nodes.util.Cacher
-import org.apache.spark.rdd.RDD
 import pipelines.Logging
 import workflow.AutoCacheRule.{GreedyCache, NaiveCache, CachingStrategy}
 
@@ -209,10 +208,17 @@ class AutoCacheRule(
     profiles.toMap
   }
 
-  def estimateCachedRunTime(instructions: Seq[Instruction], cached: Set[Int], profiles: Map[Int, Profile]): Double = {
+
+  /**
+   * Estimates the total runtime of a pipeline given the cached set of instructions
+   */
+  def estimateCachedRunTime(
+    instructions: Seq[Instruction],
+    cached: Set[Int],
+    profiles: Map[Int, Profile]
+  ): Double = {
     val nodeWeights = getNodeWeights(instructions)
     val runs = getRuns(instructions, cached, nodeWeights)
-
     val localWork = instructions.indices.map(i => profiles.getOrElse(i, Profile(0, 0)).ns.toDouble).toArray
 
     instructions.indices.map(i => {
@@ -267,13 +273,64 @@ class AutoCacheRule(
     makeCachedPipeline(instructions, instructionsToCache)
   }
 
+  def cacheMem(caches: Set[Int], profiles: Map[Int, Profile]): Long = {
+    // Must do a toSeq here otherwise the map may merge equal memories
+    caches.toSeq.map(i => profiles.getOrElse(i, Profile(0, 0)).mem).sum
+  }
+
+  /**
+   * Returns true iff there is still an uncached node whose output is used > once, that would fit in memory
+   * if cached
+   */
+  def stillRoom(caches: Set[Int], runs: Map[Int, Int], profiles: Map[Int, Profile], spaceLeft: Long): Boolean = {
+    runs.exists { i =>
+      (i._2 > 1) &&
+        (!caches.contains(i._1)) &&
+        (profiles.getOrElse(i._1, Profile(0, 0)).mem < spaceLeft)
+    }
+  }
+
+  def selectNext(
+    pipe: Seq[Instruction],
+    profiles: Map[Int, Profile],
+    cached: Set[Int],
+    runs: Map[Int, Int],
+    spaceLeft: Long
+  ): Int = {
+    //Get the uncached node which fits that maximizes savings in runtime.
+    pipe.indices.filter(i =>
+      !cached(i) &&
+        profiles.getOrElse(i, Profile(0, 0)).mem < spaceLeft &&
+        runs(i) > 1)
+      .minBy(i => estimateCachedRunTime(pipe, cached + i, profiles))
+  }
+
   def greedyCache(
     instructions: Seq[Instruction],
     profileScales: Seq[Long],
-    numProfileTrials: Int
+    numProfileTrials: Int,
+    maxMem: Long
   ): Seq[Instruction] = {
     val profiles = profileInstructions(instructions, profileScales, numProfileTrials)
-    null
+    val nodeWeights = getNodeWeights(instructions)
+
+    var cached = instructions.indices.filter { instructions(_) match {
+      case _: EstimatorNode => true
+      case _: TransformerNode =>  true
+      case _: EstimatorFitNode => true
+      case _: SourceNode => false
+      case _: TransformerApplyNode => false
+    }}.toSet
+
+    var usedMem = cacheMem(cached, profiles)
+    var runs = getRuns(instructions, cached, nodeWeights)
+    while (usedMem < maxMem && stillRoom(cached, runs, profiles, maxMem - usedMem)) {
+      cached = cached + selectNext(instructions, profiles, cached, runs, maxMem - usedMem)
+      runs = getRuns(instructions, cached, nodeWeights)
+      usedMem = cacheMem(cached, profiles)
+    }
+
+    makeCachedPipeline(instructions, cached -- WorkflowUtils.getChildren(Pipeline.SOURCE, instructions))
   }
 
   override def apply[A, B](plan: Pipeline[A, B]): Pipeline[A, B] = {
@@ -281,7 +338,8 @@ class AutoCacheRule(
 
     WorkflowUtils.instructionsToPipeline(cachingMode match {
       case NaiveCache => naiveCache(instructions)
-      case GreedyCache(profileScales, numProfileTrials) => greedyCache(instructions, profileScales, numProfileTrials)
+      case GreedyCache(maxMem, profileScales, numProfileTrials) =>
+        greedyCache(instructions, profileScales, numProfileTrials, maxMem)
     })
   }
 }
@@ -294,6 +352,7 @@ object AutoCacheRule {
    */
   case object NaiveCache extends CachingStrategy
   case class GreedyCache(
+    maxMem: Long,
     profileScales: Seq[Long] = Seq(500, 1000),
     numProfileTrials: Int = 2
   ) extends CachingStrategy

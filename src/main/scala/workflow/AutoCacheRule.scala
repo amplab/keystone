@@ -305,11 +305,9 @@ class AutoCacheRule(
 
   def greedyCache(
     instructions: Seq[Instruction],
-    profileScales: Seq[Long],
-    numProfileTrials: Int,
+    profiles: Map[Int, Profile],
     maxMem: Long
   ): Seq[Instruction] = {
-    val profiles = profileInstructions(instructions, profileScales, numProfileTrials)
     val nodeWeights = getNodeWeights(instructions)
 
     var cached = instructions.indices.filter { instructions(_) match {
@@ -336,8 +334,10 @@ class AutoCacheRule(
 
     WorkflowUtils.instructionsToPipeline(cachingMode match {
       case NaiveCache => naiveCache(instructions)
-      case GreedyCache(maxMem, profileScales, numProfileTrials) =>
-        greedyCache(instructions, profileScales, numProfileTrials, maxMem)
+      case GreedyCache(maxMem, profileScales, numProfileTrials) => {
+        val profiles = profileInstructions(instructions, profileScales, numProfileTrials)
+        greedyCache(instructions, profiles, maxMem)
+      }
     })
   }
 }

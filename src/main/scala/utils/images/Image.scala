@@ -183,6 +183,15 @@ case class ChannelMajorArrayVectorizedImage(
     channelIdx + x * metadata.numChannels + y * metadata.xDim * metadata.numChannels
   }
 
+  override def vectorToImageCoords(v: Int): Coordinate = {
+    coord.y = v % (metadata.xDim * metadata.numChannels)
+    coord.x = (v - (coord.y * metadata.xDim * metadata.numChannels)) % metadata.numChannels
+    coord.z = v - coord.x * metadata.numChannels - coord.y * metadata.xDim * metadata.numChannels
+    coord
+  }
+
+
+
   override def getInVector(vectorIdx: Int) = vectorizedImage(vectorIdx)
 
 
@@ -205,6 +214,13 @@ case class ColumnMajorArrayVectorizedImage(
     y + x * metadata.yDim + cidx * metadata.yDim * metadata.xDim
   }
 
+  override def vectorToImageCoords(v: Int): Coordinate = {
+    coord.z = v % (metadata.xDim * metadata.yDim)
+    coord.x = (v - (coord.z * metadata.xDim * metadata.yDim)) % metadata.yDim
+    coord.y = v - coord.x * metadata.yDim - coord.z * metadata.yDim * metadata.xDim
+    coord
+  }
+
   override def getInVector(vectorIdx: Int) = {
     vectorizedImage(vectorIdx)
   }
@@ -223,6 +239,13 @@ case class RowMajorArrayVectorizedImage(
     override val metadata: ImageMetadata) extends VectorizedImage {
   override def imageToVectorCoords(x: Int, y: Int, channelIdx: Int): Int = {
     x + y * metadata.xDim + channelIdx * metadata.xDim * metadata.yDim
+  }
+
+  override def vectorToImageCoords(v: Int): Coordinate = {
+    coord.z = v % (metadata.xDim * metadata.yDim)
+    coord.y = (v - coord.z * metadata.xDim * metadata.yDim) % metadata.xDim
+    coord.x = v - coord.y * metadata.xDim - coord.z * metadata.xDim * metadata.yDim
+    coord
   }
 
   override def getInVector(vectorIdx: Int) = vectorizedImage(vectorIdx)
@@ -251,7 +274,35 @@ trait VectorizedImage extends Image {
   override def put(x: Int, y: Int, channelIdx: Int, newVal: Double) = {
     putInVector(imageToVectorCoords(x, y, channelIdx), newVal)
   }
+
+  def vectorToImageCoords(v: Int): Coordinate = ???
+
+  val coord: Coordinate = new Coordinate(0,0,0)
+
+  def iter(): Iterator[CoordinateValue] = new Iterator[CoordinateValue] {
+    var i = 0
+    val totSize = metadata.xDim*metadata.yDim*metadata.numChannels
+    var tup: Coordinate = null
+    var v: Double = 0.0
+    var cv: CoordinateValue = new CoordinateValue(0,0,0,0.0)
+
+    def hasNext = i < totSize
+
+    def next() = {
+      tup = vectorToImageCoords(i)
+      v = getInVector(i)
+      i += 1
+      cv.x = tup.x
+      cv.y = tup.y
+      cv.z = tup.z
+      cv.v = v
+      cv
+    }
+  }
 }
+
+class Coordinate(var x: Int, var y: Int, var z: Int)
+class CoordinateValue(var x: Int, var y: Int, var z: Int, var v: Double)
 
 /**
  * Wraps a double array.
@@ -287,7 +338,8 @@ case class RowColumnMajorByteArrayVectorizedImage(
 
 /**
  * Represents a labeled image.
- * @tparam L Type of the label.
+  *
+  * @tparam L Type of the label.
  */
 trait AbstractLabeledImage[L] {
   def image: Image
@@ -310,8 +362,7 @@ case class LabeledImage(image: Image, label: Int, filename: Option[String] = Non
  * @param image An Image.
  * @param label A set of labels. Should be an array with all elements in [0 .. K]
  *              where K is some number of unique labels.
- *
- * @param filename A filename where this image was found. Useful for debugging.
+  * @param filename A filename where this image was found. Useful for debugging.
  */
 case class MultiLabeledImage(image: Image, label: Array[Int], filename: Option[String] = None)
     extends AbstractLabeledImage[Array[Int]]

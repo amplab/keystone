@@ -11,9 +11,7 @@ case class Profile(ns: Long, mem: Long) {
 
 case class SampleProfile(scale: Long, profile: Profile)
 
-class AutoCacheRule(
-  cachingMode: CachingStrategy
-) extends Rule with Logging {
+class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
 
   /**
    * Get the node weights: estimates for how many passes an instruction will make over its input dependencies

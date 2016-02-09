@@ -63,11 +63,11 @@ object Convolver {
     val convRes: DenseMatrix[Double] = imgMat * convolutions
 
     val res = new ChannelMajorArrayVectorizedImage(
-      new Array[Double](resWidth*resHeight*convolutions.cols),
+      convRes.toArray,
       ImageMetadata(resWidth, resHeight, convolutions.cols))
 
     // Now pack the convolved features into the result.
-    var x, y, chan = 0
+    /*var x, y, chan = 0
     while (x < resWidth) {
       y = 0
       while ( y < resHeight) {
@@ -79,7 +79,7 @@ object Convolver {
         y += 1
       }
       x += 1
-    }
+    }*/
 
     res
   }
@@ -101,29 +101,31 @@ object Convolver {
       whitener: Option[ZCAWhitener],
       varConstant: Double): DenseMatrix[Double] = {
     var x,y,chan,pox,poy,py,px = 0
-    while (x < resWidth) {
-      y = 0
-      while (y < resHeight) {
-        chan = 0
-        while (chan < imgChannels) {
-          poy = 0
-          while (poy < convSize) {
-            pox = 0
-            while (pox < convSize) {
+
+    poy = 0
+    while (poy < convSize) {
+      pox = 0
+      while (pox < convSize) {
+        y = 0
+        while (y < resHeight) {
+          x = 0
+          while (x < resWidth) {
+            chan = 0
+            while (chan < imgChannels) {
               px = chan + pox*imgChannels + poy*imgChannels*convSize
               py = x + y*resWidth
 
               patchMat(py, px) = img.get(x+pox, y+poy, chan)
 
-              pox+=1
+              chan+=1
             }
-            poy+=1
+            x+=1
           }
-          chan+=1
+          y+=1
         }
-        y+=1
+        pox+=1
       }
-      x+=1
+      poy+=1
     }
 
     val patchMatN = if(normalizePatches) Stats.normalizeRows(patchMat, varConstant) else patchMat

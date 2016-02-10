@@ -66,21 +66,6 @@ object Convolver {
       convRes.toArray,
       ImageMetadata(resWidth, resHeight, convolutions.cols))
 
-    // Now pack the convolved features into the result.
-    /*var x, y, chan = 0
-    while (x < resWidth) {
-      y = 0
-      while ( y < resHeight) {
-        chan = 0
-        while (chan < convolutions.cols) {
-          res.put(x, y, chan, convRes(x + y*resWidth, chan))
-          chan += 1
-        }
-        y += 1
-      }
-      x += 1
-    }*/
-
     res
   }
 

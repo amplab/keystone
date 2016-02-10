@@ -159,4 +159,85 @@ object WorkflowUtils {
       case (id, partition) => Iterator.single((id, partition.length))
     }.collect().toMap
   }
+
+  /**
+   * Remove the given set of instruction indices from the pipeline, updating all dependency pointers
+   * appropriately. Errors when the removed instructions have dependencies on them
+   *
+   * @param setToRemove
+   * @param instructions
+   * @return A tuple containing the new instructions, and
+   *         a mapping of old instruction index to new instruction index
+   */
+  def removeInstructions(setToRemove: Set[Int], instructions: Seq[Instruction]): (Seq[Instruction], Map[Int, Int]) = {
+    val offsets = collection.mutable.Map[Int, Int]()
+    for (indexToRemove <- setToRemove;
+         indexToOffset <- (indexToRemove + 1) until instructions.length) {
+      offsets(indexToOffset) = offsets.getOrElse(indexToOffset, 0) + 1
+    }
+
+    val newInstructions = instructions.zipWithIndex.collect {
+      case (instruction, i) if !setToRemove.contains(i) =>
+        instruction.mapDependencies(oldDep =>
+          if (setToRemove.contains(oldDep)) {
+            throw new RuntimeException("WorkflowUtils.removeInstructions attempted to break a dependency")
+          } else {
+            oldDep - offsets.getOrElse(oldDep, 0)
+          }
+        )
+    }
+
+    val oldToNewIndexMapping = instructions.indices.filter(!setToRemove.contains(_))
+      .map(i => (i, i - offsets.getOrElse(i, 0))).toMap
+
+    (newInstructions, oldToNewIndexMapping)
+  }
+
+  /**
+   * Splice a sequence of instructions into an existing sequence of instructions.
+   *
+   * @param splice The sequence to insert
+   * @param instructions The existing sequence to have instructions spliced into
+   * @param spliceSourceMap A mapping from dependencies in the instructions being spliced to instructions in the
+   *                        existing sequence.
+   * @param spliceSink The dependency in the existing sequence to map to the sink of the instructions
+   *                   being spliced
+   * @return A tuple containing the new instructions, and
+   *         a mapping of old instruction index to new instruction index
+   */
+  def spliceInstructions(
+    splice: Seq[Instruction],
+    instructions: Seq[Instruction],
+    spliceSourceMap: Map[Int, Int],
+    spliceSink: Int
+  ): (Seq[Instruction], Map[Int, Int]) = {
+    val spliceIndex = spliceSourceMap.values.max + 1
+    val indicesDependingOnSpliceSink = instructions.indices
+      .filter(instructions(_).getDependencies.contains(spliceSink)) :+ instructions.length
+    require(spliceIndex <= indicesDependingOnSpliceSink.min,
+      "Can't splice the instruction set because the splice " +
+        "depends on instructions that come after where it is supposed to be used.")
+
+    val start = instructions.take(spliceIndex)
+    val splicedInstructions = splice.map(_.mapDependencies { dep =>
+      spliceSourceMap.getOrElse(dep, dep + start.length)
+    })
+    val end = instructions.drop(spliceIndex).map(_.mapDependencies { dep =>
+      if (spliceSink == dep) {
+        start.length + splicedInstructions.length - 1
+      } else if (dep >= spliceIndex) {
+        dep + splicedInstructions.length
+      } else {
+        dep
+      }
+    })
+
+    val oldToNewIndexMapping = instructions.indices.map { i =>
+      (i, if (i < spliceIndex) i else i + splicedInstructions.length)
+    }.toMap
+
+    val newInstructions = start ++ splicedInstructions ++ end
+
+    (newInstructions, oldToNewIndexMapping)
+  }
 }

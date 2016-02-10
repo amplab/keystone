@@ -128,11 +128,11 @@ object NodeOptimizationRuleSuite {
   }
   val optimizableEstimator = new OptimizableEstimator[State, State] {
     override val default: Estimator[State, State] = estimatorDoNothing
-    override def optimize(sample: RDD[State], numPerPartition: Map[Int, Int]): Estimator[State, State] = {
+    override def optimize(sample: RDD[State], numPerPartition: Map[Int, Int]): RDD[State] => Pipeline[State, State] = {
       if (sample.collect().exists(_.choice.get == false)) {
-        estimatorA
+        estimatorA.withData
       } else {
-        estimatorB
+        estimatorB.withData
       }
     }
   }
@@ -150,16 +150,16 @@ object NodeOptimizationRuleSuite {
   val optimizableLabelEstimator = new OptimizableLabelEstimator[State, State, Boolean] {
     override val default: LabelEstimator[State, State, Boolean] = labelEstimatorDoNothing
     override def optimize(sample: RDD[State], sampleLabels: RDD[Boolean], numPerPartition: Map[Int, Int])
-    : LabelEstimator[State, State, Boolean] = {
+    : (RDD[State], RDD[Boolean]) => Pipeline[State, State] = {
       // Test to make sure the zipping worked correctly
       sample.zip(sampleLabels).foreach { x =>
         assert(x._1.choice.get == x._2, "Label and choice must be equal!")
       }
 
       if (sample.collect().exists(_.choice.get == false)) {
-        labelEstimatorA
+        labelEstimatorA.withData
       } else {
-        labelEstimatorB
+        labelEstimatorB.withData
       }
     }
   }

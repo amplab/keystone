@@ -12,7 +12,7 @@ abstract class OptimizableTransformer[A, B : ClassTag] extends Transformer[A, B]
   override def apply(a: A) = default.apply(a)
   override def apply(data: RDD[A]) = default.apply(data)
 
-  def optimize(sample: RDD[A], numPerPartition: Map[Int, Int]): Transformer[A, B]
+  def optimize(sample: RDD[A], numPerPartition: Map[Int, Int]): Pipeline[A, B]
 }
 
 /**
@@ -25,7 +25,7 @@ abstract class OptimizableEstimator[A, B] extends Estimator[A, B] {
   // Due to some crazy Scala compiler shenanigans we need to do this roundabout fitRDDs call thing.
   override def fit(data: RDD[A]): Transformer[A, B] = default.fitRDDs(Seq(data)).asInstanceOf[Transformer[A, B]]
 
-  def optimize(sample: RDD[A], numPerPartition: Map[Int, Int]): Estimator[A, B]
+  def optimize(sample: RDD[A], numPerPartition: Map[Int, Int]): RDD[A] => Pipeline[A, B]
 }
 
 /**
@@ -40,5 +40,5 @@ abstract class OptimizableLabelEstimator[A, B, L] extends LabelEstimator[A, B, L
     default.fitRDDs(Seq(data, labels)).asInstanceOf[Transformer[A, B]]
   }
 
-  def optimize(sample: RDD[A], sampleLabels: RDD[L], numPerPartition: Map[Int, Int]): LabelEstimator[A, B, L]
+  def optimize(sample: RDD[A], sampleLabels: RDD[L], numPerPartition: Map[Int, Int]): (RDD[A], RDD[L]) => Pipeline[A, B]
 }

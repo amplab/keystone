@@ -1,6 +1,7 @@
 package nodes.images
 
 import breeze.linalg._
+import breeze.stats._
 import org.scalatest.FunSuite
 import pipelines.Logging
 import utils._
@@ -31,7 +32,8 @@ class ImageBenchMarkSuite extends FunSuite with Logging {
     TestParam("Cifar10000", (32,32,3), 6, 10000, 13, 14),
     TestParam("ImageNet", (256,256,3), 6, 100, (256-5)/2, (256-5)/2),
     TestParam("SolarFlares", (256,256,12), 6, 100, (256-5)/12, (256-5)/12),
-    TestParam("ConvolvedSolarFlares", (251,251,100), 6, 100, 251/12, 251/12)
+    TestParam("ConvolvedSolarFlares", (251,251,100), 6, 100, 251/12, 251/12),
+    TestParam("SolarFlares2", (256,256,12), 5, 1024, (256-4)/12, (256-4)/12)
   )
 
   def getImages(t: TestParam) = Array[VectorizedImage](
@@ -125,10 +127,10 @@ class ImageBenchMarkSuite extends FunSuite with Logging {
       elapsed
     }
 
-    for(
+    val res = for(
       iter <- 1 to 10;
       t <- tests
-    ) {
+    ) yield {
       val img = genChannelMajorArrayVectorizedImage(t.size._1, t.size._2, t.size._3) //Standard grayScale format.
 
       val flops = (t.size._1.toLong-t.kernelSize+1)*(t.size._2-t.kernelSize+1)*
@@ -137,10 +139,20 @@ class ImageBenchMarkSuite extends FunSuite with Logging {
 
       val t1 = convTime(img, t)
 
-      logInfo(s"${t.name},$t1,$flops,${flops.toDouble/t1}")
+      logDebug(s"${t.name},$t1,$flops,${2.0*flops.toDouble/t1}")
+      (t.name, t1, flops, (2.0*flops.toDouble/t1))
     }
+    val groups = res.groupBy(_._1)
 
 
+    logInfo(Seq("name","max(flops)","median(flops)","stddev(flops)").mkString(","))
+    groups.foreach { case (name, values) =>
+      val flops = DenseVector(values.map(_._4):_*)
+      val maxf = max(flops)
+      val medf = median(flops)
+      val stddevf = stddev(flops)
+      logInfo(f"$name,$maxf%2.3f,$medf%2.3f,$stddevf%2.3f")
+    }
   }
 
   test("Pooling Benchmark") {

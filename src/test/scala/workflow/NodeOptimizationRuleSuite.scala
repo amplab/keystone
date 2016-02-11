@@ -100,7 +100,7 @@ object NodeOptimizationRuleSuite {
   )
 
   val transformerDoNothing = Transformer[State, State] { x =>
-    assert(x.choice.isEmpty, "The default transformer must only be used on test data")
+    //assert(x.choice.isEmpty, "The default transformer must only be used on test data")
     x.copy(transformerChoice = None)
   }
   val transformerA = Transformer[State, State](_.copy(transformerChoice = Some(false)))

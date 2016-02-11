@@ -167,9 +167,9 @@ object WorkflowUtils {
    * @param setToRemove
    * @param instructions
    * @return A tuple containing the new instructions, and
-   *         a mapping of old instruction index to new instruction index
+   *         a mapping of old dependency index to new dependency index
    */
-  def removeInstructions(setToRemove: Set[Int], instructions: Seq[Instruction]): (Seq[Instruction], Map[Int, Int]) = {
+  def removeInstructions(setToRemove: Set[Int], instructions: Seq[Instruction]): (Seq[Instruction], Int => Int) = {
     val offsets = collection.mutable.Map[Int, Int]()
     for (indexToRemove <- setToRemove;
          indexToOffset <- (indexToRemove + 1) until instructions.length) {
@@ -187,10 +187,18 @@ object WorkflowUtils {
         )
     }
 
-    val oldToNewIndexMapping = instructions.indices.filter(!setToRemove.contains(_))
-      .map(i => (i, i - offsets.getOrElse(i, 0))).toMap
+    val oldToNewIndexMapping = (i: Int) => i - offsets.getOrElse(i, 0)
 
     (newInstructions, oldToNewIndexMapping)
+  }
+
+  def disconnectAndRemoveInstructions(dependencyReplacement: Map[Int, Int], instructions: Seq[Instruction])
+  : (Seq[Instruction], Int => Int) = {
+    val removeResult = removeInstructions(dependencyReplacement.keys.toSet, instructions.map(_.mapDependencies {
+      i => dependencyReplacement.getOrElse(i, i)
+    }))
+
+    (removeResult._1, (i: Int) => dependencyReplacement.getOrElse(i, removeResult._2(i)))
   }
 
   /**
@@ -203,14 +211,14 @@ object WorkflowUtils {
    * @param spliceSink The dependency in the existing sequence to map to the sink of the instructions
    *                   being spliced
    * @return A tuple containing the new instructions, and
-   *         a mapping of old instruction index to new instruction index
+   *         a mapping of old dependency index to new dependency index
    */
   def spliceInstructions(
     splice: Seq[Instruction],
     instructions: Seq[Instruction],
     spliceSourceMap: Map[Int, Int],
     spliceSink: Int
-  ): (Seq[Instruction], Map[Int, Int]) = {
+  ): (Seq[Instruction], Int => Int) = {
     val spliceIndex = spliceSourceMap.values.max + 1
     val indicesDependingOnSpliceSink = instructions.indices
       .filter(instructions(_).getDependencies.contains(spliceSink)) :+ instructions.length
@@ -232,9 +240,15 @@ object WorkflowUtils {
       }
     })
 
-    val oldToNewIndexMapping = instructions.indices.map { i =>
-      (i, if (i < spliceIndex) i else i + splicedInstructions.length)
-    }.toMap
+    val oldToNewIndexMapping = (i: Int) => {
+      if (spliceSink == i) {
+        start.length + splicedInstructions.length - 1
+      } else if (i >= spliceIndex) {
+        i + splicedInstructions.length
+      } else {
+        i
+      }
+    }
 
     val newInstructions = start ++ splicedInstructions ++ end
 

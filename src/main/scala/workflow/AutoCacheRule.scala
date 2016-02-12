@@ -313,9 +313,9 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
    * Given a seq of instructions and a set of indices to cache - return an instruction seq with the indices cached.
    */
   def makeCachedPipeline(pipe: Seq[Instruction], cached: Set[Int]): Seq[Instruction] = {
-    // Find the indexes of the new caching nodes. We only cache instructions that produce RDDs
+    // Find the indexes of the new caching nodes. We only cache instructions that produce RDDs (and aren't cachers)
     val dataOutputtingInstructions = pipe.zipWithIndex.filter {
-      case (TransformerApplyNode(_, _), _) => true
+      case (TransformerApplyNode(t, _), _) => !pipe(t).isInstanceOf[Cacher[_]]
       case (SourceNode(_), _) => true
       case _ => false
     }.map(_._2).toSet
@@ -398,7 +398,7 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
       case _: TransformerNode =>  true
       case _: EstimatorFitNode => true
       case _: SourceNode => false
-      case _: TransformerApplyNode => false
+      case TransformerApplyNode(t, _) => instructions(t).isInstanceOf[Cacher[_]]
     }}.toSet
 
     val memBudget = maxMem.getOrElse(instructions.collectFirst {

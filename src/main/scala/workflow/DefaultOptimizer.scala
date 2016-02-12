@@ -7,8 +7,9 @@ import workflow.AutoCacheRule.GreedyCache
  */
 object DefaultOptimizer extends Optimizer {
   protected val batches: Seq[Batch] =
-    Batch("DAG Optimization", FixedPoint(100), EquivalentNodeMergeRule) ::
+    Batch("DAG Optimization", FixedPoint(Int.MaxValue), EquivalentNodeMergeRule) ::
     Batch("Node Level Optimization", Once, new NodeOptimizationRule) ::
+    Batch("Common Sub-expression Elimination", FixedPoint(Int.MaxValue), EquivalentNodeMergeRule) ::
       Nil
 }
 

@@ -60,7 +60,7 @@ class AutoCacheRuleSuite extends FunSuite with LocalSparkContext with Logging {
 
   test("Naive cacher") {
     val autoCacheRule = new AutoCacheRule(null)
-    val cachedInstructions = autoCacheRule.naiveCache(instructions)
+    val cachedInstructions = autoCacheRule.aggressiveCache(instructions)
 
     val cachedTransformers = cachedInstructions.collect {
       case TransformerApplyNode(maybeCacher, inputs) if cachedInstructions(maybeCacher).isInstanceOf[Cacher[_]] =>

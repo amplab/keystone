@@ -3,7 +3,7 @@ package workflow
 import breeze.linalg.{max, DenseVector, DenseMatrix}
 import nodes.util.Cacher
 import pipelines.Logging
-import workflow.AutoCacheRule.{GreedyCache, NaiveCache, CachingStrategy}
+import workflow.AutoCacheRule.{GreedyCache, AggressiveCache, CachingStrategy}
 
 case class Profile(ns: Long, mem: Long) {
   def +(p: Profile) = Profile(this.ns + p.ns, this.mem + p.mem)
@@ -60,6 +60,11 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
     }
   }
 
+  /**
+   * This method takes a sequence of profiles at different sample sizes,
+   * and generalizes them to a new data scale by fitting then using linear models
+   * for memory and cpu usage dependent on data scale.
+   */
   def generalizeProfiles(newScale: Long, sampleProfiles: Seq[SampleProfile]): Profile = {
     def getModel(inp: Iterable[(Long, String, Long)]): Double => Double = {
       val observations = inp.toArray
@@ -68,6 +73,8 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
       val X = DenseMatrix.ones[Double](observations.length, 2)
       observations.zipWithIndex.foreach(o => X(o._2, 0) = o._1._1.toDouble)
       val y = DenseVector(observations.map(_._3.toDouble))
+      // We solve a linear model for how either memory or time varies with respect to data size
+      // (We train separate models for time and memory usage)
       val model = max(X \ y, 0.0)
 
       //A function to apply the model.
@@ -255,7 +262,7 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
     }._1
   }
 
-  def naiveCache(instructions: Seq[Instruction]): Seq[Instruction] = {
+  def aggressiveCache(instructions: Seq[Instruction]): Seq[Instruction] = {
     val immediateChildren = getImmediateChildrenByInstruction(instructions)
     val nodeWeights = getNodeWeights(instructions)
 
@@ -331,7 +338,7 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
     val instructions = WorkflowUtils.pipelineToInstructions(plan)
 
     WorkflowUtils.instructionsToPipeline(cachingMode match {
-      case NaiveCache => naiveCache(instructions)
+      case AggressiveCache => aggressiveCache(instructions)
       case GreedyCache(maxMem, profileScales, numProfileTrials) => {
         val profiles = profileInstructions(instructions, profileScales, numProfileTrials)
         greedyCache(instructions, profiles, maxMem)
@@ -343,10 +350,11 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
 object AutoCacheRule {
   sealed trait CachingStrategy
   /**
-   * NaiveCache is the optimal caching strategy assuming infinite memory and zero caching overhead
+   * AggressiveCache assumes sufficient memory for caching everything that gets reused, and caches
+   * all of it using an LRU policy.
    * (cache at every node with > 1 direct output dependency edge during training)
    */
-  case object NaiveCache extends CachingStrategy
+  case object AggressiveCache extends CachingStrategy
   case class GreedyCache(
     maxMem: Long,
     profileScales: Seq[Long] = Seq(500, 1000),

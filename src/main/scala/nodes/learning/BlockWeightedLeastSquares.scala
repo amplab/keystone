@@ -1,7 +1,7 @@
 package nodes.learning
 
 import nodes.util.VectorSplitter
-import workflow.LabelEstimator
+import workflow.{WeightedNode, LabelEstimator}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -39,14 +39,16 @@ class BlockWeightedLeastSquaresEstimator(
     lambda: Double,
     mixtureWeight: Double,
     numFeaturesOpt: Option[Int] = None)
-  extends LabelEstimator[DenseVector[Double], DenseVector[Double], DenseVector[Double]] {
- 
+  extends LabelEstimator[DenseVector[Double], DenseVector[Double], DenseVector[Double]] with WeightedNode {
+
+  override val weight = (3*numIter)+1
+
   /**
    * Fit a weighted least squares model using blocks of features provided.
    * 
    * NOTE: This function makes multiple passes over the training data. Caching
-   * @trainingFeatures and @trainingLabels before calling this function is recommended.
    *
+   * @trainingFeatures and @trainingLabels before calling this function is recommended.
    * @param trainingFeatures Blocks of training data RDDs
    * @param trainingLabels training labels RDD
    * @returns A BlockLinearMapper that contains the model, intercept
@@ -67,8 +69,8 @@ class BlockWeightedLeastSquaresEstimator(
    * Split features into appropriate blocks and fit a weighted least squares model.
    *
    * NOTE: This function makes multiple passes over the training data. Caching
-   * @trainingFeatures and @trainingLabels before calling this function is recommended.
    *
+   * @trainingFeatures and @trainingLabels before calling this function is recommended.
    * @param trainingFeatures training data RDD
    * @param trainingLabels training labels RDD
    * @returns A BlockLinearMapper that contains the model, intercept

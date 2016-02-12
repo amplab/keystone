@@ -75,7 +75,7 @@ class AutoCacheRuleSuite extends FunSuite with LocalSparkContext with Logging {
 
   test("Greedy cacher, max mem 10") {
     val autoCacheRule = new AutoCacheRule(null)
-    val cachedInstructions = autoCacheRule.greedyCache(instructions, profiles, 10)
+    val cachedInstructions = autoCacheRule.greedyCache(instructions, profiles, Some(10))
 
     val cachedTransformers = cachedInstructions.collect {
       case TransformerApplyNode(maybeCacher, inputs) if cachedInstructions(maybeCacher).isInstanceOf[Cacher[_]] =>
@@ -90,7 +90,7 @@ class AutoCacheRuleSuite extends FunSuite with LocalSparkContext with Logging {
 
   test("Greedy cacher, max mem 75") {
     val autoCacheRule = new AutoCacheRule(null)
-    val cachedInstructions = autoCacheRule.greedyCache(instructions, profiles, 75)
+    val cachedInstructions = autoCacheRule.greedyCache(instructions, profiles, Some(75))
 
     val cachedTransformers = cachedInstructions.collect {
       case TransformerApplyNode(maybeCacher, inputs) if cachedInstructions(maybeCacher).isInstanceOf[Cacher[_]] =>
@@ -105,7 +105,7 @@ class AutoCacheRuleSuite extends FunSuite with LocalSparkContext with Logging {
 
   test("Greedy cacher, max mem 125") {
     val autoCacheRule = new AutoCacheRule(null)
-    val cachedInstructions = autoCacheRule.greedyCache(instructions, profiles, 125)
+    val cachedInstructions = autoCacheRule.greedyCache(instructions, profiles, Some(125))
 
     val cachedTransformers = cachedInstructions.collect {
       case TransformerApplyNode(maybeCacher, inputs) if cachedInstructions(maybeCacher).isInstanceOf[Cacher[_]] =>
@@ -120,7 +120,7 @@ class AutoCacheRuleSuite extends FunSuite with LocalSparkContext with Logging {
 
   test("Greedy cacher, max mem 175") {
     val autoCacheRule = new AutoCacheRule(null)
-    val cachedInstructions = autoCacheRule.greedyCache(instructions, profiles, 175)
+    val cachedInstructions = autoCacheRule.greedyCache(instructions, profiles, Some(175))
 
     val cachedTransformers = cachedInstructions.collect {
       case TransformerApplyNode(maybeCacher, inputs) if cachedInstructions(maybeCacher).isInstanceOf[Cacher[_]] =>
@@ -135,7 +135,7 @@ class AutoCacheRuleSuite extends FunSuite with LocalSparkContext with Logging {
 
   test("Greedy cacher, max mem 350") {
     val autoCacheRule = new AutoCacheRule(null)
-    val cachedInstructions = autoCacheRule.greedyCache(instructions, profiles, 350)
+    val cachedInstructions = autoCacheRule.greedyCache(instructions, profiles, Some(350))
 
     val cachedTransformers = cachedInstructions.collect {
       case TransformerApplyNode(maybeCacher, inputs) if cachedInstructions(maybeCacher).isInstanceOf[Cacher[_]] =>
@@ -150,7 +150,7 @@ class AutoCacheRuleSuite extends FunSuite with LocalSparkContext with Logging {
 
   test("Greedy cacher, max mem 10000") {
     val autoCacheRule = new AutoCacheRule(null)
-    val cachedInstructions = autoCacheRule.greedyCache(instructions, profiles, 10000)
+    val cachedInstructions = autoCacheRule.greedyCache(instructions, profiles, Some(10000))
 
     val cachedTransformers = cachedInstructions.collect {
       case TransformerApplyNode(maybeCacher, inputs) if cachedInstructions(maybeCacher).isInstanceOf[Cacher[_]] =>

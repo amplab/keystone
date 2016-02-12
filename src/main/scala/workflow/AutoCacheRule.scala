@@ -389,7 +389,7 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
   def greedyCache(
     instructions: Seq[Instruction],
     profiles: Map[Int, Profile],
-    maxMem: Long
+    maxMem: Option[Long]
   ): Seq[Instruction] = {
     val nodeWeights = getNodeWeights(instructions)
 
@@ -401,10 +401,17 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
       case _: TransformerApplyNode => false
     }}.toSet
 
+    val memBudget = maxMem.getOrElse(instructions.collectFirst {
+      case SourceNode(rdd) =>
+        val sc = rdd.sparkContext
+        val totalMem = sc.getExecutorStorageStatus.map(_.memRemaining.toDouble).sum
+        totalMem * 0.75
+    }.getOrElse(0.0).toLong)
+
     var usedMem = cacheMem(cached, profiles)
     var runs = getRuns(instructions, cached, nodeWeights)
-    while (usedMem < maxMem && stillRoom(cached, runs, profiles, maxMem - usedMem)) {
-      cached = cached + selectNext(instructions, profiles, cached, runs, maxMem - usedMem)
+    while (usedMem < memBudget && stillRoom(cached, runs, profiles, memBudget - usedMem)) {
+      cached = cached + selectNext(instructions, profiles, cached, runs, memBudget - usedMem)
       runs = getRuns(instructions, cached, nodeWeights)
       usedMem = cacheMem(cached, profiles)
     }
@@ -435,15 +442,18 @@ object AutoCacheRule {
   case object AggressiveCache extends CachingStrategy
 
   /**
-   * Greedy caching strategy given a memory budget
- *
+   * Greedy caching strategy given a memory budget.
+   *
+   * If no maxMem is provided, the memory budget defaults to 75% of the remaining memory on the cluster
+   * (given whatever RDDs are already cached)
+   *
    * @param maxMem The memory budget (bytes)
    * @param partitionScales The scales to sample at (average number of desired data points per partition)
    * @param numProfileTrials The number of profiling samples to take per scale
    */
   case class GreedyCache(
-    maxMem: Long,
-    partitionScales: Seq[Long] = Seq(10, 15),
-    numProfileTrials: Int = 2
+    maxMem: Option[Long] = None,
+    partitionScales: Seq[Long] = Seq(2, 4),
+    numProfileTrials: Int = 1
   ) extends CachingStrategy
 }

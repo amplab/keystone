@@ -2,11 +2,12 @@ package workflow
 
 import breeze.linalg.{max, DenseVector, DenseMatrix}
 import nodes.util.Cacher
+import org.apache.spark.util.SparkUtilWrapper
 import pipelines.Logging
 import workflow.AutoCacheRule.{GreedyCache, AggressiveCache, CachingStrategy}
 
-case class Profile(ns: Long, mem: Long) {
-  def +(p: Profile) = Profile(this.ns + p.ns, this.mem + p.mem)
+case class Profile(ns: Long, rddMem: Long, driverMem: Long) {
+  def +(p: Profile) = Profile(this.ns + p.ns, this.rddMem + p.rddMem, this.driverMem + p.driverMem)
 }
 
 case class SampleProfile(scale: Long, profile: Profile)
@@ -85,13 +86,17 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
 
     val samples = sampleProfiles.flatMap { case SampleProfile(scale, value) =>
       Array(
-        (scale, "memory", value.mem),
-        (scale, "time", value.ns)
+        (scale, "memory", value.rddMem),
+        (scale, "time", value.ns),
+        (scale, "driverMem", value.driverMem)
       )}.groupBy(a => a._2)
 
     val models = samples.mapValues(getModel)
 
-    Profile(models("time").apply(newScale).toLong, models("memory").apply(newScale).toLong)
+    Profile(
+      models("time").apply(newScale).toLong,
+      models("memory").apply(newScale).toLong,
+      models("driverMem").apply(newScale).toLong)
   }
 
   /**
@@ -142,7 +147,7 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
             val duration = System.nanoTime() - start
 
             // Profile sample memory
-            val memSize = sample.context.getRDDStorageInfo.filter(_.id == sample.id).map(_.memSize).head
+            val rddSize = sample.context.getRDDStorageInfo.filter(_.id == sample.id).map(_.memSize).head
 
             // If this sample was computed using the final and largest scale, add it to the registers
             if ((scaleIndex == (sortedScales.length - 1)) && (trial == numTrials)) {
@@ -151,7 +156,7 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
               sample.unpersist()
             }
 
-            SampleProfile(scaledNumPerPartition.values.sum, Profile(duration, memSize))
+            SampleProfile(scaledNumPerPartition.values.sum, Profile(duration, rddSize, 0))
           }
 
           profiles(i) = generalizeProfiles(totalCount, sampleProfiles)
@@ -162,7 +167,6 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
           val npp = numPerPartitionPerNode(inputIndices.head)
           numPerPartitionPerNode(i) = npp
           val totalCount = npp.values.map(_.toLong).sum
-
 
           val transformer = registers(tIndex) match {
             case TransformerOutput(t) => t
@@ -197,7 +201,7 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
             val duration = System.nanoTime() - start
 
             // Profile sample memory
-            val memSize = sample.context.getRDDStorageInfo.filter(_.id == sample.id).map(_.memSize).head
+            val rddSize = sample.context.getRDDStorageInfo.filter(_.id == sample.id).map(_.memSize).head
 
             // If this sample was computed using the final and largest scale, add it to the registers
             if ((scaleIndex == (sortedScales.length - 1)) && (trial == numTrials)) {
@@ -206,15 +210,73 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
               sample.unpersist()
             }
 
-            SampleProfile(scaledNumPerPartition.values.sum, Profile(duration, memSize))
+            SampleProfile(scaledNumPerPartition.values.sum, Profile(duration, rddSize, 0))
           }
 
           profiles(i) = generalizeProfiles(totalCount, sampleProfiles)
         }
 
-        case node: Instruction => {
-          val deps = node.getDependencies.map(registers)
-          registers(i) = node.execute(deps)
+        case EstimatorFitNode(eIndex, inputIndices) => {
+          // We assume that all input rdds to this transformer have equal, zippable partitioning
+          val npp = numPerPartitionPerNode(inputIndices.head)
+          numPerPartitionPerNode(i) = npp
+          val totalCount = npp.values.map(_.toLong).sum
+
+          val estimator = registers(eIndex) match {
+            case EstimatorOutput(e) => e
+            case _ => throw new ClassCastException("Estimator fit dep wasn't pointing at an Estimator")
+          }
+          val inputs = inputIndices.map(registers).collect {
+            case RDDOutput(rdd) => rdd.cache()
+          }
+          inputs.foreach(_.count())
+
+          val sampleProfiles = for (
+            (partitionScale, scaleIndex) <- sortedScales.zipWithIndex;
+            trial <- 1 to numTrials
+          ) yield {
+            // Calculate the necessary number of items per partition to maintain the same partition distribution,
+            // while only having scale items instead of totalCount items.
+            // Can't use mapValues because that isn't serializable
+            val scale = partitionScale * npp.size
+            val scaledNumPerPartition = npp.toSeq.map(x => (x._1, ((scale.toDouble / totalCount) * x._2).toInt)).toMap
+
+            // Sample the inputs. Samples containing only scale items, but w/ the same relative partition distribution
+            // NOTE: Assumes all inputs have equal, zippable partition counts
+            val sampledInputs = inputs.map(_.mapPartitionsWithIndex {
+              case (pid, partition) => partition.take(scaledNumPerPartition(pid))
+            })
+
+            // Profile sample timing
+            val start = System.nanoTime()
+            // fit the estimator
+            val sampleTransformer = estimator.fitRDDs(sampledInputs)
+            val duration = System.nanoTime() - start
+
+            // Profile fit transformer memory
+            val transformerSize = SparkUtilWrapper.estimateSize(sampleTransformer)
+
+            // If this sample was computed using the final and largest scale, add it to the registers
+            if ((scaleIndex == (sortedScales.length - 1)) && (trial == numTrials)) {
+              registers(i) = TransformerOutput(sampleTransformer)
+            }
+
+            SampleProfile(scaledNumPerPartition.values.sum, Profile(duration, 0, transformerSize))
+          }
+
+          profiles(i) = generalizeProfiles(totalCount, sampleProfiles)
+        }
+
+        case est: EstimatorNode => {
+          val size = SparkUtilWrapper.estimateSize(est)
+          profiles(i) = Profile(0, 0, size)
+          registers(i) = EstimatorOutput(est)
+        }
+
+        case transformer: TransformerNode => {
+          val size = SparkUtilWrapper.estimateSize(transformer)
+          profiles(i) = Profile(0, 0, size)
+          registers(i) = TransformerOutput(transformer)
         }
       }
     }
@@ -239,7 +301,7 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
   ): Double = {
     val nodeWeights = getNodeWeights(instructions)
     val runs = getRuns(instructions, cached, nodeWeights)
-    val localWork = instructions.indices.map(i => profiles.getOrElse(i, Profile(0, 0)).ns.toDouble).toArray
+    val localWork = instructions.indices.map(i => profiles.getOrElse(i, Profile(0, 0, 0)).ns.toDouble).toArray
 
     instructions.indices.map(i => {
       val executions = if (cached(i)) 1 else runs(i)
@@ -294,7 +356,7 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
 
   def cacheMem(caches: Set[Int], profiles: Map[Int, Profile]): Long = {
     // Must do a toSeq here otherwise the map may merge equal memories
-    caches.toSeq.map(i => profiles.getOrElse(i, Profile(0, 0)).mem).sum
+    caches.toSeq.map(i => profiles.getOrElse(i, Profile(0, 0, 0)).rddMem).sum
   }
 
   /**
@@ -305,7 +367,7 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
     runs.exists { i =>
       (i._2 > 1) &&
         (!caches.contains(i._1)) &&
-        (profiles.getOrElse(i._1, Profile(0, 0)).mem < spaceLeft)
+        (profiles.getOrElse(i._1, Profile(0, 0, 0)).rddMem < spaceLeft)
     }
   }
 
@@ -319,7 +381,7 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
     //Get the uncached node which fits that maximizes savings in runtime.
     pipe.indices.filter(i =>
       !cached(i) &&
-        profiles.getOrElse(i, Profile(0, 0)).mem < spaceLeft &&
+        profiles.getOrElse(i, Profile(0, 0, 0)).rddMem < spaceLeft &&
         runs(i) > 1)
       .minBy(i => estimateCachedRunTime(pipe, cached + i, profiles))
   }
@@ -374,6 +436,7 @@ object AutoCacheRule {
 
   /**
    * Greedy caching strategy given a memory budget
+ *
    * @param maxMem The memory budget (bytes)
    * @param partitionScales The scales to sample at (average number of desired data points per partition)
    * @param numProfileTrials The number of profiling samples to take per scale

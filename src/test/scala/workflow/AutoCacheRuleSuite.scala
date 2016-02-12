@@ -50,12 +50,12 @@ class AutoCacheRuleSuite extends FunSuite with LocalSparkContext with Logging {
   )
 
   val profiles = Map[Int, Profile](
-    0 -> Profile(10, Long.MaxValue),
-    6 -> Profile(10, 50),
-    7 -> Profile(30, 200),
-    8 -> Profile(20, 1000),
-    9 -> Profile(20, 1000),
-    10 -> Profile(20, 100)
+    0 -> Profile(10, Long.MaxValue, 0),
+    6 -> Profile(10, 50, 0),
+    7 -> Profile(30, 200, 0),
+    8 -> Profile(20, 1000, 0),
+    9 -> Profile(20, 1000, 0),
+    10 -> Profile(20, 100, 0)
   )
 
   test("Naive cacher") {

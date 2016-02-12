@@ -94,9 +94,17 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
     Profile(models("time").apply(newScale).toLong, models("memory").apply(newScale).toLong)
   }
 
+  /**
+   * Get a profile of each node in the pipeline
+   *
+   * @param instructions The pipeline instructions
+   * @param partitionScales The scales to profile at (expected number of data points per partition)
+   * @param numTrials The number of times to profile at each scale
+   * @return
+   */
   def profileInstructions(
     instructions: Seq[Instruction],
-    scales: Seq[Long],
+    partitionScales: Seq[Long],
     numTrials: Int
   ): Map[Int, Profile] = {
     val instructionsToProfile = instructions.indices.toSet -- WorkflowUtils.getChildren(Pipeline.SOURCE, instructions)
@@ -105,7 +113,7 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
     val numPerPartitionPerNode = scala.collection.mutable.Map[Int, Map[Int, Int]]()
     val profiles = scala.collection.mutable.Map[Int, Profile]()
 
-    val sortedScales = scales.sorted
+    val sortedScales = partitionScales.sorted
     for ((instruction, i) <- instructions.zipWithIndex if instructionsToProfile.contains(i)) {
       instruction match {
         case SourceNode(rdd) => {
@@ -115,12 +123,13 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
           val totalCount = npp.values.map(_.toLong).sum
 
           val sampleProfiles = for (
-            (scale, scaleIndex) <- sortedScales.zipWithIndex;
+            (partitionScale, scaleIndex) <- sortedScales.zipWithIndex;
             trial <- 1 to numTrials
           ) yield {
             // Calculate the necessary number of items per partition to maintain the same partition distribution,
             // while only having scale items instead of totalCount items.
             // Can't use mapValues because that isn't serializable
+            val scale = partitionScale * npp.size
             val scaledNumPerPartition = npp.toSeq.map(x => (x._1, ((scale.toDouble / totalCount) * x._2).toInt)).toMap
 
             // Profile sample timing
@@ -165,12 +174,13 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
           inputs.foreach(_.count())
 
           val sampleProfiles = for (
-            (scale, scaleIndex) <- sortedScales.zipWithIndex;
+            (partitionScale, scaleIndex) <- sortedScales.zipWithIndex;
             trial <- 1 to numTrials
           ) yield {
             // Calculate the necessary number of items per partition to maintain the same partition distribution,
             // while only having scale items instead of totalCount items.
             // Can't use mapValues because that isn't serializable
+            val scale = partitionScale * npp.size
             val scaledNumPerPartition = npp.toSeq.map(x => (x._1, ((scale.toDouble / totalCount) * x._2).toInt)).toMap
 
             // Sample the inputs. Samples containing only scale items, but w/ the same relative partition distribution
@@ -181,7 +191,7 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
 
             // Profile sample timing
             val start = System.nanoTime()
-            // Construct a
+            // Construct and cache a sample
             val sample = transformer.transformRDD(sampledInputs).cache()
             sample.count()
             val duration = System.nanoTime() - start
@@ -207,6 +217,12 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
           registers(i) = node.execute(deps)
         }
       }
+    }
+
+    // Unpersist anything that may still be cached
+    registers.foreach {
+      case RDDOutput(rdd) => rdd.unpersist()
+      case _ => Unit
     }
 
     profiles.toMap
@@ -355,9 +371,16 @@ object AutoCacheRule {
    * (cache at every node with > 1 direct output dependency edge during training)
    */
   case object AggressiveCache extends CachingStrategy
+
+  /**
+   * Greedy caching strategy given a memory budget
+   * @param maxMem The memory budget (bytes)
+   * @param partitionScales The scales to sample at (average number of desired data points per partition)
+   * @param numProfileTrials The number of profiling samples to take per scale
+   */
   case class GreedyCache(
     maxMem: Long,
-    profileScales: Seq[Long] = Seq(500, 1000),
+    partitionScales: Seq[Long] = Seq(10, 15),
     numProfileTrials: Int = 2
   ) extends CachingStrategy
 }

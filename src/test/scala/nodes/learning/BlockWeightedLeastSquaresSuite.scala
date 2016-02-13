@@ -144,60 +144,60 @@ class BlockWeightedLeastSquaresSuite extends FunSuite with Logging with LocalSpa
     val lambda = 0.1
     val mixtureWeight = 0.3
     val numParts = 3
-  
+
     sc = new SparkContext("local", "test")
-  
+
     val (fullARDD, bRDD) = loadMatrixRDDs("aMat.csv", "bMat.csv", numParts, sc)
-  
+
     val wsq = new BlockWeightedLeastSquaresEstimator(blockSize, numIter, lambda,
       mixtureWeight).fit(fullARDD, bRDD)
-  
+
     val finalFullModel = wsq.xs.reduceLeft { (a, b) =>
       DenseMatrix.vertcat(a, b)
     }
-  
+
     // norm(gradient) should be close to zero
     val gradient = computeGradient(fullARDD, bRDD, lambda, mixtureWeight, finalFullModel,
       wsq.bOpt.get)
-  
+
     println("norm of gradient is " + norm(gradient.toDenseVector))
     assert(Stats.aboutEq(norm(gradient.toDenseVector), 0, 1e-2))
   }
-  
+
   test("BlockWeighted solver should work with 1 class only") {
     val blockSize = 4
     val numIter = 10
     val lambda = 0.1
     val mixtureWeight = 0.3
     val numParts = 1
-  
+
     sc = new SparkContext("local", "test")
-  
+
     val (fullARDD, bRDD) = loadMatrixRDDs("aMat-1class.csv", "bMat-1class.csv", numParts, sc)
-  
+
     val wsq = new BlockWeightedLeastSquaresEstimator(blockSize, numIter, lambda,
       mixtureWeight).fit(fullARDD, bRDD)
-  
+
     val finalFullModel = wsq.xs.reduceLeft { (a, b) =>
       DenseMatrix.vertcat(a, b)
     }
     // Nothing to assert here ?
   }
-  
+
   test("BlockWeighted solver should work with nFeatures not divisible by blockSize") {
     val blockSize = 5 // nFeatures is 12 here
     val numIter = 10
     val lambda = 0.1
     val mixtureWeight = 0.3
     val numParts = 3
-  
+
     sc = new SparkContext("local", "test")
-  
+
     val (fullARDD, bRDD) = loadMatrixRDDs("aMat.csv", "bMat.csv", numParts, sc)
-  
+
     val wsq = new BlockWeightedLeastSquaresEstimator(blockSize, numIter, lambda,
       mixtureWeight).fit(fullARDD, bRDD)
-  
+
     val finalFullModel = wsq.xs.reduceLeft { (a, b) =>
       DenseMatrix.vertcat(a, b)
     }
@@ -208,7 +208,7 @@ class BlockWeightedLeastSquaresSuite extends FunSuite with Logging with LocalSpa
     println("norm of WLS gradient is " + norm(gradient.toDenseVector))
     assert(Stats.aboutEq(norm(gradient.toDenseVector), 0, 1e-1))
 
-    // Also verify the per-class solver 
+    // Also verify the per-class solver
     val pcs = new PerClassWeightedLeastSquaresEstimator(blockSize, numIter, lambda,
       mixtureWeight).fit(fullARDD, bRDD)
     val finalPcsModel = pcs.xs.reduceLeft { (a, b) =>
@@ -220,33 +220,33 @@ class BlockWeightedLeastSquaresSuite extends FunSuite with Logging with LocalSpa
     println("norm of PCS gradient is " + norm(perClassGradient.toDenseVector))
     assert(Stats.aboutEq(norm(perClassGradient.toDenseVector), 0, 1e-1))
   }
-  
+
   test("groupByClasses should work correctly") {
     val lambda = 0.1
     val mixtureWeight = 0.3
     val blockSize = 4
     val numIter = 10
     val numParts = 3
-  
+
     sc = new SparkContext("local", "test")
-  
+
     val (fullARDD, bRDD) = loadMatrixRDDs("aMat.csv", "bMat.csv", numParts, sc)
-  
+
     // To call computeGradient we again the rows grouped correctly
     val (shuffledA, shuffledB) = BlockWeightedLeastSquaresEstimator.groupByClasses(
       Seq(fullARDD), bRDD)
-  
+
     val wsq = new BlockWeightedLeastSquaresEstimator(blockSize, numIter, lambda,
       mixtureWeight).fit(fullARDD, bRDD)
-  
+
     val finalFullModel = wsq.xs.reduceLeft { (a, b) =>
       DenseMatrix.vertcat(a, b)
     }
-  
+
     // norm(gradient) should be close to zero
     val gradient = computeGradient(shuffledA.head, shuffledB, lambda, mixtureWeight, finalFullModel,
       wsq.bOpt.get)
-  
+
     println("norm of gradient is " + norm(gradient.toDenseVector))
     assert(Stats.aboutEq(norm(gradient.toDenseVector), 0, 1e-2))
   }

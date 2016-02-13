@@ -425,8 +425,20 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
     WorkflowUtils.instructionsToPipeline(cachingMode match {
       case AggressiveCache => aggressiveCache(instructions)
       case GreedyCache(maxMem, profileScales, numProfileTrials) => {
+        logInfo("Starting pipeline profile")
         val profiles = profileInstructions(instructions, profileScales, numProfileTrials)
-        greedyCache(instructions, profiles, maxMem)
+        logInfo("Finished pipeline profile")
+
+        val instructionsWithProfiles = instructions.zipWithIndex.map {
+          case (instruction, i) => (i, instruction, profiles.get(i)).toString()
+        }.mkString(",\n")
+
+        logInfo(instructionsWithProfiles)
+
+        logInfo("Starting cache selection")
+        val cachedInstructions = greedyCache(instructions, profiles, maxMem)
+        logInfo("Finished cache selection")
+        cachedInstructions
       }
     })
   }

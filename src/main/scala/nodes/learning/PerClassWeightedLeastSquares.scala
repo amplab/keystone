@@ -95,9 +95,7 @@ object PerClassWeightedLeastSquaresEstimator extends Logging {
 
     // Solve multiple single class problems and then assemble the model from each of them
     val classWiseModels = (0 until nClasses).map { classIdx =>
-      val classFeatureMean = jointFeatureMean.filter { x => 
-        x._1 == classIdx
-      }.map(x => x._2).collect()(0)
+      val classFeatureMean = jfmMat(classIdx, ::).t
 
       val classLabelsZm = labelsZm.map(x => x(classIdx))
       val classWeights = weights.map(x => x(classIdx))

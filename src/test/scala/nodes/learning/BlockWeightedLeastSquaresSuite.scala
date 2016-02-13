@@ -70,7 +70,7 @@ class BlockWeightedLeastSquaresSuite extends FunSuite with Logging with LocalSpa
 
   test("BlockWeighted solver solution should work with empty partitions") {
     val blockSize = 4
-    val numIter = 50
+    val numIter = 10
     val lambda = 0.1
     val mixtureWeight = 0.3
     val numParts = 3

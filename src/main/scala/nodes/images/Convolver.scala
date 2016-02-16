@@ -166,7 +166,7 @@ object Convolver {
 
     val convRes: DenseMatrix[Double] = imgMat * convolutions
 
-    val res = new ChannelMajorArrayVectorizedImage(
+    val res = new RowMajorArrayVectorizedImage(
       new Array[Double](resWidth*resHeight*convolutions.cols),
       ImageMetadata(resWidth, resHeight, convolutions.cols))
 

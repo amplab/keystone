@@ -1,7 +1,7 @@
 package utils
 
 import java.awt.image.BufferedImage
-import java.io.InputStream
+import java.io.{File, InputStream}
 import javax.imageio.ImageIO
 
 import pipelines.Logging
@@ -44,6 +44,20 @@ object ImageUtils extends Logging {
       }
     }
   }
+
+  /**
+    * Writes image to file `fname`
+    * @param fname Destination filename.
+    * @param in
+    * @param scale
+    * @return
+    */
+  def writeImage(fname: String, in: Image, scale: Boolean=false) = {
+    val bi = ImageConversions.imageToBufferedImage(in, scale)
+    val outf = new File(fname)
+    ImageIO.write(bi, "png", outf)
+  }
+
 
   /**
    * Converts an input image to Grayscale according to the NTSC standard weights for RGB images and

@@ -91,6 +91,7 @@ object Convolver {
   /**
     * Flip the image such that flipImage(im)(x,y,z) = im(im.metadata.xDim-x,im.metadata.yDim-y,im.metadata.numChannels-z)
     * for all valid (x,y,z).
+    *
     * @param filt An input image.
     * @return A flipped image.
     */
@@ -171,18 +172,20 @@ object Convolver {
 
     // Now pack the convolved features into the result.
     var x, y, chan = 0
-    while (x < resWidth) {
+    chan = 0
+    while (chan < convolutions.cols) {
       y = 0
-      while ( y < resHeight) {
-        chan = 0
-        while (chan < convolutions.cols) {
-          res.put(x, y, chan, convRes(x + y*resWidth, chan))
-          chan += 1
+      while (y < resHeight) {
+        x = 0
+        while (x < resWidth) {
+          res.put(x, y, chan, convRes(x + y * resWidth, chan))
+          x += 1
         }
         y += 1
       }
-      x += 1
+      chan += 1
     }
+
 
     res
   }
@@ -204,29 +207,31 @@ object Convolver {
       whitener: Option[ZCAWhitener],
       varConstant: Double): DenseMatrix[Double] = {
     var x,y,chan,pox,poy,py,px = 0
-    while (x < resWidth) {
-      y = 0
-      while (y < resHeight) {
-        chan = 0
-        while (chan < imgChannels) {
-          poy = 0
-          while (poy < convSize) {
-            pox = 0
-            while (pox < convSize) {
+
+    poy = 0
+    while (poy < convSize) {
+      pox = 0
+      while (pox < convSize) {
+        y = 0
+        while (y < resHeight) {
+          x = 0
+          while (x < resWidth) {
+            chan = 0
+            while (chan < imgChannels) {
               px = chan + pox*imgChannels + poy*imgChannels*convSize
               py = x + y*resWidth
 
               patchMat(py, px) = img.get(x+pox, y+poy, chan)
 
-              pox+=1
+              chan+=1
             }
-            poy+=1
+            x+=1
           }
-          chan+=1
+          y+=1
         }
-        y+=1
+        pox+=1
       }
-      x+=1
+      poy+=1
     }
 
     val patchMatN = if(normalizePatches) Stats.normalizeRows(patchMat, varConstant) else patchMat

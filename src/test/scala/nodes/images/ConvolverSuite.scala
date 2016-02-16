@@ -130,8 +130,10 @@ class ConvolverSuite extends FunSuite with LocalSparkContext with Logging {
       (testImg.get(x,y,0), chans(0).get(x,y,0))
     }
 
+    ImageUtils.writeImage("test.gantrycrane.png", chans(0), true)
 
     assert(testImg.metadata == chans(0).metadata, "Convolved images should have same metadata.")
     assert(testImg.equals(chans(0)), "Convolved images should match.")
+
   }
 }

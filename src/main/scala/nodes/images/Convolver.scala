@@ -122,9 +122,6 @@ object Convolver {
     val (xDim, yDim, numChannels) = (filters(0).metadata.xDim, filters(0).metadata.yDim, filters(0).metadata.numChannels)
     val filterSize = xDim*yDim*numChannels
     val res = DenseMatrix.zeros[Double](filters.length, filterSize)
-    println(s"${res.rows}, ${res.cols}")
-
-    println(s"${filters.length}, $xDim,$yDim,$numChannels")
 
     var i,x,y,c = 0
     while(i < filters.length) {
@@ -169,23 +166,6 @@ object Convolver {
     val res = new RowMajorArrayVectorizedImage(
       convRes.toArray,
       ImageMetadata(resWidth, resHeight, convolutions.cols))
-
-    // Now pack the convolved features into the result.
-    /*var x, y, chan = 0
-    chan = 0
-    while (chan < convolutions.cols) {
-      y = 0
-      while (y < resHeight) {
-        x = 0
-        while (x < resWidth) {
-          res.put(x, y, chan, convRes(x + y * resWidth, chan))
-          x += 1
-        }
-        y += 1
-      }
-      chan += 1
-    } */
-
 
     res
   }

@@ -5,25 +5,11 @@ import breeze.stats._
 import org.scalatest.FunSuite
 import pipelines.Logging
 import utils._
+import utils.TestUtils._
 
 import scala.util.Random
 
 class ImageBenchMarkSuite extends FunSuite with Logging {
-  def genData(x: Int, y: Int, z: Int, inorder: Boolean=false): Array[Double] = {
-    if (!inorder) Array.fill(x*y*z)(Random.nextDouble) else (0 until x*y*z).map(_.toDouble).toArray
-  }
-
-  def genRowMajorArrayVectorizedImage(x: Int, y: Int, z: Int): RowMajorArrayVectorizedImage = {
-    RowMajorArrayVectorizedImage(genData(x, y, z), ImageMetadata(x,y,z))
-  }
-
-  def genColumnMajorArrayVectorizedImage(x: Int, y: Int, z: Int): ColumnMajorArrayVectorizedImage = {
-    ColumnMajorArrayVectorizedImage(genData(x, y, z), ImageMetadata(x,y,z))
-  }
-
-  def genChannelMajorArrayVectorizedImage(x: Int, y: Int, z: Int): ChannelMajorArrayVectorizedImage = {
-    ChannelMajorArrayVectorizedImage(genData(x, y, z), ImageMetadata(x,y,z))
-  }
 
   case class TestParam(name: String, size: (Int, Int, Int), kernelSize: Int, numKernels: Int, poolSize: Int, poolStride: Int)
   val tests = Array(
@@ -49,7 +35,7 @@ class ImageBenchMarkSuite extends FunSuite with Logging {
       x <- 0 until img.metadata.xDim;
       y <- 0 until img.metadata.yDim
     ) yield img.get(x,y,z)
-    //assert(item.toArray === img.iter.map(_.v).toArray, "Column Major Array iterator does not produce the right order.")
+    assert(item.toArray === img.iter.map(_.v).toArray, "Column Major Array iterator does not produce the right order.")
 
     val img2 = genRowMajorArrayVectorizedImage(7, 13, 17)
     val item2 = for(
@@ -58,7 +44,7 @@ class ImageBenchMarkSuite extends FunSuite with Logging {
       x <- 0 until img2.metadata.xDim
     ) yield img2.get(x,y,z)
 
-    //assert(item2.toArray === img2.iter.map(_.v).toArray, "Row Major Array iterator does not produce the right order.")
+    assert(item2.toArray === img2.iter.map(_.v).toArray, "Row Major Array iterator does not produce the right order.")
 
     val img3 = genChannelMajorArrayVectorizedImage(7, 13, 17)
     val item3 = for(
@@ -67,7 +53,7 @@ class ImageBenchMarkSuite extends FunSuite with Logging {
       z <- 0 until img3.metadata.numChannels
     ) yield img3.get(x,y,z)
 
-    //assert(item3.toArray === img3.iter.map(_.v).toArray, "Channel Major Array iterator does not produce the right order.")
+    assert(item3.toArray === img3.iter.map(_.v).toArray, "Channel Major Array iterator does not produce the right order.")
   }
 
 
@@ -153,9 +139,5 @@ class ImageBenchMarkSuite extends FunSuite with Logging {
       val stddevf = stddev(flops)
       logInfo(f"$name,$maxf%2.3f,$medf%2.3f,$stddevf%2.3f")
     }
-  }
-
-  test("Pooling Benchmark") {
-
   }
 }

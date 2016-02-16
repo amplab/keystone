@@ -4,6 +4,7 @@ import java.io.{FileReader, ByteArrayInputStream}
 import org.apache.commons.io.IOUtils
 
 import scala.io.Source
+import scala.util.Random
 
 /** Some utility methods for pipeline tests. */
 object TestUtils {
@@ -21,7 +22,8 @@ object TestUtils {
 
   /**
    * Gets test resource URI for loading.
-   * @param pathInTestResources Input path.
+    *
+    * @param pathInTestResources Input path.
    * @return Resource URI.
    */
   def getTestResourceFileName(pathInTestResources: String): String = {
@@ -33,4 +35,25 @@ object TestUtils {
     val fileURI = getClass.getClassLoader.getResource(pathInTestResources).toURI
     Source.fromFile(fileURI).getLines().toSeq
   }
+
+  /** These methods are used to generate random images. */
+  def genData(x: Int, y: Int, z: Int, inorder: Boolean=false): Array[Double] = {
+    if (!inorder) Array.fill(x*y*z)(Random.nextDouble) else (0 until x*y*z).map(_.toDouble).toArray
+  }
+
+  /** Generate a random `RowMajorArrayVectorizedImage` */
+  def genRowMajorArrayVectorizedImage(x: Int, y: Int, z: Int): RowMajorArrayVectorizedImage = {
+    RowMajorArrayVectorizedImage(genData(x, y, z), ImageMetadata(x,y,z))
+  }
+
+  /** Generate a random `ColumnMajorArrayVectorizedImage` */
+  def genColumnMajorArrayVectorizedImage(x: Int, y: Int, z: Int): ColumnMajorArrayVectorizedImage = {
+    ColumnMajorArrayVectorizedImage(genData(x, y, z), ImageMetadata(x,y,z))
+  }
+
+  /** Generate a random `ChannelMajroArrayVectorizedImage` */
+  def genChannelMajorArrayVectorizedImage(x: Int, y: Int, z: Int): ChannelMajorArrayVectorizedImage = {
+    ChannelMajorArrayVectorizedImage(genData(x, y, z), ImageMetadata(x,y,z))
+  }
+
 }

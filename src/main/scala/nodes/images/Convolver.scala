@@ -167,11 +167,11 @@ object Convolver {
     val convRes: DenseMatrix[Double] = imgMat * convolutions
 
     val res = new RowMajorArrayVectorizedImage(
-      new Array[Double](resWidth*resHeight*convolutions.cols),
+      convRes.toArray,
       ImageMetadata(resWidth, resHeight, convolutions.cols))
 
     // Now pack the convolved features into the result.
-    var x, y, chan = 0
+    /*var x, y, chan = 0
     chan = 0
     while (chan < convolutions.cols) {
       y = 0
@@ -184,7 +184,7 @@ object Convolver {
         y += 1
       }
       chan += 1
-    }
+    } */
 
 
     res

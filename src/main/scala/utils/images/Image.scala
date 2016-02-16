@@ -359,8 +359,8 @@ case class RowColumnMajorByteArrayVectorizedImage(
 
 /**
  * Represents a labeled image.
-  *
-  * @tparam L Type of the label.
+ *
+ * @tparam L Type of the label.
  */
 trait AbstractLabeledImage[L] {
   def image: Image
@@ -383,7 +383,7 @@ case class LabeledImage(image: Image, label: Int, filename: Option[String] = Non
  * @param image An Image.
  * @param label A set of labels. Should be an array with all elements in [0 .. K]
  *              where K is some number of unique labels.
-  * @param filename A filename where this image was found. Useful for debugging.
+ * @param filename A filename where this image was found. Useful for debugging.
  */
 case class MultiLabeledImage(image: Image, label: Array[Int], filename: Option[String] = None)
     extends AbstractLabeledImage[Array[Int]]

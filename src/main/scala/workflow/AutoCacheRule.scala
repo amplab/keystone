@@ -404,7 +404,14 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
     val memBudget = maxMem.getOrElse(instructions.collectFirst {
       case SourceNode(rdd) =>
         val sc = rdd.sparkContext
-        val totalMem = sc.getExecutorStorageStatus.map(_.memRemaining.toDouble).sum
+        // Calculate memory budget, ignoring driver unless in local mode
+        val workers = if (sc.getExecutorStorageStatus.size == 1) {
+          sc.getExecutorStorageStatus
+        } else {
+          sc.getExecutorStorageStatus.filter(w => !w.blockManagerId.isDriver)
+        }
+
+        val totalMem = workers.map(_.memRemaining.toDouble).sum
         totalMem * 0.75
     }.getOrElse(0.0).toLong)
 

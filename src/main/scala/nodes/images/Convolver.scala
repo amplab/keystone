@@ -66,7 +66,7 @@ object Convolver {
 
     //If we are told to flip the filters, invert their indexes.
     val filterImages = if (flipFilters) {
-      filters.map(flipImage)
+      filters.map(ImageUtils.flipImage)
     } else filters
 
     //Pack the filter array into a dense matrix of the right format.
@@ -86,28 +86,6 @@ object Convolver {
       whitener,
       normalizePatches,
       varConstant)
-  }
-
-  /**
-    * Flip the image such that flipImage(im)(x,y,z) = im(im.metadata.xDim-x,im.metadata.yDim-y,im.metadata.numChannels-z)
-    * for all valid (x,y,z).
-    *
-    * @param filt An input image.
-    * @return A flipped image.
-    */
-  def flipImage(filt: Image): Image = {
-    val size = filt.metadata.xDim*filt.metadata.yDim*filt.metadata.numChannels
-    val res = new ChannelMajorArrayVectorizedImage(Array.fill[Double](size)(0.0), filt.metadata)
-
-    for (
-      x <- 0 until filt.metadata.xDim;
-      y <- 0 until filt.metadata.yDim;
-      c <- 0 until filt.metadata.numChannels
-    ) {
-      res.put(filt.metadata.xDim - x - 1, filt.metadata.yDim - y - 1, filt.metadata.numChannels - c - 1, filt.get(x,y,c))
-    }
-
-    res
   }
 
   /**

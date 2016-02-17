@@ -364,4 +364,27 @@ object ImageUtils extends Logging {
     }
     out
   }
+
+  /**
+    * Flip the image such that 
+    * flipImage(im)(x,y,z) = im(im.metadata.xDim-x-1,im.metadata.yDim-y-1,im.metadata.numChannels-z-1)
+    * for all valid (x,y,z).
+    *
+    * @param im An input image.
+    * @return A flipped image.
+    */
+  def flipImage(im: Image): Image = {
+    val size = im.metadata.xDim*im.metadata.yDim*im.metadata.numChannels
+    val res = new ChannelMajorArrayVectorizedImage(Array.fill[Double](size)(0.0), im.metadata)
+
+    for (
+      x <- 0 until im.metadata.xDim;
+      y <- 0 until im.metadata.yDim;
+      c <- 0 until im.metadata.numChannels
+    ) {
+      res.put(im.metadata.xDim - x - 1, im.metadata.yDim - y - 1, im.metadata.numChannels - c - 1, im.get(x,y,c))
+    }
+
+    res
+  }
 }

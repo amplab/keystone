@@ -10,6 +10,10 @@ from scipy.signal import convolve
 #the Convolver unit tests to ensure that convolver output matches
 #an equivalent python call.
 
+#This script was run from src/test/resources/images/ as:
+#python pyconv.py gantrycrane.png convolved.gantrycrane.png convolved.gantrycrane.csv
+
+
 def main():
   x = imread(sys.argv[1])
   k1 = np.array([i for i in range(27)]).reshape((3,3,3))

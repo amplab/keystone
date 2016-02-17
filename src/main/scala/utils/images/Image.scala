@@ -156,7 +156,12 @@ case class ByteArrayVectorizedImage(
     channelIdx + y*metadata.numChannels + x*metadata.yDim*metadata.numChannels
   }
 
-  def vectorToImageCoords(v: Int): Coordinate = ???
+  def vectorToImageCoords(v: Int): Coordinate = {
+    coord.x = v / (metadata.yDim * metadata.numChannels)
+    coord.y = (v - (coord.x * metadata.yDim * metadata.numChannels)) / metadata.numChannels
+    coord.channelIdx = v - coord.y * metadata.numChannels - coord.x * metadata.yDim * metadata.numChannels
+    coord
+  }
 
   // FIXME: This is correct but inefficient - every time we access the image we
   // use several method calls (which are hopefully inlined) and a conversion

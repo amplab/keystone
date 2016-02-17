@@ -47,9 +47,13 @@ object ImageUtils extends Logging {
 
   /**
     * Writes image to file `fname`
+    *
+    * If Image is non-standard (that is, values not in [0,255], the "scale"
+    * argument can be passed. Currently assumes a 3 or 1-dimensional image.
+    *
     * @param fname Destination filename.
-    * @param in
-    * @param scale
+    * @param in Input image.
+    * @param scale Scale image to [0,255]
     * @return
     */
   def writeImage(fname: String, in: Image, scale: Boolean=false) = {

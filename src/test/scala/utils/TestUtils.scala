@@ -56,4 +56,8 @@ object TestUtils {
     ChannelMajorArrayVectorizedImage(genData(x, y, z), ImageMetadata(x,y,z))
   }
 
+  def genRowColumnMajorByteArrayVectorizedImage(x: Int, y: Int, z: Int): RowColumnMajorByteArrayVectorizedImage = {
+    RowColumnMajorByteArrayVectorizedImage(genData(x,y,z).map(_.toByte), ImageMetadata(x,y,z))
+  }
+
 }

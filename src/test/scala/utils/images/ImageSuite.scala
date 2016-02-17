@@ -12,12 +12,13 @@ class ImageSuite extends FunSuite with Logging {
     val images = Array[VectorizedImage](
       genChannelMajorArrayVectorizedImage(x,y,z),
       genColumnMajorArrayVectorizedImage(x,y,z),
-      genRowMajorArrayVectorizedImage(x,y,z)
+      genRowMajorArrayVectorizedImage(x,y,z),
+      genRowColumnMajorByteArrayVectorizedImage(x,y,z)
     )
 
     for (
       img <- images;
-      idx <- 0 until x
+      idx <- 0 until x*y*z
     ) {
       val coord = img.vectorToImageCoords(idx)
       assert(img.imageToVectorCoords(coord.x,coord.y,coord.channelIdx) == idx,

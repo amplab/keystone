@@ -46,6 +46,85 @@ class Convolver(
 }
 
 object Convolver {
+  /**
+    * User-friendly constructor interface for the Conovler.
+    *
+    * @param filters An array of images with which we convolve each input image. These images should *not* be pre-whitened.
+    * @param imgInfo Metadata of a typical image we will be convolving. All images must have the same size/shape.
+    * @param whitener Whitener to be applied to both the input images and the filters before convolving.
+    * @param normalizePatches Should the patches be normalized before convolution?
+    * @param varConstant Constant to be used in scaling.
+    * @param flipFilters Should the filters be flipped before convolution is applied (used for comparability to MATLAB's
+    *                    convnd function.)
+    */
+  def apply(filters: Array[Image],
+           imgInfo: ImageMetadata,
+           whitener: Option[ZCAWhitener] = None,
+           normalizePatches: Boolean = true,
+           varConstant: Double = 10.0,
+           flipFilters: Boolean = false) = {
+
+    //If we are told to flip the filters, invert their indexes.
+    val filterImages = if (flipFilters) {
+      filters.map(ImageUtils.flipImage)
+    } else filters
+
+    //Pack the filter array into a dense matrix of the right format.
+    val packedFilters = packFilters(filterImages)
+
+    //If the whitener is not empty, construct a new one:
+    val whitenedFilterMat = whitener match {
+      case Some(x) => x.apply(packedFilters) * x.whitener.t
+      case None => packedFilters
+    }
+
+    new Convolver(
+      whitenedFilterMat,
+      imgInfo.xDim,
+      imgInfo.yDim,
+      imgInfo.numChannels,
+      whitener,
+      normalizePatches,
+      varConstant)
+  }
+
+  /**
+    * Given an array of filters, packs the filters into a DenseMatrix[Double] which has the following form:
+    * for a row i, column c+y*numChannels+x*numChannels*yDim corresponds to the pixel value at (x,y,c) in image i of
+    * the filters array.
+    *
+    * @param filters Array of filters.
+    * @return DenseMatrix of filters, as described above.
+    */
+  def packFilters(filters: Array[Image]): DenseMatrix[Double] = {
+    val (xDim, yDim, numChannels) = (filters(0).metadata.xDim, filters(0).metadata.yDim, filters(0).metadata.numChannels)
+    val filterSize = xDim*yDim*numChannels
+    val res = DenseMatrix.zeros[Double](filters.length, filterSize)
+
+    var i,x,y,c = 0
+    while(i < filters.length) {
+      x = 0
+      while(x < xDim) {
+        y = 0
+        while(y < yDim) {
+          c = 0
+          while (c < numChannels) {
+            val rc = c + x*numChannels + y*numChannels*xDim
+            res(i, rc) = filters(i).get(x,y,c)
+
+            c+=1
+          }
+          y+=1
+        }
+        x+=1
+      }
+      i+=1
+    }
+
+    res
+  }
+
+
   def convolve(img: Image,
       patchMat: DenseMatrix[Double],
       resWidth: Int,
@@ -62,24 +141,9 @@ object Convolver {
 
     val convRes: DenseMatrix[Double] = imgMat * convolutions
 
-    val res = new ChannelMajorArrayVectorizedImage(
-      new Array[Double](resWidth*resHeight*convolutions.cols),
+    val res = new RowMajorArrayVectorizedImage(
+      convRes.toArray,
       ImageMetadata(resWidth, resHeight, convolutions.cols))
-
-    // Now pack the convolved features into the result.
-    var x, y, chan = 0
-    while (x < resWidth) {
-      y = 0
-      while ( y < resHeight) {
-        chan = 0
-        while (chan < convolutions.cols) {
-          res.put(x, y, chan, convRes(x + y*resWidth, chan))
-          chan += 1
-        }
-        y += 1
-      }
-      x += 1
-    }
 
     res
   }
@@ -101,29 +165,31 @@ object Convolver {
       whitener: Option[ZCAWhitener],
       varConstant: Double): DenseMatrix[Double] = {
     var x,y,chan,pox,poy,py,px = 0
-    while (x < resWidth) {
-      y = 0
-      while (y < resHeight) {
-        chan = 0
-        while (chan < imgChannels) {
-          poy = 0
-          while (poy < convSize) {
-            pox = 0
-            while (pox < convSize) {
+
+    poy = 0
+    while (poy < convSize) {
+      pox = 0
+      while (pox < convSize) {
+        y = 0
+        while (y < resHeight) {
+          x = 0
+          while (x < resWidth) {
+            chan = 0
+            while (chan < imgChannels) {
               px = chan + pox*imgChannels + poy*imgChannels*convSize
               py = x + y*resWidth
 
               patchMat(py, px) = img.get(x+pox, y+poy, chan)
 
-              pox+=1
+              chan+=1
             }
-            poy+=1
+            x+=1
           }
-          chan+=1
+          y+=1
         }
-        y+=1
+        pox+=1
       }
-      x+=1
+      poy+=1
     }
 
     val patchMatN = if(normalizePatches) Stats.normalizeRows(patchMat, varConstant) else patchMat

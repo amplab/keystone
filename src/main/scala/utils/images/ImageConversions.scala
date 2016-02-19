@@ -36,4 +36,50 @@ object ImageConversions {
     ByteArrayVectorizedImage(allPixels, metadata)
   }
 
+
+  /**
+    * Converts an image to a buffered image.
+    * If Image is non-standard (that is, values not in (0,255), the "scale"
+    * argument can be passed. Currently assumes a 3 or 1-dimensional image.
+    * @param im An Image.
+    * @param scale Boolean indicating whether to scale or not.
+    * @return
+    */
+  def imageToBufferedImage(im: Image, scale: Boolean=false): BufferedImage = {
+    val canvas = new BufferedImage(im.metadata.yDim, im.metadata.xDim, BufferedImage.TYPE_INT_RGB)
+
+    //Scaling
+    val scalef: Double => Int = if (scale) {
+      val immin = im.toArray.min
+      val immax = im.toArray.max
+      d: Double => (255*(d-immin)/immax).toInt
+    } else {
+      d: Double => d.toInt
+    }
+
+    var x = 0
+    while (x < im.metadata.xDim) {
+      var y = 0
+      while (y < im.metadata.yDim) {
+
+        //Scale and pack into an rgb pixel.
+        val chanArr = im.metadata.numChannels match {
+          case 1 => Array(0,0,0)
+          case 3 => Array(0,1,2)
+        }
+
+        val pixVals = chanArr.map(c => im.get(x, y, c)).map(scalef)
+        val pix = (pixVals(0) << 16) | (pixVals(1) << 8) | pixVals(2)
+
+        //Note, BufferedImage has opposite canvas coordinate system from us.
+        //E.g. their x,y is our y,x.
+        canvas.setRGB(y, x, pix)
+        y += 1
+      }
+      x += 1
+    }
+
+    canvas
+  }
+
 }

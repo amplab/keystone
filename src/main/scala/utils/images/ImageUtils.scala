@@ -1,7 +1,7 @@
 package utils
 
 import java.awt.image.BufferedImage
-import java.io.InputStream
+import java.io.{File, InputStream}
 import javax.imageio.ImageIO
 
 import pipelines.Logging
@@ -44,6 +44,24 @@ object ImageUtils extends Logging {
       }
     }
   }
+
+  /**
+    * Writes image to file `fname`
+    *
+    * If Image is non-standard (that is, values not in [0,255], the "scale"
+    * argument can be passed. Currently assumes a 3 or 1-dimensional image.
+    *
+    * @param fname Destination filename.
+    * @param in Input image.
+    * @param scale Scale image to [0,255]
+    * @return
+    */
+  def writeImage(fname: String, in: Image, scale: Boolean=false) = {
+    val bi = ImageConversions.imageToBufferedImage(in, scale)
+    val outf = new File(fname)
+    ImageIO.write(bi, "png", outf)
+  }
+
 
   /**
    * Converts an input image to Grayscale according to the NTSC standard weights for RGB images and
@@ -345,5 +363,28 @@ object ImageUtils extends Logging {
       c = c + 1
     }
     out
+  }
+
+  /**
+    * Flip the image such that 
+    * flipImage(im)(x,y,z) = im(im.metadata.xDim-x-1,im.metadata.yDim-y-1,im.metadata.numChannels-z-1)
+    * for all valid (x,y,z).
+    *
+    * @param im An input image.
+    * @return A flipped image.
+    */
+  def flipImage(im: Image): Image = {
+    val size = im.metadata.xDim*im.metadata.yDim*im.metadata.numChannels
+    val res = new ChannelMajorArrayVectorizedImage(Array.fill[Double](size)(0.0), im.metadata)
+
+    for (
+      x <- 0 until im.metadata.xDim;
+      y <- 0 until im.metadata.yDim;
+      c <- 0 until im.metadata.numChannels
+    ) {
+      res.put(im.metadata.xDim - x - 1, im.metadata.yDim - y - 1, im.metadata.numChannels - c - 1, im.get(x,y,c))
+    }
+
+    res
   }
 }

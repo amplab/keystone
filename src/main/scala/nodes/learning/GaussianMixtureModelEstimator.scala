@@ -112,8 +112,8 @@ case class GaussianMixtureModelEstimator(
 
       // compute the squared malhanobis distance for each gaussian.
       // sq_mal_dist(i,j) || x_i - mu_j||_Lambda^2.
-      val sqMahlist = (XSq * gmmVars.map(0.5 / _).t) - (X * (gmmMeans :/ gmmVars).t) +
-          (DenseMatrix.ones[Double](numSamples, 1) * (sum(gmmMeans :* gmmMeans :/ gmmVars, Axis._1).t :* 0.5))
+      val sqMahlist = (XSq * (0.5 :/ gmmVars).t) - (X * (gmmMeans :/ gmmVars).t)
+      sqMahlist(*, ::) += (sum(gmmMeans :* gmmMeans :/ gmmVars, Axis._1) :+ 0.5)
 
       // compute the log likelihood of the approximate posterior
       val llh = DenseMatrix.ones[Double](numSamples, 1) *

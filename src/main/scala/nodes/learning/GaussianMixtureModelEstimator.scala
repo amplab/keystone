@@ -110,37 +110,41 @@ case class GaussianMixtureModelEstimator(
     while ((iter < maxIterations) && costImproving && largeEnoughClusters) {
       /* E-STEP */
 
-      /*
-      compute the squared malhanobis distance for each gaussian.
-      sq_mal_dist(i,j) || x_i - mu_j||_Lambda^2.
-      */
-      val sqMahlist = (XSq * gmmVars.map(0.5 / _).t) - (X * (gmmMeans :/ gmmVars).t) +
-          (DenseMatrix.ones[Double](numSamples, 1) * (sum(gmmMeans :* gmmMeans :/ gmmVars, Axis._1).t :* 0.5))
+      // compute the squared malhanobis distance for each gaussian.
+      // sq_mal_dist(i,j) || x_i - mu_j||_Lambda^2.
+      val sqMahlist = (XSq * (0.5 :/ gmmVars).t) - (X * (gmmMeans :/ gmmVars).t)
+      sqMahlist(*, ::) += (sum(gmmMeans :* gmmMeans :/ gmmVars, Axis._1) :* 0.5)
 
       // compute the log likelihood of the approximate posterior
       val llh = DenseMatrix.ones[Double](numSamples, 1) *
           (-0.5 * numFeatures * math.log(2 * math.Pi) - 0.5 * sum(bLog(gmmVars), Axis._1).t + bLog(gmmWeights)) -
           sqMahlist
 
-      /*
-      compute the log likelihood of the model using the incremental
-      approach suggested by the Xerox folks.  The key thing here is that
-      for all intents and purposes, log(1+exp(t)) is equal to zero is t<-30
-      and equal to t if t>30
-      */
-      var lseLLH = llh(::, 0)
+      // compute the log likelihood of the model using the incremental
+      // approach suggested by the Xerox folks.  The key thing here is that
+      // for all intents and purposes, log(1+exp(t)) is equal to zero is t<-30
+      // and equal to t if t>30
+      val lseLLH = llh(::, 0).copy
       var cluster = 1
       while (cluster < k) {
-        val deltaLSE = lseLLH - llh(::, cluster)
-        val deltaLSEThreshold = min(max(deltaLSE, -30.0), 30.0)
-        val lseIncrement = (deltaLSE.map(x => if (x > 30.0) 1.0 else 0.0) :* deltaLSE) + (
-            deltaLSE.map(x => if (x > -30.0) 1.0 else 0.0) :*
-            deltaLSE.map(x => if (x <= 30.0) 1.0 else 0.0) :*
-            bLog(exp(deltaLSEThreshold) + 1.0)
-        )
-        lseLLH = llh(::, cluster) + lseIncrement
+        var sample = 0
+        // Extract this cluster's llh as a vector
+        val llhCluster = llh(::, cluster)
+        while (sample < numSamples) {
+          val deltaLSE = lseLLH(sample) - llhCluster(sample)
+          var lseIncrement = 0.0
+          if (deltaLSE > 30.0) {
+            lseIncrement = deltaLSE
+          } else if (deltaLSE > -30.0) {
+            val deltaLSEThreshold = min(max(deltaLSE, -30.0), 30.0)
+            lseIncrement = bLog(exp(deltaLSEThreshold) + 1.0)
+          } // else t < -30 which adds no weight
+          lseLLH(sample) = lseIncrement + llhCluster(sample)
+          sample = sample + 1
+        }
         cluster += 1
       }
+
       curCost(iter) = mean(lseLLH)
       logInfo(s"iter=$iter, llh=${curCost(iter)}")
       // Check if we're making progress

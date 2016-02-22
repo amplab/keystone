@@ -282,7 +282,7 @@ trait VectorizedImage extends Image {
 
   def vectorToImageCoords(v: Int): Coordinate
 
-  val coord: Coordinate = new Coordinate(0,0,0)
+  @transient lazy val coord: Coordinate = new Coordinate(0,0,0)
 
   /**
     * Returns an iterator of coordinate values based on the "natural" order

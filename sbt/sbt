@@ -49,6 +49,6 @@ FWDIR="$(cd `dirname $0`/..; pwd)"
 
 java \
   -Djava.library.path="$FWDIR/lib" \
-  -Xmx2400m -XX:MaxPermSize=350m -XX:ReservedCodeCacheSize=256m \
+  -Xmx4000m -XX:MaxPermSize=350m -XX:ReservedCodeCacheSize=256m \
   -jar ${JAR} \
   "$@"

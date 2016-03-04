@@ -26,18 +26,13 @@ class KernelRidgeRegression(
   blockPermuter: Option[Long] = None,
   cacheKernel: Boolean = false,
   stopAfterBlocks: Option[Int] = None)
-  extends LabelEstimator[DenseVector[Double], DenseVector[Double], DenseVector[Double]] {
+  extends LabelEstimator[DenseVector[Double], Array[DenseVector[Double]], DenseVector[Double]] {
 
   /**
    * Fit a kernel ridge regression model using provided data, labels
    */
-  def fit(data: RDD[DenseVector[Double]],
-          labels: RDD[DenseVector[Double]],
-          blockCallback: Option[(RDD[DenseMatrix[Double]],
-             Broadcast[DenseMatrix[Double]],
-             Broadcast[DenseMatrix[Double]],
-             Int, Seq[Int], Int, Double) =>
-             (Double, Double, RDD[DenseMatrix[Double]])] = None): BlockLinearMapper   = {
+  override  def fit(data: RDD[DenseVector[Double]],
+          labels: RDD[DenseVector[Double]]): KernelBlockModel = {
     KernelRidgeRegression.trainWithL2(data,
       labels,
       kernelBlockGenerator,
@@ -45,29 +40,11 @@ class KernelRidgeRegression(
       blockSize,
       numEpochs,
       blockPermuter,
-      blockCallback,
       cacheKernel,
       stopAfterBlocks)
   }
-
-  /**
-   * Fit a kernel ridge regression model using provided data, labels
-   */
-  def fit(data: RDD[DenseVector[Double]],
-          labels: RDD[DenseVector[Double]]): BlockLinearMapper   = {
-    KernelRidgeRegression.trainWithL2(data,
-      labels,
-      kernelBlockGenerator,
-      lambdas,
-      blockSize,
-      numEpochs,
-      blockPermuter,
-      None,
-      cacheKernel,
-      stopAfterBlocks)
   }
 
-}
 
 object KernelRidgeRegression extends TimeUtils {
 
@@ -87,13 +64,8 @@ object KernelRidgeRegression extends TimeUtils {
       blockSize: Int,
       numEpochs: Int,
       blockPermuter: Option[Long],
-      blockCallback: Option[(RDD[DenseMatrix[Double]],
-              Broadcast[DenseMatrix[Double]],
-              Broadcast[DenseMatrix[Double]],
-              Int, Seq[Int], Int, Double) =>
-              (Double, Double, RDD[DenseMatrix[Double]])] = None,
       cacheKernel: Boolean = false,
-      stopAfterBlocks: Option[Int] = None): BlockLinearMapper = {
+      stopAfterBlocks: Option[Int] = None): KernelBlockModel = {
 
     //val sc = labels.context
     val nTrain = labels.count.toInt
@@ -285,9 +257,10 @@ object KernelRidgeRegression extends TimeUtils {
         blockIdxsBC.unpersist(true)
       }
     }
-    new BlockLinearMapper(wLocals(0), blockSize, Some(intercept))
-  }
 
+    // TODO(vaishaal): Intercepts
+    new KernelBlockModel(models, blockSize, lambdas, data, kernelBlockGenerator, Some(nTrain))
+  }
   def updateModel(
       model: RDD[Array[DenseMatrix[Double]]],
       wBlockNewBC: Seq[Broadcast[DenseMatrix[Double]]],

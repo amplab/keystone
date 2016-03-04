@@ -31,6 +31,36 @@ object KernelUtils extends Serializable {
     rowsToMatrix(in.toArray)
   }
 
+  /** 
+   *  Converts a RDD of DenseVector to a RDD of DenseMatrix such that each partition
+   *  of  DenseVectors are stacked into a rows to make  DenseMatrix
+   */
+
+  def rowsToMatrix[T: ClassTag] (in: RDD[DenseVector[T]]) : RDD[DenseMatrix[T]]= {
+    in.mapPartitions { part =>
+      Iterator.single(rowsToMatrix(part))
+    }
+  }
+
+  /**
+   * Converts a  RDD of DenseMatrix where each matrix is in one partition into 
+   * an RDD of DenseVectors separating the matrix row wise.  Undefined behavior
+   * if used on RDD of  DenseMatrix not generated  from above function
+   */
+
+  def matrixToRows [T: ClassTag] (in: RDD[DenseMatrix[T]]) : RDD[DenseVector[T]]= {
+    in.mapPartitions { part =>
+      val matrix = part.next()
+      val nRows = matrix.rows
+      val outArr = new Array[DenseVector[T]](nRows)
+      var i = 0
+      while (i < nRows)  {
+        outArr(i) = matrix(::, i).toDenseVector
+        i += 1
+      }
+      outArr.iterator
+    }
+  }
   /**
    * Converts an array of DenseVector to a matrix where each vector is a row.
    *

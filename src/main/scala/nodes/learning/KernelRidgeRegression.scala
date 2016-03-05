@@ -24,7 +24,7 @@ class KernelRidgeRegression(
   blockSize: Int,
   numEpochs: Int,
   blockPermuter: Option[Long] = None,
-  cacheKernel: Boolean = false,
+  cacheKernel: Boolean = true,
   stopAfterBlocks: Option[Int] = None)
   extends LabelEstimator[DenseVector[Double], Array[DenseVector[Double]], DenseVector[Double]] {
 
@@ -174,8 +174,8 @@ object KernelRidgeRegression extends TimeUtils {
         // TODO: Should we zero mean the kernel block ?
         // Build up the residual
         val treeBranchingFactor = labels.context.getConf.getInt("spark.mlmatrix.treeBranchingFactor", 2).toInt
-        val depth = math.ceil(math.log(kernelBlockMat.partitions.size) /
-          math.log(treeBranchingFactor)).toInt
+        val depth = max(math.ceil(math.log(kernelBlockMat.partitions.size) /
+          math.log(treeBranchingFactor)).toInt, 1)
 
         val residualBegin = System.nanoTime
 
@@ -257,9 +257,12 @@ object KernelRidgeRegression extends TimeUtils {
         blockIdxsBC.unpersist(true)
       }
     }
+    /* Models for all lambdas */
+    val localModelSplit:Array[Array[DenseMatrix[Double]]] = models.collect()
+    val localModel:Array[DenseMatrix[Double]] = (0 until lambdas.size).toArray.map(i => localModelSplit.map(_(i)).reduce(DenseMatrix.vertcat(_,_)))
 
     // TODO(vaishaal): Intercepts
-    new KernelBlockModel(models, blockSize, lambdas, data, kernelBlockGenerator, Some(nTrain))
+    new KernelBlockModel(models.context.broadcast(localModel), blockSize, lambdas, data, kernelBlockGenerator, Some(nTrain))
   }
   def updateModel(
       model: RDD[Array[DenseMatrix[Double]]],

@@ -4,6 +4,7 @@ import breeze.linalg._
 import edu.berkeley.cs.amplab.mlmatrix.{RowPartition, NormalEquations, BlockCoordinateDescent, RowPartitionedMatrix}
 import nodes.stats.{StandardScalerModel, StandardScaler}
 import org.apache.spark.rdd.RDD
+import org.apache.spark.broadcast.Broadcast
 import nodes.util.{VectorSplitter, Identity}
 import utils.{MatrixUtils, Stats, KernelUtils}
 import workflow.{Transformer, LabelEstimator}
@@ -18,7 +19,7 @@ import workflow.{Transformer, LabelEstimator}
  **/
 
 class KernelBlockModel(
-  models: RDD[Array[DenseMatrix[Double]]],
+  models: Broadcast[Array[DenseMatrix[Double]]],
   blockSize: Int,
   lambdas: Array[Double],
   trainData: RDD[DenseVector[Double]],
@@ -32,24 +33,26 @@ extends Transformer[DenseVector[Double], Array[DenseVector[Double]]]
     val testSize = in.count()
     val numBlocks = math.ceil(trainSize.toDouble/blockSize).toInt
     // Only evaluate first model for now
-    val model = models.map(_(0))
-    val numClasses = model.take(1)(0).cols
+    // TODO: MULTI LAMBDA
+    val oneModel = models.value(0)
+    val model = trainData.context.broadcast(oneModel)
+    val numClasses = oneModel.cols
     val testMatrix = KernelUtils.rowsToMatrix(in)
+
 
     /* Initially all predictions are 0 */
     var predictions = testMatrix.map(x => DenseMatrix.zeros[Double](x.rows, x.cols))
 
     for (block <- (0 until numBlocks)) {
       val blockIdxs = (blockSize * block) until (math.min(trainSize, (block + 1) * blockSize))
+      val blockIdxsBroadcast =  trainData.context.broadcast(blockIdxs)
       val testKernelMat:  RDD[DenseMatrix[Double]] = KernelUtils.rowsToMatrix(kernelGen.generateKernelTestBlock(in, trainData, blockIdxs)).cache()
 
-      val testKernelModelZip: RDD[(DenseMatrix[Double], DenseMatrix[Double])] =
-        testKernelMat.zip(model)
-      /* Compute partial predictions RDD */
-
       val partialPredictions =
-      testKernelModelZip.map {  case (testKernelBB, modelBlock) =>
-        testKernelBB * modelBlock
+      testKernelMat.map {  testKernelBB =>
+        val modelBlock = model.value(blockIdxsBroadcast.value,::)
+        val pp = testKernelBB * modelBlock
+        pp
       }
 
       /* Update predictions  */
@@ -58,12 +61,14 @@ extends Transformer[DenseVector[Double], Array[DenseVector[Double]]]
           pred :+ partialPred
       }
     }
+    /* Materialize  predictions */
+    predictions.count()
     KernelUtils.matrixToRows(predictions).map(Array(_))
   }
 
   def apply(in: DenseVector[Double]): Array[DenseVector[Double]]  = {
     /*  TODO: Super Hack will fix later  (vaishaal) */
-   apply(models.context.parallelize(Array(in))).collect()(0)
+   apply(trainData.context.parallelize(Array(in))).collect()(0)
   }
 
 }

@@ -55,7 +55,7 @@ object KernelUtils extends Serializable {
       val outArr = new Array[DenseVector[T]](nRows)
       var i = 0
       while (i < nRows)  {
-        outArr(i) = matrix(::, i).toDenseVector
+        outArr(i) = matrix(i,::).t
         i += 1
       }
       outArr.iterator

@@ -41,7 +41,7 @@ extends Transformer[DenseVector[Double], Array[DenseVector[Double]]]
 
 
     /* Initially all predictions are 0 */
-    var predictions = testMatrix.map(x => DenseMatrix.zeros[Double](x.rows, x.cols))
+    var predictions = testMatrix.map(x => DenseMatrix.zeros[Double](x.rows, numClasses))
 
     for (block <- (0 until numBlocks)) {
       val blockIdxs = (blockSize * block) until (math.min(trainSize, (block + 1) * blockSize))

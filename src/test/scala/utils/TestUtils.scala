@@ -1,7 +1,12 @@
 package utils
 
 import java.io.{FileReader, ByteArrayInputStream}
+import breeze.linalg.DenseMatrix
+import breeze.stats.distributions.{Gaussian, RandBasis, ThreadLocalRandomGenerator, Rand}
+import edu.berkeley.cs.amplab.mlmatrix.RowPartitionedMatrix
 import org.apache.commons.io.IOUtils
+import org.apache.commons.math3.random.MersenneTwister
+import org.apache.spark.SparkContext
 
 import scala.io.Source
 import scala.util.Random
@@ -60,4 +65,23 @@ object TestUtils {
     RowColumnMajorByteArrayVectorizedImage(genData(x,y,z).map(_.toByte), ImageMetadata(x,y,z))
   }
 
+  def createRandomMatrix(
+      sc: SparkContext,
+      numRows: Int,
+      numCols: Int,
+      numParts: Int,
+      seed: Int = 42): RowPartitionedMatrix = {
+
+    val rowsPerPart = numRows / numParts
+    val matrixParts = sc.parallelize(1 to numParts, numParts).mapPartitionsWithIndex { (index, part) =>
+      val randBasis: RandBasis = new RandBasis(new ThreadLocalRandomGenerator(new MersenneTwister(seed+index)))
+      Iterator(DenseMatrix.rand(rowsPerPart, numCols, Gaussian(0.0, 1.0)(randBasis)))
+    }
+    RowPartitionedMatrix.fromMatrix(matrixParts.cache())
+  }
+
+  def createLocalRandomMatrix(numRows: Int, numCols: Int, seed: Int = 42): DenseMatrix[Double] = {
+    val randBasis: RandBasis = new RandBasis(new ThreadLocalRandomGenerator(new MersenneTwister(seed)))
+    DenseMatrix.rand(numRows, numCols, Gaussian(0.0, 1.0)(randBasis))
+  }
 }

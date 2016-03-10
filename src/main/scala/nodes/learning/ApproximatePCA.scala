@@ -3,8 +3,10 @@ package nodes.learning
 import breeze.linalg._
 import breeze.numerics._
 import breeze.stats._
+import breeze.stats.distributions.{Gaussian, ThreadLocalRandomGenerator, RandBasis}
 import com.github.fommil.netlib.LAPACK._
 import edu.berkeley.cs.amplab.mlmatrix.util.QRUtils
+import org.apache.commons.math3.random.MersenneTwister
 import org.apache.spark.rdd.RDD
 import org.netlib.util.intW
 import pipelines.Logging
@@ -43,7 +45,7 @@ class ApproximatePCAEstimator(dims: Int, q: Int = 10, p: Int = 5)
     val B = Q.t * A //cpu: l*n*d, mem: l*d
     val usvt = svd.reduced(B) //cpu: l*d^2, mem: l*d
     val pca = convert(usvt.Vt.t, Float)
-    logInfo(s"shape of pca (${pca.rows},${pca.cols}")
+    logDebug(s"shape of pca (${pca.rows},${pca.cols}")
 
     val matlabConventionPCA = PCAEstimator.enforceMatlabPCASignConvention(pca)
 
@@ -62,10 +64,11 @@ object ApproximatePCAEstimator {
    * @param q Number of iterations to use in the computation.
    * @return An n x (k+p) matrix that approximates A
    */
-  def approximateQ(A: DenseMatrix[Double], l: Int, q: Int): DenseMatrix[Double] = {
+  def approximateQ(A: DenseMatrix[Double], l: Int, q: Int, seed: Int = 0): DenseMatrix[Double] = {
     val d = A.cols
 
-    val omega = new DenseMatrix(d, l, randn(d*l).toArray) //cpu: d*l, mem: d*l
+    val randBasis: RandBasis = new RandBasis(new ThreadLocalRandomGenerator(new MersenneTwister(seed)))
+    val omega = DenseMatrix.rand(d, l, Gaussian(0,1)(randBasis)) //cpu: d*l, mem: d*l
     val y0 = A*omega //cpu: n*d*l, mem: n*l
 
     var Q = QRUtils.qrQR(y0)._1 //cpu: n*l**2

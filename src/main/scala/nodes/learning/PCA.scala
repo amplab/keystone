@@ -36,7 +36,7 @@ class PCATransformer(val pcaMat: DenseMatrix[Float]) extends Transformer[DenseVe
  */
 case class BatchPCATransformer(pcaMat: DenseMatrix[Float]) extends Transformer[DenseMatrix[Float], DenseMatrix[Float]] with Logging {
   def apply(in: DenseMatrix[Float]): DenseMatrix[Float] = {
-    logInfo(s"Multiplying pcaMat:(${pcaMat.rows}x${pcaMat.cols}), in: (${in.rows}x${in.cols})")
+    logDebug(s"Multiplying pcaMat:(${pcaMat.rows}x${pcaMat.cols}), in: (${in.rows}x${in.cols})")
     pcaMat.t * in
   }
 }
@@ -75,7 +75,7 @@ class PCAEstimator(dims: Int) extends Estimator[DenseVector[Float], DenseVector[
   }
 
   def computePCA(dataMat: DenseMatrix[Float], dims: Int): DenseMatrix[Float] = {
-    logInfo(s"Size of dataMat: (${dataMat.rows}, ${dataMat.cols})")
+    logDebug(s"Size of dataMat: (${dataMat.rows}, ${dataMat.cols})")
 
     val means = (mean(dataMat(::, *))).toDenseVector
 

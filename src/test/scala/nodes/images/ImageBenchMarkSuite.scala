@@ -18,8 +18,10 @@ class ImageBenchMarkSuite extends FunSuite with Logging {
     TestParam("Cifar10000", (32,32,3), 6, 10000, 13, 14),
     TestParam("ImageNet", (256,256,3), 6, 100, (256-5)/2, (256-5)/2),
     TestParam("SolarFlares", (256,256,12), 6, 100, (256-5)/12, (256-5)/12),
-    TestParam("ConvolvedSolarFlares", (251,251,100), 6, 100, 251/12, 251/12),
-    TestParam("SolarFlares2", (256,256,12), 5, 1024, (256-4)/12, (256-4)/12)
+    TestParam("ConvolvedSolarFlares", (251,251,100), 6, 100, 251/12, 251/12)
+    //Todo (sparks) Figure out a good way to "uncomment" this via a config parameter when we want bigger tests.
+    //TestParam("SolarFlares2", (256,256,12), 5, 1024, (256-4)/12, (256-4)/12)
+
   )
 
   def getImages(t: TestParam) = Array[VectorizedImage](
@@ -88,14 +90,14 @@ class ImageBenchMarkSuite extends FunSuite with Logging {
     }
 
     for (
-      iter <- 1 to 10;
+      iter <- 1 to 5;
       t <- tests;
       i <- getImages(t)
     ) {
       val (t1, t2, t3, a, b, c) = iterTimes(i)
       val slowdown = t2.toDouble/t1
       val istr = '"' + i.toString + '"'
-      logInfo(s"${t.name},$istr,$t1,$t2,$t3,$slowdown,${t2.toDouble/t3},$a,$b,$c")
+      logDebug(s"${t.name},$istr,$t1,$t2,$t3,$slowdown,${t2.toDouble/t3},$a,$b,$c")
     }
     //Iteration just going through the data.
 
@@ -114,7 +116,7 @@ class ImageBenchMarkSuite extends FunSuite with Logging {
     }
 
     val res = for(
-      iter <- 1 to 10;
+      iter <- 1 to 5;
       t <- tests
     ) yield {
       val img = genChannelMajorArrayVectorizedImage(t.size._1, t.size._2, t.size._3) //Standard grayScale format.

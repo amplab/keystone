@@ -74,14 +74,14 @@ object TestUtils {
 
     val rowsPerPart = numRows / numParts
     val matrixParts = sc.parallelize(1 to numParts, numParts).mapPartitionsWithIndex { (index, part) =>
-      implicit val randBasis: RandBasis = new RandBasis(new ThreadLocalRandomGenerator(new MersenneTwister(seed+index)))
+      val randBasis: RandBasis = new RandBasis(new ThreadLocalRandomGenerator(new MersenneTwister(seed+index)))
       Iterator(DenseMatrix.rand(rowsPerPart, numCols, Gaussian(0.0, 1.0)(randBasis)))
     }
     RowPartitionedMatrix.fromMatrix(matrixParts.cache())
   }
 
   def createLocalRandomMatrix(numRows: Int, numCols: Int, seed: Int = 42): DenseMatrix[Double] = {
-    implicit val randBasis: RandBasis = new RandBasis(new ThreadLocalRandomGenerator(new MersenneTwister(seed)))
+    val randBasis: RandBasis = new RandBasis(new ThreadLocalRandomGenerator(new MersenneTwister(seed)))
     DenseMatrix.rand(numRows, numCols, Gaussian(0.0, 1.0)(randBasis))
   }
 }

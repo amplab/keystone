@@ -5,21 +5,13 @@ import breeze.stats.distributions.Rand
 import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
 import pipelines._
-import utils.MatrixUtils
+import utils.{TestUtils, MatrixUtils}
 
 class LinearRectifierSuite extends FunSuite with LocalSparkContext with Logging {
 
-  def createRandomMatrix(numRows: Int, numCols: Int, numParts: Int) = {
-    val rowsPerPart = numRows / numParts
-    val matrixParts = sc.parallelize(1 to numParts, numParts).mapPartitions { part =>
-      Iterator(DenseMatrix.rand(rowsPerPart, numCols, Rand.gaussian))
-    }
-    matrixParts.cache()
-  }
-
   test("Test MaxVal") {
     sc = new SparkContext("local", "test")
-    val matrixParts = createRandomMatrix(128, 16, 4)
+    val matrixParts = TestUtils.createRandomMatrix(sc, 128, 16, 4).rdd.map(_.mat)
 
     val x = matrixParts.flatMap(y => MatrixUtils.matrixToRowArray(y))
     val y = x.map(r => r.forall(_ >= 0.0))

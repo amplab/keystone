@@ -6,14 +6,14 @@ import nodes.stats.StandardScaler
 import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
 import pipelines.{LocalSparkContext, Logging}
-import utils.{MatrixUtils, Stats}
+import utils.{TestUtils, MatrixUtils, Stats}
 
 class LinearMapperSuite extends FunSuite with LocalSparkContext with Logging {
   test("Solve and apply a linear system") {
     sc = new SparkContext("local", "test")
 
     // Create the data.
-    val A = RowPartitionedMatrix.createRandom(sc, 128, 5, 4, cache=true)
+    val A = TestUtils.createRandomMatrix(sc, 128, 5, 4)
     val x = DenseVector(5.0, 4.0, 3.0, 2.0, -1.0).toDenseMatrix
     val b = A.mapPartitions(part => part * x.t)
 
@@ -38,7 +38,7 @@ class LinearMapperSuite extends FunSuite with LocalSparkContext with Logging {
     sc = new SparkContext("local", "test")
 
     // Create the data.
-    val A = RowPartitionedMatrix.createRandom(sc, 50, 400, 4, cache=true)
+    val A = TestUtils.createRandomMatrix(sc, 50, 400, 4)
     val x = DenseVector(5.0, 4.0, 3.0, 2.0, -1.0).toDenseMatrix
     val b = A.mapPartitions(part => DenseMatrix.rand(part.rows, 3))
 
@@ -54,7 +54,7 @@ class LinearMapperSuite extends FunSuite with LocalSparkContext with Logging {
     sc = new SparkContext("local", "test")
 
     // Create the data.
-    val A = RowPartitionedMatrix.createRandom(sc, 128, 5, 4, cache=true)
+    val A = TestUtils.createRandomMatrix(sc, 128, 5, 4)
     val x = DenseMatrix((5.0, 4.0, 3.0, 2.0, -1.0), (3.0, -1.0, 2.0, -2.0, 1.0))
     val dataMean = DenseVector(1.0, 0.0, 1.0, 2.0, 0.0)
     val extraBias = DenseVector(3.0, 4.0)

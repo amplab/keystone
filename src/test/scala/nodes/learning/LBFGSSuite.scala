@@ -6,14 +6,14 @@ import nodes.stats.StandardScaler
 import org.apache.spark.{rdd, SparkContext}
 import org.scalatest.FunSuite
 import pipelines.{LocalSparkContext, Logging}
-import utils.{MatrixUtils, Stats}
+import utils.{TestUtils, MatrixUtils, Stats}
 
 class LBFGSSuite extends FunSuite with LocalSparkContext with Logging {
   test("Solve a dense linear system (fit intercept)") {
     sc = new SparkContext("local", "test")
 
     // Create the data.
-    val A = RowPartitionedMatrix.createRandom(sc, 128, 5, 4, cache=true)
+    val A = TestUtils.createRandomMatrix(sc, 128, 5, 4)
     val x = DenseMatrix((5.0, 4.0, 3.0, 2.0, -1.0), (3.0, -1.0, 2.0, -2.0, 1.0))
     val dataMean = DenseVector(1.0, 0.0, 1.0, 2.0, 0.0)
     val extraBias = DenseVector(3.0, 4.0)
@@ -40,7 +40,7 @@ class LBFGSSuite extends FunSuite with LocalSparkContext with Logging {
     sc = new SparkContext("local", "test")
 
     // Create the data.
-    val A = RowPartitionedMatrix.createRandom(sc, 128, 5, 4, cache=true)
+    val A = TestUtils.createRandomMatrix(sc, 128, 5, 4)
     val x = DenseMatrix((5.0, 4.0, 3.0, 2.0, -1.0), (3.0, -1.0, 2.0, -2.0, 1.0))
     val b = A.mapPartitions(part => part * x.t)
 
@@ -62,7 +62,7 @@ class LBFGSSuite extends FunSuite with LocalSparkContext with Logging {
     sc = new SparkContext("local", "test")
 
     // Create the data.
-    val A = RowPartitionedMatrix.createRandom(sc, 128, 5, 4, cache=true)
+    val A = TestUtils.createRandomMatrix(sc, 128, 5, 4)
     val x = DenseMatrix((5.0, 4.0, 3.0, 2.0, -1.0), (3.0, -1.0, 2.0, -2.0, 1.0))
     val dataMean = DenseVector(1.0, 0.0, 1.0, 2.0, 0.0)
     val extraBias = DenseVector(3.0, 4.0)
@@ -88,7 +88,7 @@ class LBFGSSuite extends FunSuite with LocalSparkContext with Logging {
     sc = new SparkContext("local", "test")
 
     // Create the data.
-    val A = RowPartitionedMatrix.createRandom(sc, 128, 5, 4, cache=true)
+    val A = TestUtils.createRandomMatrix(sc, 128, 5, 4)
     val x = DenseMatrix((5.0, 4.0, 3.0, 2.0, -1.0), (3.0, -1.0, 2.0, -2.0, 1.0))
     val b = A.mapPartitions(part => part * x.t)
 
@@ -101,8 +101,8 @@ class LBFGSSuite extends FunSuite with LocalSparkContext with Logging {
     val trueResult = MatrixUtils.rowsToMatrix(bary.collect())
     val solverResult = MatrixUtils.rowsToMatrix(mapper(Aary).collect())
 
-    assert(Stats.aboutEq(trueResult, solverResult, 1e-5), "Results from the solve must match the hand-created model.")
-    assert(Stats.aboutEq(mapper.x, x.t, 1e-5), "Model weights from the solve must match the hand-created model.")
+    assert(Stats.aboutEq(trueResult, solverResult, 1e-4), "Results from the solve must match the hand-created model.")
+    assert(Stats.aboutEq(mapper.x, x.t, 1e-4), "Model weights from the solve must match the hand-created model.")
     assert(mapper.bOpt.isEmpty, "Not supposed to have learned an intercept.")
   }
 }

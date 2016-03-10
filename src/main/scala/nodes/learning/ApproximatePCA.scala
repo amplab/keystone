@@ -67,7 +67,7 @@ object ApproximatePCAEstimator {
   def approximateQ(A: DenseMatrix[Double], l: Int, q: Int, seed: Int = 0): DenseMatrix[Double] = {
     val d = A.cols
 
-    implicit val randBasis: RandBasis = new RandBasis(new ThreadLocalRandomGenerator(new MersenneTwister(seed)))
+    val randBasis: RandBasis = new RandBasis(new ThreadLocalRandomGenerator(new MersenneTwister(seed)))
     val omega = DenseMatrix.rand(d, l, Gaussian(0,1)(randBasis)) //cpu: d*l, mem: d*l
     val y0 = A*omega //cpu: n*d*l, mem: n*l
 

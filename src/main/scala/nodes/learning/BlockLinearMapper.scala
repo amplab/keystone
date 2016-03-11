@@ -18,24 +18,24 @@ import workflow.{Transformer, LabelEstimator}
  * @param bOpt optional intercept term to be added
  * @param featureScalersOpt optional seq of transformers to be applied before transformation
  */
-class BlockLinearMapper(
+class BlockLinearMapper[T <: Vector[Double]](
     val xs: Seq[DenseMatrix[Double]],
     val blockSize: Int,
     val bOpt: Option[DenseVector[Double]] = None,
     val featureScalersOpt: Option[Seq[Transformer[DenseVector[Double], DenseVector[Double]]]] = None)
-  extends Transformer[DenseVector[Double], DenseVector[Double]] {
+  extends Transformer[T, DenseVector[Double]] {
 
   // Use identity nodes if we don't need to do scaling
   val featureScalers = featureScalersOpt.getOrElse(
     Seq.fill(xs.length)(new Identity[DenseVector[Double]]))
-  val vectorSplitter = new VectorSplitter(blockSize)
+  val vectorSplitter = new VectorSplitter[T](blockSize)
 
   /**
    * Applies the linear model to feature vectors large enough to have been split into several RDDs.
    * @param in RDD of vectors to apply the model to
    * @return the output vectors
    */
-  override def apply(in: RDD[DenseVector[Double]]): RDD[DenseVector[Double]] = {
+  override def apply(in: RDD[T]): RDD[DenseVector[Double]] = {
     apply(vectorSplitter(in))
   }
 
@@ -73,7 +73,7 @@ class BlockLinearMapper(
     matOutWithIntercept.flatMap(x => MatrixUtils.matrixToRowArray(x))
   }
 
-  override def apply(in: DenseVector[Double]): DenseVector[Double] = {
+  override def apply(in: T): DenseVector[Double] = {
     val res = vectorSplitter.splitVector(in).zip(xs.zip(featureScalers)).map {
       case (in, xScaler) => {
         xScaler._1.t * xScaler._2(in)
@@ -92,7 +92,7 @@ class BlockLinearMapper(
    * @param evaluator to the intermediate output vector.
    * @param in input RDD
    */
-  def applyAndEvaluate(in: RDD[DenseVector[Double]], evaluator: (RDD[DenseVector[Double]]) => Unit) {
+  def applyAndEvaluate(in: RDD[T], evaluator: (RDD[DenseVector[Double]]) => Unit) {
     applyAndEvaluate(vectorSplitter(in), evaluator)
   }
 
@@ -199,8 +199,8 @@ object BlockLeastSquaresEstimator {
  * @param numIter number of iterations of solver to run
  * @param lambda L2-regularization to use
  */
-class BlockLeastSquaresEstimator(blockSize: Int, numIter: Int, lambda: Double = 0.0, numFeaturesOpt: Option[Int] = None)
-  extends LabelEstimator[DenseVector[Double], DenseVector[Double], DenseVector[Double]] {
+class BlockLeastSquaresEstimator[T <: Vector[Double]](blockSize: Int, numIter: Int, lambda: Double = 0.0, numFeaturesOpt: Option[Int] = None)
+  extends LabelEstimator[T, DenseVector[Double], DenseVector[Double]] {
 
   /**
    * Fit a model using blocks of features and labels provided.
@@ -210,7 +210,7 @@ class BlockLeastSquaresEstimator(blockSize: Int, numIter: Int, lambda: Double = 
    */
   def fit(
       trainingFeatures: Seq[RDD[DenseVector[Double]]],
-      trainingLabels: RDD[DenseVector[Double]]): BlockLinearMapper = {
+      trainingLabels: RDD[DenseVector[Double]]): BlockLinearMapper[T] = {
     val labelScaler = new StandardScaler(normalizeStdDev = false).fit(trainingLabels)
     // Find out numRows, numCols once
     val b = RowPartitionedMatrix.fromArray(
@@ -248,18 +248,18 @@ class BlockLeastSquaresEstimator(blockSize: Int, numIter: Int, lambda: Double = 
    * @param trainingLabels labels for training data in a RDD.
    */
   override def fit(
-      trainingFeatures: RDD[DenseVector[Double]],
-      trainingLabels: RDD[DenseVector[Double]]): BlockLinearMapper = {
-    val vectorSplitter = new VectorSplitter(blockSize, numFeaturesOpt)
+      trainingFeatures: RDD[T],
+      trainingLabels: RDD[DenseVector[Double]]): BlockLinearMapper[T] = {
+    val vectorSplitter = new VectorSplitter[T](blockSize, numFeaturesOpt)
     val featureBlocks = vectorSplitter.apply(trainingFeatures)
     fit(featureBlocks, trainingLabels)
   }
 
   def fit(
-      trainingFeatures: RDD[DenseVector[Double]],
+      trainingFeatures: RDD[T],
       trainingLabels: RDD[DenseVector[Double]],
-      numFeaturesOpt: Option[Int]): BlockLinearMapper = {
-    val vectorSplitter = new VectorSplitter(blockSize, numFeaturesOpt)
+      numFeaturesOpt: Option[Int]): BlockLinearMapper[T] = {
+    val vectorSplitter = new VectorSplitter[T](blockSize, numFeaturesOpt)
     val featureBlocks = vectorSplitter.apply(trainingFeatures)
     fit(featureBlocks, trainingLabels)
   }

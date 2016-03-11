@@ -31,12 +31,12 @@ class LinearDiscriminantAnalysis(numDimensions: Int) extends LabelEstimator[Dens
    * @param labels Input class labels.
    * @return A PipelineNode which can be called on new data.
    */
-  override def fit(data: RDD[DenseVector[Double]], labels: RDD[Int]): LinearMapper = {
+  override def fit(data: RDD[DenseVector[Double]], labels: RDD[Int]): LinearMapper[DenseVector[Double]] = {
     val sample = labels.zip(data).collect()
     computeLDA(sample)
   }
 
-  def computeLDA(dataAndLabels: Array[(Int, DenseVector[Double])]): LinearMapper = {
+  def computeLDA(dataAndLabels: Array[(Int, DenseVector[Double])]): LinearMapper[DenseVector[Double]] = {
     val featuresByClass = dataAndLabels.groupBy(_._1).values.map(x => MatrixUtils.rowsToMatrix(x.map(_._2)))
     val meanByClass = featuresByClass.map(f => mean(f(::, *)): DenseMatrix[Double]) // each mean is a row vector, not col
 

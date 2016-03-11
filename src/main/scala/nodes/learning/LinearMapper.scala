@@ -14,19 +14,23 @@ import workflow.{LabelEstimator, Transformer}
  * @param bOpt optional intercept to add
  * @param featureScaler optional scaler to apply to data before applying the model
  */
-case class LinearMapper(
+case class LinearMapper[T <: Vector[Double]](
     x: DenseMatrix[Double],
     bOpt: Option[DenseVector[Double]] = None,
     featureScaler: Option[StandardScalerModel] = None)
-  extends Transformer[DenseVector[Double], DenseVector[Double]] {
+  extends Transformer[T, DenseVector[Double]] {
 
   /**
    * Apply a linear model to an input.
    * @param in Input.
    * @return Output.
    */
-  def apply(in: DenseVector[Double]): DenseVector[Double] = {
-    val scaled = featureScaler.map(_.apply(in)).getOrElse(in)
+  def apply(in: T): DenseVector[Double] = {
+    val scaled = featureScaler.map(_.apply(in match {
+      case dense: DenseVector[Double] => dense
+      case _ => in.toDenseVector
+    })).getOrElse(in)
+
     val out = x.t * scaled
     bOpt.map { b =>
       out :+= b
@@ -39,10 +43,15 @@ case class LinearMapper(
    * @param in Collection of A's.
    * @return Collection of B's.
    */
-  override def apply(in: RDD[DenseVector[Double]]): RDD[DenseVector[Double]] = {
+  override def apply(in: RDD[T]): RDD[DenseVector[Double]] = {
     val modelBroadcast = in.context.broadcast(x)
     val bBroadcast = in.context.broadcast(bOpt)
-    val inScaled = featureScaler.map(_.apply(in)).getOrElse(in)
+
+    val inScaled = featureScaler.map(_.apply(in.map {
+      case dense: DenseVector[Double] => dense
+      case notDense => notDense.toDenseVector
+    })).getOrElse(in)
+
     inScaled.mapPartitions(rows => {
       val mat = MatrixUtils.rowsToMatrix(rows) * modelBroadcast.value
       val out = bBroadcast.value.map { b =>
@@ -59,8 +68,8 @@ case class LinearMapper(
  *
  * @param lambda L2 Regularization parameter
  */
-class LinearMapEstimator(lambda: Option[Double] = None)
-    extends LabelEstimator[DenseVector[Double], DenseVector[Double], DenseVector[Double]] {
+case class LinearMapEstimator[T <: Vector[Double]](lambda: Option[Double] = None)
+    extends LabelEstimator[T, DenseVector[Double], DenseVector[Double]] {
 
   /**
    * Learns a linear model (OLS) based on training features and training labels.
@@ -71,14 +80,19 @@ class LinearMapEstimator(lambda: Option[Double] = None)
    * @return
    */
   def fit(
-      trainingFeatures: RDD[DenseVector[Double]],
-      trainingLabels: RDD[DenseVector[Double]]): LinearMapper = {
+      trainingFeatures: RDD[T],
+      trainingLabels: RDD[DenseVector[Double]]): LinearMapper[T] = {
 
-    val featureScaler = new StandardScaler(normalizeStdDev = false).fit(trainingFeatures)
+    val denseTrainingFeatures = trainingFeatures.map {
+      case dense: DenseVector[Double] => dense
+      case notDense => notDense.toDenseVector
+    }
+
+    val featureScaler = new StandardScaler(normalizeStdDev = false).fit(denseTrainingFeatures)
     val labelScaler = new StandardScaler(normalizeStdDev = false).fit(trainingLabels)
 
     val A = RowPartitionedMatrix.fromArray(
-      featureScaler.apply(trainingFeatures).map(x => x.toArray))
+      featureScaler.apply(denseTrainingFeatures).map(x => x.toArray))
     val b = RowPartitionedMatrix.fromArray(
       labelScaler.apply(trainingLabels).map(x => x.toArray))
 
@@ -92,11 +106,9 @@ class LinearMapEstimator(lambda: Option[Double] = None)
 }
 
 /**
- * Companion object to LinearMapEstimator that allows for construction without new.
+ * Companion object to LinearMapEstimator.
  */
 object LinearMapEstimator extends Serializable {
-  def apply(lambda: Option[Double] = None) = new LinearMapEstimator(lambda)
-
   def computeCost(
       trainingFeatures: RDD[DenseVector[Double]],
       trainingLabels: RDD[DenseVector[Double]],

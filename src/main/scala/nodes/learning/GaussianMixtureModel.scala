@@ -83,8 +83,10 @@ case class GaussianMixtureModel(
 
   override def apply(in: RDD[DenseVector[Double]]): RDD[DenseVector[Double]] = {
     in.mapPartitions { partition =>
-      val assignments = apply(MatrixUtils.rowsToMatrix(partition))
-      MatrixUtils.matrixToRowArray(assignments).iterator
+      MatrixUtils.rowsToMatrixIter(partition).flatMap { mat =>
+        val assignments = apply(mat)
+        MatrixUtils.matrixToRowArray(assignments).iterator
+      }
     }
   }
 }

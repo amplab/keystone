@@ -50,11 +50,7 @@ class BlockLinearMapper(
         val (x, scaler) = xScaler
         val modelBroadcast = rdd.context.broadcast(x)
         scaler(rdd).mapPartitions(rows => {
-          if (!rows.isEmpty) {
-            Iterator.single(MatrixUtils.rowsToMatrix(rows) * modelBroadcast.value)
-          } else {
-            Iterator.empty
-          }
+          MatrixUtils.rowsToMatrixIter(rows).map(_ * modelBroadcast.value)
         })
       }
     }
@@ -108,8 +104,7 @@ class BlockLinearMapper(
       case (rdd, xScaler) => {
         val modelBroadcast = rdd.context.broadcast(xScaler._1)
         xScaler._2(rdd).mapPartitions(rows => {
-          val out = MatrixUtils.rowsToMatrix(rows) * modelBroadcast.value
-          Iterator.single(out)
+          MatrixUtils.rowsToMatrixIter(rows).map(_ * modelBroadcast.value)
         })
       }
     }
@@ -152,11 +147,7 @@ object BlockLeastSquaresEstimator {
       case (rdd, x) => {
         val modelBroadcast = rdd.context.broadcast(x)
         rdd.mapPartitions(rows => {
-          if (!rows.isEmpty) {
-            Iterator.single(MatrixUtils.rowsToMatrix(rows) * modelBroadcast.value)
-          } else {
-            Iterator.empty
-          }
+          MatrixUtils.rowsToMatrixIter(rows).map(_ * modelBroadcast.value)
         })
       }
     }
@@ -226,7 +217,7 @@ class BlockLeastSquaresEstimator(blockSize: Int, numIter: Int, lambda: Double = 
 
     val A = trainingFeatures.zip(featureScalers).map { case (rdd, scaler) =>
       new RowPartitionedMatrix(scaler.apply(rdd).mapPartitions { rows =>
-        Iterator.single(MatrixUtils.rowsToMatrix(rows))
+        MatrixUtils.rowsToMatrixIter(rows)
       }.map(RowPartition), numRows, numCols)
     }
 

@@ -34,7 +34,7 @@ class DistributedPCAEstimator(dims: Int) extends Estimator[DenseVector[Float], D
 
     val mat = new RowPartitionedMatrix(dataMat.mapPartitions { part =>
       val dblIter = part.map(x => convert(x, Double))
-      Iterator.single(RowPartition(MatrixUtils.rowsToMatrix(dblIter)))
+      MatrixUtils.rowsToMatrixIter(dblIter).map(RowPartition(_))
     })
     val means = DenseVector(mat.colSums():_*) :/ mat.numRows().toDouble
 

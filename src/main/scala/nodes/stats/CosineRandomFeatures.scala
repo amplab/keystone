@@ -24,11 +24,12 @@ class CosineRandomFeatures(
   require(b.length == W.rows, "# of rows in W and size of b should match")
   override def apply(in: RDD[DenseVector[Double]]): RDD[DenseVector[Double]] = {
     in.mapPartitions { part =>
-      val data = MatrixUtils.rowsToMatrix(part)
-      val features: DenseMatrix[Double] = data * W.t
-      features(*,::) :+= b
-      cos.inPlace(features)
-      MatrixUtils.matrixToRowArray(features).iterator
+      MatrixUtils.rowsToMatrixIter(part).flatMap { data =>
+        val features: DenseMatrix[Double] = data * W.t
+        features(*,::) :+= b
+        cos.inPlace(features)
+        MatrixUtils.matrixToRowArray(features).iterator
+      }
     }
   }
 

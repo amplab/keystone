@@ -67,3 +67,21 @@ class Pooler(
     ChannelMajorArrayVectorizedImage(patch, ImageMetadata(numPoolsX, numPoolsY, numChannels))
   }
 }
+
+object Pooler {
+
+  def sumPooler(in: DenseVector[Double]): Double = {
+    var i = 0
+    var sum = 0.0
+    while (i < in.length) {
+      sum = sum + in(i)
+      i = i + 1
+    }
+    sum
+  }
+
+  def avgPooler(in: DenseVector[Double]): Double = {
+    sumPooler(in) / in.length
+  }
+
+}

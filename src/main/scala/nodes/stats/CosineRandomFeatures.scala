@@ -26,11 +26,12 @@ class CosineRandomFeatures(
     val wBroadcast = in.sparkContext.broadcast(W)
     val bBroadcast = in.sparkContext.broadcast(b)
     in.mapPartitions { part =>
-      val data = MatrixUtils.rowsToMatrix(part)
-      val features: DenseMatrix[Double] = data * wBroadcast.value.t
-      features(*,::) :+= bBroadcast.value
-      cos.inPlace(features)
-      MatrixUtils.matrixToRowArray(features).iterator
+      MatrixUtils.rowsToMatrixIter(part).flatMap { data =>
+        val features: DenseMatrix[Double] = data * wBroadcast.value.t
+        features(*,::) :+= bBroadcast.value
+        cos.inPlace(features)
+        MatrixUtils.matrixToRowArray(features).iterator
+      }
     }
   }
 

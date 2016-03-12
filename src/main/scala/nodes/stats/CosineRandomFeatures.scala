@@ -17,16 +17,18 @@ import workflow.Transformer
  * Kernel trick to allow Linear Solver to learn cosine interaction terms of the input
  */
 class CosineRandomFeatures(
-    val W: DenseMatrix[Double], // should be numOutputFeatures by numInputFeatures
-    val b: DenseVector[Double]) // should be numOutputFeatures by 1
-    extends Transformer[DenseVector[Double], DenseVector[Double]] {
+  @transient val W: DenseMatrix[Double], // should be numOutputFeatures by numInputFeatures
+  @transient val b: DenseVector[Double]) // should be numOutputFeatures by 1
+  extends Transformer[DenseVector[Double], DenseVector[Double]] {
 
   require(b.length == W.rows, "# of rows in W and size of b should match")
   override def apply(in: RDD[DenseVector[Double]]): RDD[DenseVector[Double]] = {
+    val wBroadcast = in.sparkContext.broadcast(W)
+    val bBroadcast = in.sparkContext.broadcast(b)
     in.mapPartitions { part =>
       val data = MatrixUtils.rowsToMatrix(part)
-      val features: DenseMatrix[Double] = data * W.t
-      features(*,::) :+= b
+      val features: DenseMatrix[Double] = data * wBroadcast.value.t
+      features(*,::) :+= bBroadcast.value
       cos.inPlace(features)
       MatrixUtils.matrixToRowArray(features).iterator
     }

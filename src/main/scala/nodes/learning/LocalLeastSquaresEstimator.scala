@@ -38,10 +38,10 @@ object LocalLeastSquaresEstimator {
    lambda: Double) = {
 
     val A_parts = trainingFeatures.mapPartitions { x =>
-      Iterator.single(MatrixUtils.rowsToMatrix(x))
+      MatrixUtils.rowsToMatrixIter(x)
     }.collect()
     val b_parts = trainingLabels.mapPartitions { x =>
-      Iterator.single(MatrixUtils.rowsToMatrix(x))
+      MatrixUtils.rowsToMatrixIter(x)
     }.collect()
 
     val A_local = DenseMatrix.vertcat(A_parts:_*)

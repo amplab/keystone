@@ -138,23 +138,21 @@ class PCASuite extends FunSuite with LocalSparkContext with Logging {
     val randMatrix = TestUtils.createLocalRandomMatrix(matRows, matCols)
     logInfo(s"${randMatrix(0 to 5, 0 to 5)}")
 
-    // This mimic's matlab's matrix norm (returns the maximum svd of a matrix).
-    def norm(x: DenseMatrix[Double]): Double = max(svd(x).S)
-
     for (
       p <- 5 to 10;
       k <- List(1, 5, 10, 20);
       q <- 1 to 20
     ) {
-      logDebug(s"Starting ${k+p}, $q")
-      val Q = ApproximatePCAEstimator.approximateQ(randMatrix, k+p, q)
+      logDebug(s"Starting ${k + p}, $q")
+      val Q = ApproximatePCAEstimator.approximateQ(randMatrix, k + p, q)
       logDebug(s"Got q: ${Q(0 to 3, 0 to 3)}")
       logDebug(s"Got randMatrix: ${randMatrix(0 to 3, 0 to 3)}")
-      logDebug(s"Got diff: ${(randMatrix - Q*Q.t*randMatrix).apply(0 to 3, 0 to 3)}")
-      val eps = norm(randMatrix - Q*Q.t*randMatrix)
+      logDebug(s"Got diff: ${(randMatrix - (Q * Q.t * randMatrix)).apply(0 to 3, 0 to 3)}")
+      val err = randMatrix - (Q * Q.t * randMatrix)
+      val eps = norm(err.toDenseVector)
 
       //From 1.9 of HMT2011
-      assert(eps < (1+9*math.sqrt(k+p)*math.min(matRows,matCols))*svd(randMatrix).S(k))
+      assert(eps < (1 + 9 * math.sqrt(k + p) * math.min(matRows, matCols)) * svd(randMatrix).S(k))
     }
 
   }

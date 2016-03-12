@@ -35,7 +35,7 @@ class LeastSquaresDenseGradient extends DenseGradient {
     labels: Iterator[DenseVector[Double]],
     weights: DenseMatrix[Double])
   : (DenseMatrix[Double], Double) = {
-    if (data.hasNext) {
+    if (data.hasNext && labels.hasNext) {
       val dataMatrix = MatrixUtils.rowsToMatrix(data)
       val labelsMatrix = MatrixUtils.rowsToMatrix(labels)
 

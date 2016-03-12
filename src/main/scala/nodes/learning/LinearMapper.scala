@@ -44,13 +44,15 @@ case class LinearMapper(
     val bBroadcast = in.context.broadcast(bOpt)
     val inScaled = featureScaler.map(_.apply(in)).getOrElse(in)
     inScaled.mapPartitions(rows => {
-      val mat = MatrixUtils.rowsToMatrix(rows) * modelBroadcast.value
-      val out = bBroadcast.value.map { b =>
-        mat(*, ::) :+= b
-        mat
-      }.getOrElse(mat)
+      MatrixUtils.rowsToMatrixIter(rows).flatMap { rMat =>
+        val mat = rMat * modelBroadcast.value
+        val out = bBroadcast.value.map { b =>
+          mat(*, ::) :+= b
+          mat
+        }.getOrElse(mat)
 
-      MatrixUtils.matrixToRowArray(out).iterator
+        MatrixUtils.matrixToRowArray(out).iterator
+      }
     })
   }
 }
@@ -109,13 +111,15 @@ object LinearMapEstimator extends Serializable {
     val bBroadcast = trainingLabels.context.broadcast(bOpt)
 
     val axb = trainingFeatures.mapPartitions(rows => {
-      val mat = MatrixUtils.rowsToMatrix(rows) * modelBroadcast.value
-      val out = bBroadcast.value.map { b =>
-        mat(*, ::) :+= b
-        mat
-      }.getOrElse(mat)
+      MatrixUtils.rowsToMatrixIter(rows).flatMap { rMat =>
+        val mat = rMat * modelBroadcast.value
+        val out = bBroadcast.value.map { b =>
+          mat(*, ::) :+= b
+          mat
+        }.getOrElse(mat)
 
-      MatrixUtils.matrixToRowArray(out).iterator
+        MatrixUtils.matrixToRowArray(out).iterator
+      }
     })
 
     val cost = axb.zip(trainingLabels).map { part =>

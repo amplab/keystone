@@ -35,6 +35,7 @@ object RandomPatchCifarAugmented extends Serializable with Logging {
     val numChannels = 3
     val whitenerSize = 100000
     val augmentPatchSize = 24
+    val flipChance = 0.5
 
     // Load up training data, and optionally sample.
     val trainData = conf.sampleFrac match {
@@ -61,9 +62,12 @@ object RandomPatchCifarAugmented extends Serializable with Logging {
         ((unnormFilters(::, *) / (twoNorms + 1e-10)) * whitener.whitener.t, whitener)
     }
 
-    val trainImagesAugmented = RandomPatcher(conf.numRandomPatchesAugment, augmentPatchSize, augmentPatchSize).apply(trainImages)
+    val trainImagesAugmented = RandomFlipper(flipChance).apply(
+      RandomPatcher(conf.numRandomPatchesAugment, augmentPatchSize, augmentPatchSize).apply(
+        trainImages))
 
-    val unscaledFeaturizer = new Convolver(filters, augmentPatchSize, augmentPatchSize, numChannels, Some(whitener), true)
+    val unscaledFeaturizer = 
+      new Convolver(filters, augmentPatchSize, augmentPatchSize, numChannels, Some(whitener), true)
         .andThen(SymmetricRectifier(alpha=conf.alpha))
         .andThen(new Pooler(conf.poolStride, conf.poolSize, identity, Pooler.sumPooler))
         .andThen(ImageVectorizer)
@@ -79,7 +83,8 @@ object RandomPatchCifarAugmented extends Serializable with Logging {
     val trainLabels = labelExtractor(trainData)
     val trainLabelsAugmented = new LabelAugmenter(conf.numRandomPatchesAugment).apply(trainLabels)
 
-    val model = new BlockLeastSquaresEstimator(4096, 1, conf.lambda.getOrElse(0.0)).fit(trainFeatures, trainLabels)
+    val model = new BlockLeastSquaresEstimator(4096, 1, conf.lambda.getOrElse(0.0)).fit(
+      trainFeatures, trainLabels)
 
     val predictionPipeline = featurizer andThen model andThen new Cacher[DenseVector[Double]]
 
@@ -88,15 +93,19 @@ object RandomPatchCifarAugmented extends Serializable with Logging {
     val testImages = ImageExtractor(testData)
 
     val numTestAugment = 10 // 4 corners, center and flips of each of the 5
-    val testImagesAugmented = CenterCornerPatcher(augmentPatchSize, augmentPatchSize, true).apply(testImages)
+    val testImagesAugmented = CenterCornerPatcher(augmentPatchSize, augmentPatchSize, true).apply(
+      testImages)
 
-    // Create augmented image-ids by assiging a unique id to each test image and then augmenting the id 
-    val testImageIdsAugmented = new LabelAugmenter(numTestAugment).apply(testImages.zipWithUniqueId.map(x => x._2))
+    // Create augmented image-ids by assiging a unique id to each test image and then 
+    // augmenting the id
+    val testImageIdsAugmented = new LabelAugmenter(numTestAugment).apply(
+      testImages.zipWithUniqueId.map(x => x._2))
 
     val testLabelsAugmented = new LabelAugmenter(numTestAugment).apply(LabelExtractor(testData))
     val testPredictions = predictionPipeline(testImagesAugmented)
 
-    val testEval = AugmentedExamplesEvaluator(testImageIdsAugmented, testPredictions, testLabelsAugmented, numClasses)
+    val testEval = AugmentedExamplesEvaluator(
+      testImageIdsAugmented, testPredictions, testLabelsAugmented, numClasses)
     logInfo(s"Test error is: ${testEval.totalError}")
   }
 

@@ -1,6 +1,6 @@
 ## KeystoneML release process
 
-1. We publish KeystoneML releases, snapshots to sonatype repository https://oss.sonatype.org/. To
+1. We publish KeystoneML releases and snapshots to sonatype repository https://oss.sonatype.org/. To
 create a release you will first need to create a SonaType account.
 
 2. Create and distribute a gpg key if you don't have one. The steps to do that are:
@@ -27,7 +27,7 @@ credentials += Credentials("Sonatype Nexus Repository Manager",
 5. Run `sbt/sbt publishSigned`. This should be sufficient for a snapshot release. To use a snapshot
 release users will need to add the Sonatype snapshot repository to their list of resolvers. In SBT
 it looks like
-```
+```scala
 resolvers ++= Seq(
   "Sonatype staging" at "https://oss.sonatype.org/content/repositories/snapshots",
   ... // other resolvers

@@ -69,7 +69,7 @@ object RandomPatchCifarAugmented extends Serializable with Logging {
     val unscaledFeaturizer = 
       new Convolver(filters, augmentPatchSize, augmentPatchSize, numChannels, Some(whitener), true)
         .andThen(SymmetricRectifier(alpha=conf.alpha))
-        .andThen(new Pooler(conf.poolStride, conf.poolSize, identity, Pooler.sumPooler))
+        .andThen(new Pooler(conf.poolStride, conf.poolSize, identity, sum(_)))
         .andThen(ImageVectorizer)
         .andThen(new Cacher[DenseVector[Double]](Some("features")))
 

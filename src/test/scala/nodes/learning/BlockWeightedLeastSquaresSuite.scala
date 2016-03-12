@@ -70,7 +70,7 @@ class BlockWeightedLeastSquaresSuite extends FunSuite with Logging with LocalSpa
 
   test("BlockWeighted solver solution should work with empty partitions") {
     val blockSize = 4
-    val numIter = 50
+    val numIter = 10
     val lambda = 0.1
     val mixtureWeight = 0.3
     val numParts = 3
@@ -109,6 +109,33 @@ class BlockWeightedLeastSquaresSuite extends FunSuite with Logging with LocalSpa
     // TODO(shivaram): Gradient seems to be pretty-high here ?
     // But we dropped an entire class ?
     println("norm of gradient is " + norm(gradient.toDenseVector))
+  }
+
+  test("Per-class solver solution should match BlockWeighted solver") {
+    val blockSize = 4
+    val numIter = 5
+    val lambda = 0.1
+    val mixtureWeight = 0.3
+    val numParts = 3
+
+    sc = new SparkContext("local", "test")
+
+    val (fullARDD, bRDD) = loadMatrixRDDs("aMat.csv", "bMat.csv", numParts, sc)
+
+    val wsq = new BlockWeightedLeastSquaresEstimator(blockSize, numIter, lambda,
+      mixtureWeight).fit(fullARDD, bRDD)
+    val finalFullModel = wsq.xs.reduceLeft { (a, b) =>
+      DenseMatrix.vertcat(a, b)
+    }
+
+    val pcs = new PerClassWeightedLeastSquaresEstimator(blockSize, numIter, lambda,
+      mixtureWeight).fit(fullARDD, bRDD)
+    val finalPcsModel = pcs.xs.reduceLeft { (a, b) =>
+      DenseMatrix.vertcat(a, b)
+    }
+
+    assert(Stats.aboutEq(norm((finalFullModel - finalPcsModel).toDenseVector), 0, 1e-6))
+    assert(Stats.aboutEq(norm(wsq.bOpt.get), norm(pcs.bOpt.get), 1e-6))
   }
 
   test("BlockWeighted solver solution should have zero gradient") {
@@ -178,9 +205,20 @@ class BlockWeightedLeastSquaresSuite extends FunSuite with Logging with LocalSpa
     // norm(gradient) should be close to zero
     val gradient = computeGradient(fullARDD, bRDD, lambda, mixtureWeight, finalFullModel,
       wsq.bOpt.get)
-
-    println("norm of gradient is " + norm(gradient.toDenseVector))
+    println("norm of WLS gradient is " + norm(gradient.toDenseVector))
     assert(Stats.aboutEq(norm(gradient.toDenseVector), 0, 1e-1))
+
+    // Also verify the per-class solver
+    val pcs = new PerClassWeightedLeastSquaresEstimator(blockSize, numIter, lambda,
+      mixtureWeight).fit(fullARDD, bRDD)
+    val finalPcsModel = pcs.xs.reduceLeft { (a, b) =>
+      DenseMatrix.vertcat(a, b)
+    }
+
+    val perClassGradient = computeGradient(fullARDD, bRDD, lambda, mixtureWeight, finalPcsModel,
+      pcs.bOpt.get)
+    println("norm of PCS gradient is " + norm(perClassGradient.toDenseVector))
+    assert(Stats.aboutEq(norm(perClassGradient.toDenseVector), 0, 1e-1))
   }
 
   test("groupByClasses should work correctly") {

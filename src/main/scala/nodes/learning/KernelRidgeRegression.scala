@@ -19,14 +19,14 @@ import edu.berkeley.cs.amplab.mlmatrix.util.{Utils => MLMatrixUtils}
 import scala.util.Random
 
 class KernelRidgeRegression(
-  kernelBlockGenerator: KernelGenerator[DenseVector[Double]],
-  lambdas: Array[Double],
+  kernelBlockGenerator: KernelGenerator,
+  lambda: Double,
   blockSize: Int,
   numEpochs: Int,
   blockPermuter: Option[Long] = None,
   cacheKernel: Boolean = true,
   stopAfterBlocks: Option[Int] = None)
-  extends LabelEstimator[DenseVector[Double], Array[DenseVector[Double]], DenseVector[Double]] {
+  extends LabelEstimator[DenseVector[Double], DenseVector[Double], DenseVector[Double]] {
 
   /**
    * Fit a kernel ridge regression model using provided data, labels
@@ -36,7 +36,7 @@ class KernelRidgeRegression(
     KernelRidgeRegression.trainWithL2(data,
       labels,
       kernelBlockGenerator,
-      lambdas,
+      lambda,
       blockSize,
       numEpochs,
       blockPermuter,
@@ -59,8 +59,8 @@ object KernelRidgeRegression extends TimeUtils {
   def trainWithL2(
       data: RDD[DenseVector[Double]],
       labels: RDD[DenseVector[Double]],
-      kernelBlockGenerator: KernelGenerator[DenseVector[Double]],
-      lambdas: Array[Double],
+      kernelBlockGenerator: KernelGenerator,
+      lambda: Double,
       blockSize: Int,
       numEpochs: Int,
       blockPermuter: Option[Long],
@@ -70,6 +70,14 @@ object KernelRidgeRegression extends TimeUtils {
     //val sc = labels.context
     val nTrain = labels.count.toInt
     val nClasses = labels.first.length
+
+
+    /* Currently we only support one lambda but the code
+     * but the code is structured to support multiple lambdas
+     * with ease
+     */
+
+    val lambdas = Array(lambda)
 
     val numBlocks = math.ceil(nTrain.toDouble/blockSize).toInt
     println(s"numBlocks $numBlocks blockSize $blockSize")
@@ -85,7 +93,7 @@ object KernelRidgeRegression extends TimeUtils {
     // Cache this as n*k should be small
     // TODO: Should we zero mean the labels ?
     val labelsMat = labels.mapPartitions { part =>
-      Iterator.single(KernelUtils.rowsToMatrix(part))
+      MatrixUtils.rowsToMatrixIter(part)
     }.cache()
     labelsMat.count
     val labelsRPM = RowPartitionedMatrix.fromMatrix(labelsMat)
@@ -150,7 +158,24 @@ object KernelRidgeRegression extends TimeUtils {
         val (kernelBlockMat, k_bb) = if (cacheKernel && pass != 0) {
             (kernelBlockCache(block), kernelBBCache(block))
           } else {
-            val (kernelBlock, k_bbComputed) = kernelBlockGenerator.generateKernelTrainBlock(data, blockIdxs)
+
+            // Columns corresponding to block b of the data
+            val kernelBlock = kernelBlockGenerator(data, blockIdxs.toArray, true, true)
+            val kernelBlockBlockComputed =
+              kernelBlockGenerator.cachedBlockBlock.map { cache =>
+              /* Make sure we are getting data for the right block */
+              assert(blockIdxs.toArray.deep == cache._2.toArray.deep)
+              /* Clear cache */
+              kernelBlockGenerator.cachedBlockBlock = None
+              cache._1 }.getOrElse {
+                /* Redoing annoying work */
+                val blockData = data.zipWithIndex.filter{ case (vec, idx) =>
+                  blockIdxs.contains(idx)
+                }.map(x=> x._1)
+                MatrixUtils.rowsToMatrix(kernelBlockGenerator(blockData).collect())
+              }
+
+
 
             // Convert to a matrix form and cache this RDD
             // Since this is n*b we should be fine.
@@ -161,15 +186,12 @@ object KernelRidgeRegression extends TimeUtils {
             kernelBlock.unpersist()
             if (cacheKernel) {
               kernelBlockCache(block) = kernelBlockMatComputed
-              kernelBBCache(block) = k_bbComputed
+              kernelBBCache(block) = kernelBlockBlockComputed
             }
-            (kernelBlockMatComputed, k_bbComputed)
+            (kernelBlockMatComputed, kernelBlockBlockComputed)
           }
 
         val kernelTime = timeElasped(kernelBegin)
-
-        // val kernelBlockRPM = RowPartitionedMatrix.fromMatrix(kernelBlockMat)
-        // val modelRPM = RowPartitionedMatrix.fromMatrix(model)
 
         // TODO: Should we zero mean the kernel block ?
         // Build up the residual
@@ -212,6 +234,8 @@ object KernelRidgeRegression extends TimeUtils {
           }
           val lhs = k_bb + DenseMatrix.eye[Double](k_bb.rows) * lambdas(l)
           // Subtract out K_bb * W_bb from residual
+          println(k_bb.rows)
+          println(k_bb.cols)
           val rhs = y_bb - (residuals(l) - k_bb.t * wBlockOld)
 
           val wBlockNew = lhs \ rhs
@@ -257,13 +281,16 @@ object KernelRidgeRegression extends TimeUtils {
         blockIdxsBC.unpersist(true)
       }
     }
-    /* Models for all lambdas */
+
+    /* Models for lambdas */
     val localModelSplit:Array[Array[DenseMatrix[Double]]] = models.collect()
     val localModel:Array[DenseMatrix[Double]] = (0 until lambdas.size).toArray.map(i => localModelSplit.map(_(i)).reduce(DenseMatrix.vertcat(_,_)))
 
     // TODO(vaishaal): Intercepts
-    new KernelBlockModel(models.context.broadcast(localModel), blockSize, lambdas, data, kernelBlockGenerator, Some(nTrain))
+    // TODO(vaishaal): Multi lambda
+    new KernelBlockModel(localModel(0), blockSize, lambdas, kernelBlockGenerator, nTrain)
   }
+
   def updateModel(
       model: RDD[Array[DenseMatrix[Double]]],
       wBlockNewBC: Seq[Broadcast[DenseMatrix[Double]]],

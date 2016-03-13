@@ -65,10 +65,10 @@ class GaussianKernelGenerator(gamma: Double, trainMat: RDD[DenseVector[Double]])
         (x.t*x).toDouble
       }
     }
-    blockIdxSet = blockIdxs.toSet
+    val blockIdxSet = blockIdxs.toSet
     // b x d block of training data
     val blockDataArray = trainMat.zipWithIndex.filter{ case (vec, idx) =>
-      blockIdxSet.contains(idx)
+      blockIdxSet.contains(idx.toInt)
     }.map(x=> x._1).collect()
     val blockData = KernelUtils.rowsToMatrix(blockDataArray)
     assert(blockData.rows == blockIdxs.length)
@@ -81,7 +81,7 @@ class GaussianKernelGenerator(gamma: Double, trainMat: RDD[DenseVector[Double]])
       Iterator.single(vecMat*bd.t)
     }
     val trainBlockDotProd = DenseVector(trainDotProd.zipWithIndex.filter{ case (vec, idx) =>
-      blockIdxSet.contains(idx)
+      blockIdxSet.contains(idx.toInt)
     }.map(x => x._1).collect())
     val trainBlockDotProdBC = trainMat.context.broadcast(trainBlockDotProd)
 

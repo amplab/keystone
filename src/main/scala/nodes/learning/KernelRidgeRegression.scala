@@ -46,7 +46,7 @@ class KernelRidgeRegression(
   }
 
 
-object KernelRidgeRegression extends TimeUtils {
+object KernelRidgeRegression {
 
   /**
    * @param trainingFeatures Blocks of training data RDDs
@@ -180,7 +180,7 @@ object KernelRidgeRegression extends TimeUtils {
             // Convert to a matrix form and cache this RDD
             // Since this is n*b we should be fine.
             val kernelBlockMatComputed = kernelBlock.mapPartitions { part =>
-              Iterator.single(KernelUtils.rowsToMatrix(part))
+              Iterator.single(MatrixUtils.rowsToMatrix(part))
             }.cache()
             kernelBlockMatComputed.count
             kernelBlock.unpersist()
@@ -252,7 +252,7 @@ object KernelRidgeRegression extends TimeUtils {
 
         // This is to truncate the lineage every 50 blocks
         if (labels.context.getCheckpointDir.isDefined && block % 50 == 49) {
-          newModel = KernelUtils.truncateLineage(newModel, false)
+          newModel = MatrixUtils.truncateLineage(newModel, false)
         }
 
         // materialize the new model
@@ -339,4 +339,5 @@ object KernelRidgeRegression extends TimeUtils {
     a
   }
 
+  def timeElasped(ns: Long) : Double = (System.nanoTime - ns).toDouble / 1e9
 }

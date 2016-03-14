@@ -69,6 +69,35 @@ object MatrixUtils extends Serializable {
   }
 
   /**
+   *  Converts a RDD of DenseVector to a RDD of DenseMatrix such that each partition
+   *  of  DenseVectors are stacked into a rows to make  DenseMatrix
+   */
+
+  def rowsToMatrix[T: ClassTag] (in: RDD[DenseVector[T]]) : RDD[DenseMatrix[T]]= {
+    in.mapPartitions { part =>
+      Iterator.single(rowsToMatrix(part))
+    }
+  }
+  /**
+   * Converts a  RDD of DenseMatrix where each matrix is in one partition into 
+   * an RDD of DenseVectors separating the matrix row wise.  Undefined behavior
+   * if used on RDD of  DenseMatrix not generated  from above function
+   */
+
+  def matrixToRows [T: ClassTag] (in: RDD[DenseMatrix[T]]) : RDD[DenseVector[T]]= {
+    in.mapPartitions { part =>
+      val matrix = part.next()
+      val nRows = matrix.rows
+      val outArr = new Array[DenseVector[T]](nRows)
+      var i = 0
+      while (i < nRows)  {
+        outArr(i) = matrix(i,::).t
+        i += 1
+      }
+      outArr.iterator
+    }
+  }
+  /**
    * Converts an array of DenseVector to a matrix where each vector is a row.
    *
    * @param inArr Array of DenseVectors (rows)
@@ -131,4 +160,52 @@ object MatrixUtils extends Serializable {
     sumCount._1 /= sumCount._2.toDouble
   }
 
+  // Truncates the lineage of an RDD and returns a new RDD
+  // that is in memory and has truncated lineage
+  def truncateLineage[T: ClassTag](in: RDD[T], cache: Boolean): RDD[T] = {
+    // What we are doing here is:
+    // cache the input before checkpoint as it triggers a job
+    if (cache) {
+      in.cache()
+    }
+    in.checkpoint()
+    // Run a count to trigger the checkpoint
+    in.count
+
+    // Now "in" has HDFS preferred locations which is bothersome
+    // when we zip it next time. So do a identity map & get an RDD
+    // that is in memory, but has no preferred locs
+    val out = in.map(x => x).cache()
+    // This stage will run as NODE_LOCAL ?
+    out.count
+
+    // Now out is in memory, we can get rid of "in" and then
+    // return out
+    if (cache) {
+      in.unpersist(true)
+    }
+    out
+  }
+
+  def isSorted[T](s: Seq[T])(implicit cmp: Ordering[T]): Boolean = {
+    if (s.isEmpty) {
+      true 
+    } else {
+      // a google search reveals that the most idiomatic way to do this scala
+      // involves scalaz, links to a paper in the J. of Functional Programming,
+      // and is nearly incomprehensible...
+      //
+      // I think I'll take a while loop and some mutable state. You can go
+      // ahead and feel smug about your monads and semigroups while your code
+      // is running 10x slower :)
+
+      var i = 1
+      while (i < s.size) {
+        if (cmp.gt(s(i - 1), s(i)))
+          return false
+        i += 1
+      }
+      true
+    }
+  }
 }

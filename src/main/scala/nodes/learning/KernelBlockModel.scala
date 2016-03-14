@@ -6,7 +6,7 @@ import nodes.stats.{StandardScalerModel, StandardScaler}
 import nodes.util.{VectorSplitter, Identity}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
-import utils.{MatrixUtils, Stats, KernelUtils}
+import utils.{MatrixUtils, Stats}
 import workflow.{Transformer, LabelEstimator}
 
 
@@ -16,7 +16,7 @@ import workflow.{Transformer, LabelEstimator}
  * @param lambdas  lambdas corresponding to the models
  * @param in the training Data
  * @param kernelGen the kernel generator
- * @param nTrain number of training examples
+ * @param nTrain number j training examples
  **/
 
 class KernelBlockModel(
@@ -34,7 +34,7 @@ class KernelBlockModel(
 
     val modelB = in.context.broadcast(model)
     val numClasses = model.cols
-    val testMatrix = KernelUtils.rowsToMatrix(in)
+    val testMatrix = MatrixUtils.rowsToMatrix(in)
 
 
     /* Initially all predictions are 0 */
@@ -43,7 +43,7 @@ class KernelBlockModel(
     for (block <- (0 until numBlocks)) {
       val blockIdxs = (blockSize * block) until (math.min(trainSize, (block + 1) * blockSize))
       val blockIdxsBroadcast =  in.context.broadcast(blockIdxs)
-      val testKernelMat:  RDD[DenseMatrix[Double]] = KernelUtils.rowsToMatrix(kernelGen(in, blockIdxs)).cache()
+      val testKernelMat:  RDD[DenseMatrix[Double]] = MatrixUtils.rowsToMatrix(kernelGen(in, blockIdxs)).cache()
 
       val partialPredictions =
       testKernelMat.map {  testKernelBB =>
@@ -60,7 +60,7 @@ class KernelBlockModel(
     }
     /* Materialize  predictions */
     predictions.count()
-    KernelUtils.matrixToRows(predictions)
+    MatrixUtils.matrixToRows(predictions)
   }
 
   def apply(in: DenseVector[Double]): DenseVector[Double]  = {

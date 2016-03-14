@@ -55,7 +55,7 @@ class GaussianKernelGenerator(gamma: Double, trainMat: RDD[DenseVector[Double]])
       ",trainMat.count=" + trainMat.count +
       ", blockSize=" + blockIdxs.length)
 
-    assert(KernelUtils.isSorted(blockIdxs)) // limitation for now
+    assert(MatrixUtils.isSorted(blockIdxs)) // limitation for now
     // Dot product of rows of X with each other
     val testDotProd =
     if (same) {
@@ -70,14 +70,14 @@ class GaussianKernelGenerator(gamma: Double, trainMat: RDD[DenseVector[Double]])
     val blockDataArray = trainMat.zipWithIndex.filter{ case (vec, idx) =>
       blockIdxSet.contains(idx.toInt)
     }.map(x=> x._1).collect()
-    val blockData = KernelUtils.rowsToMatrix(blockDataArray)
+    val blockData = MatrixUtils.rowsToMatrix(blockDataArray)
     assert(blockData.rows == blockIdxs.length)
     val blockDataBC = trainMat.context.broadcast(blockData)
 
     // <xi,xj> for i in [nTest], j in blockIdxs
     val blockXXT = testMat.mapPartitions { itr  =>
       val bd = blockDataBC.value
-      val vecMat = KernelUtils.rowsToMatrix(itr)
+      val vecMat = MatrixUtils.rowsToMatrix(itr)
       Iterator.single(vecMat*bd.t)
     }
     val trainBlockDotProd = DenseVector(trainDotProd.zipWithIndex.filter{ case (vec, idx) =>

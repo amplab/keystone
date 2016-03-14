@@ -31,7 +31,7 @@ case class CenterCornerPatcher(
     val yDim = in.metadata.yDim
 
     val startXs = Array(0, xDim-patchSizeX, 0, xDim-patchSizeX, (xDim-patchSizeX)/2)
-    val startYs = Array(0, 0, yDim-patchSizeY, (yDim-patchSizeY)/2)
+    val startYs = Array(0, 0, yDim-patchSizeY, yDim-patchSizeY, (yDim-patchSizeY)/2)
 
     (0 until startXs.length).iterator.flatMap { idx =>
       val endX = startXs(idx) + patchSizeX

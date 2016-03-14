@@ -19,7 +19,7 @@ case class RandomPatcher(
     patchSizeY: Int,
     seed: Long = 12334L) extends FunctionNode[RDD[Image], RDD[Image]] {
 
-  val rnd = new scala.util.Random(seed)
+  val rnd = new java.util.Random(seed)
 
   def apply(in: RDD[Image]): RDD[Image] = {
     in.flatMap { x => 

@@ -13,7 +13,7 @@ import workflow.Transformer
   */
 case class RandomFlipper(flipChance: Double, seed: Long = 12334L) extends Transformer[Image, Image] {
 
-  val rnd = new scala.util.Random(seed)
+  val rnd = new java.util.Random(seed)
 
   def apply(im: Image): Image = {
     val flip = rnd.nextDouble()

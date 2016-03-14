@@ -9,11 +9,12 @@ import nodes.util.{CommonSparseFeatures, MaxClassifier}
 import org.apache.spark.{SparkConf, SparkContext}
 import pipelines.Logging
 import scopt.OptionParser
+import workflow.Pipeline
 
 object NewsgroupsPipeline extends Logging {
   val appName = "NewsgroupsPipeline"
 
-  def run(sc: SparkContext, conf: NewsgroupsConfig) {
+  def run(sc: SparkContext, conf: NewsgroupsConfig): Pipeline[String, Int] = {
 
     val trainData = NewsgroupsDataLoader(sc, conf.trainLocation)
     val numClasses = NewsgroupsDataLoader.classes.length
@@ -38,6 +39,8 @@ object NewsgroupsPipeline extends Logging {
     val eval = MulticlassClassifierEvaluator(testResults, testLabels, numClasses)
 
     logInfo("\n" + eval.summary(NewsgroupsDataLoader.classes))
+
+    predictor
   }
 
   case class NewsgroupsConfig(
@@ -56,6 +59,7 @@ object NewsgroupsPipeline extends Logging {
 
   /**
    * The actual driver receives its configuration parameters from spark-submit usually.
+   *
    * @param args
    */
   def main(args: Array[String]) = {

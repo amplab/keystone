@@ -9,13 +9,15 @@ import nodes.util.{Cacher, ClassLabelIndicatorsFromIntLabels, MaxClassifier}
 import org.apache.spark.{SparkConf, SparkContext}
 import pipelines.Logging
 import scopt.OptionParser
+import utils.Image
+import workflow.Pipeline
 
 
 object LinearPixels extends Logging {
   val appName = "LinearPixels"
   case class LinearPixelsConfig(trainLocation: String = "", testLocation: String = "")
 
-  def run(sc: SparkContext, config: LinearPixelsConfig) = {
+  def run(sc: SparkContext, config: LinearPixelsConfig): Pipeline[Image, Int] = {
     val numClasses = 10
 
     // Load and cache the training data.
@@ -64,6 +66,7 @@ object LinearPixels extends Logging {
 
   /**
    * The actual driver receives its configuration parameters from spark-submit usually.
+   *
    * @param args
    */
   def main(args: Array[String]) = {

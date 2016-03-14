@@ -14,11 +14,13 @@ import nodes.util.{Cacher, ClassLabelIndicatorsFromIntArrayLabels, FloatToDouble
 import org.apache.spark.{SparkConf, SparkContext}
 import pipelines.Logging
 import scopt.OptionParser
+import utils.Image
+import workflow.Pipeline
 
 object VOCSIFTFisher extends Serializable with Logging {
   val appName = "VOCSIFTFisher"
 
-  def run(sc: SparkContext, conf: SIFTFisherConfig) {
+  def run(sc: SparkContext, conf: SIFTFisherConfig): Pipeline[Image, DenseVector[Double]] =  {
 
     // Load the data and extract training labels.
     val parsedRDD = VOCLoader(
@@ -100,6 +102,8 @@ object VOCSIFTFisher extends Serializable with Logging {
     val map = MeanAveragePrecisionEvaluator(testActuals, predictions, VOCLoader.NUM_CLASSES)
     logInfo(s"TEST APs are: ${map.toArray.mkString(",")}")
     logInfo(s"TEST MAP is: ${mean(map)}")
+
+    predictor
   }
 
   case class SIFTFisherConfig(
@@ -139,6 +143,7 @@ object VOCSIFTFisher extends Serializable with Logging {
 
   /**
    * The actual driver receives its configuration parameters from spark-submit usually.
+   *
    * @param args
    */
   def main(args: Array[String]) = {

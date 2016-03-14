@@ -9,11 +9,12 @@ import nodes.util.CommonSparseFeatures
 import org.apache.spark.{SparkConf, SparkContext}
 import pipelines.Logging
 import scopt.OptionParser
+import workflow.Pipeline
 
 object AmazonReviewsPipeline extends Logging {
   val appName = "AmazonReviewsPipeline"
 
-  def run(sc: SparkContext, conf: AmazonReviewsConfig) {
+  def run(sc: SparkContext, conf: AmazonReviewsConfig): Pipeline[String, Double] = {
     val amazonTrainData = AmazonReviewsDataLoader(sc, conf.trainLocation, conf.threshold).labeledData
     val trainData = LabeledData(amazonTrainData.repartition(conf.numParts).cache())
 
@@ -37,6 +38,7 @@ object AmazonReviewsPipeline extends Logging {
     val eval = BinaryClassifierEvaluator(testResults.map(_ > 0), testLabels.map(_ > 0))
 
     logInfo("\n" + eval.summary())
+    predictor
   }
 
   case class AmazonReviewsConfig(
@@ -61,6 +63,7 @@ object AmazonReviewsPipeline extends Logging {
 
   /**
    * The actual driver receives its configuration parameters from spark-submit usually.
+   *
    * @param args
    */
   def main(args: Array[String]) = {

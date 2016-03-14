@@ -79,7 +79,7 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
         NormalizeRows
   }
 
-  def run(sc: SparkContext, conf: ImageNetSiftLcsFVConfig) {
+  def run(sc: SparkContext, conf: ImageNetSiftLcsFVConfig): Pipeline[Image, Array[Int]] = {
     // Load the data and extract training labels.
     val parsedRDD = ImageNetLoader(
       sc,
@@ -146,6 +146,8 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
     val numTestImgs = testActual.count()
     val testPredicted = predictor(testParsedImgs)
     logInfo("TEST Error is " + Stats.getErrPercent(testPredicted, testActual, numTestImgs) + "%")
+
+    predictor
   }
 
   case class ImageNetSiftLcsFVConfig(

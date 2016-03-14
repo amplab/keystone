@@ -11,12 +11,14 @@ import nodes.util.{Cacher, ClassLabelIndicatorsFromIntLabels, MaxClassifier}
 import org.apache.spark.{SparkConf, SparkContext}
 import pipelines.Logging
 import scopt.OptionParser
+import utils.Image
+import workflow.Pipeline
 
 
 object RandomCifar extends Serializable with Logging {
   val appName = "RandomCifar"
 
-  def run(sc: SparkContext, conf: RandomCifarConfig) {
+  def run(sc: SparkContext, conf: RandomCifarConfig): Pipeline[Image, Int] = {
     // Set up some constants.
     val numClasses = 10
     val imageSize = 32
@@ -65,6 +67,8 @@ object RandomCifar extends Serializable with Logging {
 
     logInfo(s"Training error is: ${trainEval.totalError}")
     logInfo(s"Test error is: ${testEval.totalError}")
+
+    predictionPipeline
   }
 
   case class RandomCifarConfig(
@@ -93,6 +97,7 @@ object RandomCifar extends Serializable with Logging {
 
   /**
    * The actual driver receives its configuration parameters from spark-submit usually.
+   *
    * @param args
    */
   def main(args: Array[String]) = {

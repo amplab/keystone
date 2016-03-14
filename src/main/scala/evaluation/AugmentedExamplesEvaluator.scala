@@ -18,11 +18,13 @@ object AugmentedExamplesEvaluator extends Serializable {
     preds.reduce(_ + _) :/ preds.size.toDouble
   }
 
-  // * Let s(k) be the ordering of patch k.
-  // * Let s(k)[i] be an integer, so that the worst item is ranked 1 and the best item is ranked n.
-  // For i in images,
-  //  For k in patches,
-  //   score[i] += s(k)[i]
+  /**
+   * Borda averaging works as follows:
+   * Let s(k) be the ordering of patch k.
+   * For i in images,
+   *  For k in patches,
+   *    score[i] += s(k)[i]
+   */
   def bordaPolicy(preds: Array[DenseVector[Double]]): DenseVector[Double] = {
     val ranks = preds.map { vec =>
       val sortedPreds = vec.toArray.zipWithIndex.sortBy(_._1).map(_._2)

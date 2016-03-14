@@ -62,7 +62,7 @@ object RandomPatchCifarAugmented extends Serializable with Logging {
         ((unnormFilters(::, *) / (twoNorms + 1e-10)) * whitener.whitener.t, whitener)
     }
 
-    val trainImagesAugmented = RandomFlipper(flipChance).apply(
+    val trainImagesAugmented = RandomImageTransformer(flipChance, ImageUtils.flipHorizontal).apply(
       RandomPatcher(conf.numRandomPatchesAugment, augmentPatchSize, augmentPatchSize).apply(
         trainImages))
 

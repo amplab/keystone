@@ -6,7 +6,7 @@ import utils.{ImageUtils, Image}
 import pipelines.FunctionNode
 
 /**
-  * Extract random square patches from an image
+  * Extract uniformly random patches from an image
   *
   * @param numPatches number of random patches to extract
   * @param patchSizeX size of each patch along xDim

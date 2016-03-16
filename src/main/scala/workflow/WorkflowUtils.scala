@@ -95,6 +95,7 @@ object WorkflowUtils {
 
   /**
    * Get the set of all instruction ids depending on the result of a given instruction
+   * (including transitive dependencies)
    *
    * @param id
    * @param instructions
@@ -103,6 +104,9 @@ object WorkflowUtils {
   def getChildren(id: Int, instructions: Seq[Instruction]): Set[Int] = {
     val children = scala.collection.mutable.Set[Int]()
 
+    // Todo: Can optimize by looking at only instructions > id
+    // Todo: Could also make a more optimized implementation
+    // by calculating it for all instructions at once
     for ((instruction, index) <- instructions.zipWithIndex) {
       if (instruction.getDependencies.exists { x =>
         children.contains(x) || x == id
@@ -115,6 +119,26 @@ object WorkflowUtils {
   }
 
   /**
+   * Get a seq of all instruction ids with the result of a given instruction in their
+   * direct dependencies. (Does not include transitive dependencies)
+   *
+   * Note: This includes ids as many times in the seq as they have dependencies on
+   * the given instruction
+   *
+   * @param id
+   * @param instructions
+   * @return
+   */
+  def getImmediateChildren(id: Int, instructions: Seq[Instruction]): Seq[Int] = {
+    // Todo: Can optimize by looking at only instructions > id
+    // Todo: Could also make a more optimized implementation
+    // by calculating it for all instructions at once
+    instructions.indices.foldLeft(Seq[Int]()) {
+      case (children, i) => children ++ instructions(i).getDependencies.filter(_ == id).map(x => i)
+    }
+  }
+
+  /**
    * Get the set of all instruction ids on whose results a given instruction depends
    *
    * @param id
@@ -122,6 +146,8 @@ object WorkflowUtils {
    * @return
    */
   def getParents(id: Int, instructions: Seq[Instruction]): Set[Int] = {
+    // Todo: Could make a more optimized implementation
+    // by calculating it for all instructions at once
     val dependencies = if (id != Pipeline.SOURCE) instructions(id).getDependencies else Seq()
     dependencies.map {
       parent => getParents(parent, instructions) + parent

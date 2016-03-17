@@ -14,7 +14,7 @@ ENCEVALURL = "http://www.robots.ox.ac.uk/~vgg/software/enceval_toolkit/downloads
 
 SCALA_VERSION = 2.10
 PROJECT = keystoneml
-PROJECT_VERSION = 0.2
+PROJECT_VERSION = 0.2.1
 TARGET_JAR = target/scala-$(SCALA_VERSION)/$(PROJECT)-assembly-$(PROJECT_VERSION).jar
 
 CC = g++

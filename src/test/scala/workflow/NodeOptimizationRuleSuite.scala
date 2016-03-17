@@ -24,7 +24,7 @@ class NodeOptimizationRuleSuite extends FunSuite with LocalSparkContext with Log
       (optimizableEstimator, trainData) andThen
       (optimizableLabelEstimator, trainData, trainLabels)
 
-    val nodeOptimizedPipeline = new NodeOptimizationRule(0.01).apply(pipeline)
+    val nodeOptimizedPipeline = new NodeOptimizationRule().apply(pipeline)
     val outputState = nodeOptimizedPipeline.apply(State(), optimizer = None)
 
     assert(outputState.transformerChoice.isEmpty, "The optimizable transformer should use the default on test data")
@@ -45,7 +45,7 @@ class NodeOptimizationRuleSuite extends FunSuite with LocalSparkContext with Log
       (optimizableEstimator, trainData) andThen
       (optimizableLabelEstimator, trainData, trainLabels)
 
-    val nodeOptimizedPipeline = new NodeOptimizationRule(0.01).apply(pipeline)
+    val nodeOptimizedPipeline = new NodeOptimizationRule().apply(pipeline)
     val outputState = nodeOptimizedPipeline.apply(State(), optimizer = None)
 
     assert(outputState.transformerChoice.isEmpty, "The optimizable transformer should use the default on test data")
@@ -66,7 +66,7 @@ class NodeOptimizationRuleSuite extends FunSuite with LocalSparkContext with Log
       (estimatorB, trainData) andThen
       (labelEstimatorB, trainData, trainLabels)
 
-    val nodeOptimizedPipeline = new NodeOptimizationRule(0.01).apply(pipeline)
+    val nodeOptimizedPipeline = new NodeOptimizationRule().apply(pipeline)
     val outputState = nodeOptimizedPipeline.apply(State(), optimizer = None)
 
     assert(outputState === State(None, Some(false), Some(true), Some(true)))
@@ -84,7 +84,7 @@ class NodeOptimizationRuleSuite extends FunSuite with LocalSparkContext with Log
       (estimatorB, trainData) andThen
       (optimizableLabelEstimator, trainData, trainLabels)
 
-    val nodeOptimizedPipeline = new NodeOptimizationRule(0.01).apply(pipeline)
+    val nodeOptimizedPipeline = new NodeOptimizationRule().apply(pipeline)
     val outputState = nodeOptimizedPipeline.apply(State(), optimizer = None)
 
     assert(outputState === State(None, Some(false), Some(true), Some(true)))

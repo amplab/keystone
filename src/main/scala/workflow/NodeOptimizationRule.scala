@@ -5,9 +5,9 @@ import org.apache.spark.rdd.RDD
 /**
  * Node-level optimization, such as selecting a Linear Solver
  *
- * @param sampleFraction The fraction of the RDD to use for operations
+ * @param samplePerPartition The number of items per partition to look at when optimizing nodes
  */
-class NodeOptimizationRule(sampleFraction: Double = 0.01, seed: Long = 0) extends Rule {
+class NodeOptimizationRule(samplePerPartition: Int = 3) extends Rule {
   override def apply[A, B](plan: Pipeline[A, B]): Pipeline[A, B] = {
     val instructions = WorkflowUtils.pipelineToInstructions(plan)
 
@@ -40,7 +40,11 @@ class NodeOptimizationRule(sampleFraction: Double = 0.01, seed: Long = 0) extend
          if instructionsToExecute.contains(index) || instructionsToOptimize.contains(index)) {
       instruction match {
         case SourceNode(rdd) => {
-          val sampledRDD = rdd.sample(withReplacement = false, sampleFraction, seed)
+          // Copy this value to avoid serializing the rule when sampling the rdd
+          val spp = samplePerPartition
+
+          // Then sample the RDD
+          val sampledRDD = rdd.mapPartitions(_.take(spp))
           registers(index) = RDDOutput(sampledRDD)
           numPerPartitionPerNode(index) = Some(WorkflowUtils.numPerPartition(rdd))
         }

@@ -7,7 +7,7 @@ import workflow.AutoCacheRule.GreedyCache
  */
 object DefaultOptimizer extends Optimizer {
   protected val batches: Seq[Batch] =
-    Batch("DAG Optimization", FixedPoint(Int.MaxValue), EquivalentNodeMergeRule) ::
+    Batch("Common Sub-expression Elimination", FixedPoint(Int.MaxValue), EquivalentNodeMergeRule) ::
     Batch("Node Level Optimization", Once, new NodeOptimizationRule) ::
     Batch("Common Sub-expression Elimination", FixedPoint(Int.MaxValue), EquivalentNodeMergeRule) ::
       Nil
@@ -18,8 +18,9 @@ object DefaultOptimizer extends Optimizer {
  */
 class AutoCachingOptimizer(strategy: AutoCacheRule.CachingStrategy = GreedyCache()) extends Optimizer {
   protected val batches: Seq[Batch] =
-    Batch("DAG Optimization", FixedPoint(100), EquivalentNodeMergeRule) ::
+    Batch("Common Sub-expression Elimination", FixedPoint(Int.MaxValue), EquivalentNodeMergeRule) ::
     Batch("Node Level Optimization", Once, new NodeOptimizationRule) ::
+    Batch("Common Sub-expression Elimination", FixedPoint(Int.MaxValue), EquivalentNodeMergeRule) ::
     Batch("Auto Cache", Once, new AutoCacheRule(strategy)) ::
       Nil
 }

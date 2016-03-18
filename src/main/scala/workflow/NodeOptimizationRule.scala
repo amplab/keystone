@@ -8,13 +8,15 @@ import org.apache.spark.rdd.RDD
  * @param samplePerPartition The number of items per partition to look at when optimizing nodes
  */
 class NodeOptimizationRule(samplePerPartition: Int = 3) extends Rule {
-  override def apply[A, B](plan: Pipeline[A, B]): Pipeline[A, B] = {
-    val instructions = WorkflowUtils.pipelineToInstructions(plan)
+  case class OptimizationState(
+    optimizedInstructions: Seq[Instruction],
+    unoptimizedInstructionIndexToOptimizedIndex: Int => Int,
+    registers: Map[Int, InstructionOutput],
+    numPerPartitionPerNode: Map[Int, Map[Int, Int]]
+  )
 
-    // First, figure out which instructions we should actually optimize and execute.
-    // Execute the set of all instructions that are parents of an optimizable node transform or fit instruction.
-    // And, keep those that do not depend on the runtime input of a fit pipeline
-    val instructionsToOptimize = instructions.zipWithIndex.collect {
+  private def getInstructionsToOptimize(instructions: Seq[Instruction]): Set[Int] = {
+    instructions.zipWithIndex.collect {
       case (TransformerApplyNode(tIndex, _), index)
         if instructions(tIndex).isInstanceOf[OptimizableTransformer[_, _]] => index
 
@@ -25,223 +27,283 @@ class NodeOptimizationRule(samplePerPartition: Int = 3) extends Rule {
         if instructions(estIndex).isInstanceOf[OptimizableLabelEstimator[_, _, _]] => index
 
     }.toSet -- WorkflowUtils.getChildren(Pipeline.SOURCE, instructions)
+  }
+
+  private def executeInstruction(optimizationState: OptimizationState, instruction: Instruction, index: Int)
+  : OptimizationState = {
+    // Get the dependencies from the registers and run the instruction on them (caching RDD outputs)
+    val registers = optimizationState.registers
+    val deps = instruction.getDependencies.map(registers)
+    val instructionOutput = instruction.execute(deps) match {
+      case RDDOutput(rdd) => RDDOutput(rdd.cache())
+      case out => out
+    }
+    val newRegisters = registers + (index -> instructionOutput)
+
+    // If any of the dependencies is an RDD and has a numPerPartition, make sure to feed it forward
+    val numPerPartitionPerNode = optimizationState.numPerPartitionPerNode
+    val numPerPartition = instruction.getDependencies.collectFirst {
+      case dep if numPerPartitionPerNode.contains(dep) => numPerPartitionPerNode(dep)
+    }
+    val newNumPerPartitionPerNode = if (numPerPartition.nonEmpty) {
+      numPerPartitionPerNode + (index -> numPerPartition.get)
+    } else {
+      numPerPartitionPerNode
+    }
+
+    // Create the new state
+    optimizationState.copy(registers = newRegisters, numPerPartitionPerNode = newNumPerPartitionPerNode)
+  }
+
+  private def optimizeTransformer(os: OptimizationState, transformerApplyNode: TransformerApplyNode, index: Int)
+  : OptimizationState = {
+    val tIndex = transformerApplyNode.transformer
+    val inputIndices = transformerApplyNode.inputs
+
+    val numPerPartition = os.numPerPartitionPerNode(inputIndices.head)
+    val inputs = inputIndices.map(os.registers).collect {
+      case RDDOutput(rdd) => rdd
+    }
+
+    // Optimize the transformer if possible
+    os.registers(tIndex) match {
+      case TransformerOutput(ot: OptimizableTransformer[a, b]) => {
+        // Get the partial pipeline that is the output of the transformer optimization, and prepare to splice it
+        // into the optimized instructions
+        val pipeToSplice = ot.optimize(inputs.head.asInstanceOf[RDD[a]], numPerPartition)
+        val instructionsToSplice = WorkflowUtils.pipelineToInstructions(pipeToSplice)
+
+        // First: Disconnect all the dependencies in the optimized pipeline on this TransformerApplyNode,
+        // and replace them with the spliceEndpoint
+        val spliceEndpoint = Pipeline.SOURCE - 1
+        val indexInNewPipeline = os.unoptimizedInstructionIndexToOptimizedIndex(index)
+        val removeResult = WorkflowUtils.disconnectAndRemoveInstructions(
+          Map(indexInNewPipeline -> spliceEndpoint),
+          os.optimizedInstructions)
+        val intermediateOptimizedInstructions = removeResult._1
+        val intermediateIndexMapping = os.unoptimizedInstructionIndexToOptimizedIndex andThen removeResult._2
+
+        // Then: Splice in the transformer's optimization into the optimized pipeline
+        // Note: We do not delete the optimizable transformer because it may be used elsewhere
+        // if we've merged equivalent TransformerNodes.
+        val spliceResult = WorkflowUtils.spliceInstructions(
+          instructionsToSplice,
+          intermediateOptimizedInstructions,
+          Map(Pipeline.SOURCE -> intermediateIndexMapping(inputIndices.head)),
+          spliceEndpoint)
+
+        os.copy(
+          optimizedInstructions = spliceResult._1,
+          unoptimizedInstructionIndexToOptimizedIndex = intermediateIndexMapping andThen spliceResult._2
+        )
+      }
+      case _: TransformerOutput => os
+      case _ => throw new ClassCastException("TransformerApplyNode dep wasn't pointing at a transformer")
+    }
+  }
+
+  private def optimizeEstimator(
+      os: OptimizationState,
+      estimatorFitNode: EstimatorFitNode,
+      instructions: Seq[Instruction],
+      index: Int
+    ): OptimizationState = {
+    val inputIndices = estimatorFitNode.inputs
+    val estIndex = estimatorFitNode.est
+
+    val numPerPartition = os.numPerPartitionPerNode(inputIndices.head)
+    val inputs = inputIndices.map(os.registers).collect {
+      case RDDOutput(rdd) => rdd
+    }
+
+    // Optimize the estimator if possible
+    os.registers(estIndex) match {
+      case EstimatorOutput(oe: OptimizableEstimator[a, b]) => {
+        val spliceEndpoint = Pipeline.SOURCE - 1
+
+        // Produce the optimized estimator fit instructions that we then
+        // need to splice into the pipeline
+        val dataSample = inputs.head.asInstanceOf[RDD[a]]
+        val pipeToSplice = oe.optimize(dataSample, numPerPartition).apply(dataSample)
+        val initialInstructionsToSplice = WorkflowUtils.pipelineToInstructions(pipeToSplice)
+        val dataSampleIndices = initialInstructionsToSplice.indices.filter {
+          initialInstructionsToSplice(_) == SourceNode(dataSample)
+        }.toSet
+        val instructionsToSplice = WorkflowUtils.disconnectAndRemoveInstructions(
+          dataSampleIndices.map(_ -> spliceEndpoint).toMap,
+          initialInstructionsToSplice
+        )._1
+
+        // First: Disconnect all the dependencies in the optimized pipeline on this existing EstimatorFitNode,
+        // and remove this node
+        val indexInNewPipeline = os.unoptimizedInstructionIndexToOptimizedIndex(index)
+        val removeResult = WorkflowUtils.disconnectAndRemoveInstructions(
+          Map(indexInNewPipeline -> (spliceEndpoint - 1)),
+          os.optimizedInstructions)
+        var partialOptimizedInstructions = removeResult._1
+        var partialOldIndexToNewIndex = os.unoptimizedInstructionIndexToOptimizedIndex andThen removeResult._2
+
+        // Then, insert the optimized fit & transform instructions to apply every place in the pipeline
+        // that was previously applying the output of this estimatorFitNode to new data
+        instructions.zipWithIndex.foreach {
+          case (TransformerApplyNode(t, tInputs), transformerApplyIndex) if t == index => {
+            // Disconnect all the dependencies in the optimized pipeline on this TransformerApplyNode,
+            // and replace them with the spliceEndpoint
+            val indexInNewPipeline = partialOldIndexToNewIndex(transformerApplyIndex)
+            val removeResult = WorkflowUtils.disconnectAndRemoveInstructions(
+              Map(indexInNewPipeline -> spliceEndpoint),
+              partialOptimizedInstructions)
+            partialOptimizedInstructions = removeResult._1
+            partialOldIndexToNewIndex = partialOldIndexToNewIndex andThen removeResult._2
+
+            // Splice in the instructions into the optimized pipeline
+            val spliceResult = WorkflowUtils.spliceInstructions(
+              instructionsToSplice,
+              partialOptimizedInstructions,
+              Map(spliceEndpoint -> partialOldIndexToNewIndex(inputIndices.head),
+                Pipeline.SOURCE -> partialOldIndexToNewIndex(tInputs.head)),
+              spliceEndpoint)
+            partialOptimizedInstructions = spliceResult._1
+            partialOldIndexToNewIndex = partialOldIndexToNewIndex andThen spliceResult._2
+          }
+
+          case _ => Unit
+        }
+
+        os.copy(
+          optimizedInstructions = partialOptimizedInstructions,
+          unoptimizedInstructionIndexToOptimizedIndex = partialOldIndexToNewIndex
+        )
+      }
+
+      case EstimatorOutput(oe: OptimizableLabelEstimator[a, b, l]) => {
+        val dataSpliceEndpoint = Pipeline.SOURCE - 1
+        val labelSpliceEndpoint = Pipeline.SOURCE - 2
+        val spliceEndpoint = Pipeline.SOURCE - 3
+
+        // Get the instructions to splice into the optimized pipeline
+        val dataSample = inputs(0).asInstanceOf[RDD[a]]
+        val labelSample = inputs(1).asInstanceOf[RDD[l]]
+        val pipeToSplice = oe.optimize(dataSample, labelSample, numPerPartition)
+          .apply(dataSample, labelSample)
+        val initialInstructionsToSplice = WorkflowUtils.pipelineToInstructions(pipeToSplice)
+        val dataSampleIndices = initialInstructionsToSplice.indices.filter {
+          initialInstructionsToSplice(_) == SourceNode(dataSample)
+        }.toSet
+        val labelSampleIndices = initialInstructionsToSplice.indices.filter {
+          initialInstructionsToSplice(_) == SourceNode(labelSample)
+        }.toSet
+        val instructionsToSplice = WorkflowUtils.disconnectAndRemoveInstructions(
+          dataSampleIndices.map(_ -> dataSpliceEndpoint).toMap ++
+            labelSampleIndices.map(_ -> labelSpliceEndpoint).toMap,
+          initialInstructionsToSplice
+        )._1
+
+        // First: Disconnect all the dependencies in the optimized pipeline on this EstimatorFitNode,
+        // and remove this node
+        val indexInNewPipeline = os.unoptimizedInstructionIndexToOptimizedIndex(index)
+        val removeResult = WorkflowUtils.disconnectAndRemoveInstructions(
+          Map(indexInNewPipeline -> (labelSpliceEndpoint - 1)),
+          os.optimizedInstructions)
+        var partialOptimizedInstructions = removeResult._1
+        var partialOldIndexToNewIndex = os.unoptimizedInstructionIndexToOptimizedIndex andThen removeResult._2
+
+        // Then, insert the optimized fit & transform instructions to apply every place in the pipeline
+        // that was previously applying the output of this estimatorFitNode to new data
+        instructions.zipWithIndex.foreach {
+          case (TransformerApplyNode(t, tInputs), transformerApplyIndex) if t == index => {
+            // Disconnect all the dependencies in the optimized pipeline on this TransformerApplyNode,
+            // and replace them with the spliceEndpoint
+            val indexInNewPipeline = partialOldIndexToNewIndex(transformerApplyIndex)
+            val removeResult = WorkflowUtils.disconnectAndRemoveInstructions(
+              Map(indexInNewPipeline -> spliceEndpoint),
+              partialOptimizedInstructions)
+            partialOptimizedInstructions = removeResult._1
+            partialOldIndexToNewIndex = partialOldIndexToNewIndex andThen removeResult._2
+
+            // Splice in the instructions into the optimized pipeline
+            val spliceResult = WorkflowUtils.spliceInstructions(
+              instructionsToSplice,
+              partialOptimizedInstructions,
+              Map(
+                dataSpliceEndpoint -> partialOldIndexToNewIndex(inputIndices(0)),
+                labelSpliceEndpoint -> partialOldIndexToNewIndex(inputIndices(1)),
+                Pipeline.SOURCE -> partialOldIndexToNewIndex(tInputs.head)
+              ),
+              spliceEndpoint)
+            partialOptimizedInstructions = spliceResult._1
+            partialOldIndexToNewIndex = partialOldIndexToNewIndex andThen spliceResult._2
+          }
+
+          case _ => Unit
+        }
+
+        os.copy(
+          optimizedInstructions = partialOptimizedInstructions,
+          unoptimizedInstructionIndexToOptimizedIndex = partialOldIndexToNewIndex
+        )
+      }
+
+      case EstimatorOutput(e) => os
+
+      case _ => throw new ClassCastException("EstimatorFitNode dep wasn't pointing at an estimator")
+    }
+  }
+
+  override def apply[A, B](plan: Pipeline[A, B]): Pipeline[A, B] = {
+    val instructions = WorkflowUtils.pipelineToInstructions(plan)
+
+    // First, figure out which instructions we should actually optimize and execute.
+    // Execute the set of all instructions that are parents of an optimizable node transform or fit instruction.
+    // And, keep those that do not depend on the runtime input of a fit pipeline
+    val instructionsToOptimize = getInstructionsToOptimize(instructions)
 
     val instructionsToExecute = instructionsToOptimize.map {
       index => WorkflowUtils.getParents(index, instructions)
     }.fold(Set[Int]())(_ union _)
 
+    val initialState = OptimizationState(instructions, identity, Map(), Map())
+
     // Execute the minimal amount necessary of the pipeline on sampled nodes, and optimize the optimizable nodes
-    var optimizedInstructions = instructions
-    var oldIndexToNewIndex: Int => Int = instructions.indices.zipWithIndex.toMap
-    val registers = new Array[InstructionOutput](instructions.length)
-    val numPerPartitionPerNode = Array.fill[Option[Map[Int, Int]]](instructions.length)(None)
-
-    for ((instruction, index) <- instructions.zipWithIndex
-         if instructionsToExecute.contains(index) || instructionsToOptimize.contains(index)) {
-      instruction match {
-        case SourceNode(rdd) => {
-          // Copy this value to avoid serializing the rule when sampling the rdd
-          val spp = samplePerPartition
-
-          // Then sample the RDD
-          val sampledRDD = rdd.mapPartitions(_.take(spp))
-          registers(index) = RDDOutput(sampledRDD)
-          numPerPartitionPerNode(index) = Some(WorkflowUtils.numPerPartition(rdd))
+    val finalOptimization = instructions.zipWithIndex.foldLeft[OptimizationState](initialState) {
+      case (optimizationState, (tApplyNode @ TransformerApplyNode(_, _), index)) if instructionsToOptimize.contains(index) => {
+        val newOptimizationState = optimizeTransformer(optimizationState, tApplyNode, index)
+        if (instructionsToExecute.contains(index)) {
+          executeInstruction(newOptimizationState, tApplyNode, index)
+        } else {
+          newOptimizationState
         }
+      }
 
-        case TransformerApplyNode(tIndex, inputIndices) => {
-          val numPerPartition = numPerPartitionPerNode(inputIndices.head)
-          val inputs = inputIndices.map(registers).collect {
-            case RDDOutput(rdd) => rdd.cache()
-          }
-          inputs.foreach(_.count())
-
-          // Optimize the transformer if possible
-          val transformer = registers(tIndex) match {
-            case TransformerOutput(ot: OptimizableTransformer[a, b]) =>
-              if (instructionsToOptimize.contains(index)) {
-                val pipeToSplice = ot.optimize(inputs.head.asInstanceOf[RDD[a]], numPerPartition.get)
-                val instructionsToSplice = WorkflowUtils.pipelineToInstructions(pipeToSplice)
-
-                // First: Disconnect all the dependencies in the optimized pipeline on this TransformerApplyNode,
-                // and replace them with the spliceEndpoint
-                val spliceEndpoint = Pipeline.SOURCE - 1
-                val indexInNewPipeline = oldIndexToNewIndex(index)
-                val removeResult = WorkflowUtils.disconnectAndRemoveInstructions(
-                  Map(indexInNewPipeline -> spliceEndpoint),
-                  optimizedInstructions)
-                optimizedInstructions = removeResult._1
-                oldIndexToNewIndex = oldIndexToNewIndex andThen removeResult._2
-
-                // Then: Splice in the transformer's optimization into the optimized pipeline
-                // Note: We do not delete the optimizable transformer because it may be used elsewhere
-                // if we've merged equivalent TransformerNodes.
-                val spliceResult = WorkflowUtils.spliceInstructions(
-                  instructionsToSplice,
-                  optimizedInstructions,
-                  Map(Pipeline.SOURCE -> oldIndexToNewIndex(inputIndices.head)),
-                  spliceEndpoint)
-                optimizedInstructions = spliceResult._1
-                oldIndexToNewIndex = oldIndexToNewIndex andThen spliceResult._2
-              }
-              ot
-            case TransformerOutput(t) => t
-            case _ => throw new ClassCastException("TransformerApplyNode dep wasn't pointing at a transformer")
-          }
-
-          if (instructionsToExecute.contains(index)) {
-            registers(index) = RDDOutput(transformer.transformRDD(inputs))
-            numPerPartitionPerNode(index) = numPerPartition
-          }
+      case (optimizationState, (estFitNode @ EstimatorFitNode(_, _), index)) if instructionsToOptimize.contains(index) => {
+        val newOptimizationState = optimizeEstimator(optimizationState, estFitNode, instructions, index)
+        if (instructionsToExecute.contains(index)) {
+          executeInstruction(newOptimizationState, estFitNode, index)
+        } else {
+          newOptimizationState
         }
+      }
 
-        case EstimatorFitNode(estIndex, inputIndices) => {
-          val numPerPartition = numPerPartitionPerNode(inputIndices.head)
-          val inputs = inputIndices.map(registers).collect {
-            case RDDOutput(rdd) => rdd.cache()
-          }
-          inputs.foreach(_.count())
+      case (optimizationState, (SourceNode(rdd), index)) if instructionsToExecute.contains(index) => {
+        // Sample the RDD (with a value copy to avoid serializing this class when doing mapPartitions)
+        val spp = samplePerPartition
+        val sampledRDD = rdd.mapPartitions(_.take(spp))
+        val executedState = executeInstruction(optimizationState, SourceNode(sampledRDD), index)
 
-          // Optimize the estimator if possible
-          val estimator = registers(estIndex) match {
-            case EstimatorOutput(oe: OptimizableEstimator[a, b]) =>
-              if (instructionsToOptimize.contains(index)) {
-                val spliceEndpoint = Pipeline.SOURCE - 1
+        // Make sure to set numPerPartition for this node
+        val numPerPartition = WorkflowUtils.numPerPartition(rdd)
+        executedState.copy(numPerPartitionPerNode = executedState.numPerPartitionPerNode + (index -> numPerPartition))
+      }
 
-                // Get the instructions to splice into the optimized pipeline
-                val dataSample = inputs.head.asInstanceOf[RDD[a]]
-                val pipeToSplice = oe.optimize(dataSample, numPerPartition.get).apply(dataSample)
-                val initialInstructionsToSplice = WorkflowUtils.pipelineToInstructions(pipeToSplice)
-                val dataSampleIndices = initialInstructionsToSplice.indices.filter {
-                  initialInstructionsToSplice(_) == SourceNode(dataSample)
-                }.toSet
-                val instructionsToSplice = WorkflowUtils.disconnectAndRemoveInstructions(
-                  dataSampleIndices.map(_ -> spliceEndpoint).toMap,
-                  initialInstructionsToSplice
-                )._1
+      case (optimizationState, (instruction, index)) if instructionsToExecute.contains(index) => {
+        executeInstruction(optimizationState, instruction, index)
+      }
 
-                // First: Disconnect all the dependencies in the optimized pipeline on this EstimatorFitNode,
-                // and remove this node
-                val indexInNewPipeline = oldIndexToNewIndex(index)
-                val removeResult = WorkflowUtils.disconnectAndRemoveInstructions(
-                  Map(indexInNewPipeline -> (spliceEndpoint - 1)),
-                  optimizedInstructions)
-                optimizedInstructions = removeResult._1
-                oldIndexToNewIndex = oldIndexToNewIndex andThen removeResult._2
-
-                instructions.zipWithIndex.foreach {
-                  case (TransformerApplyNode(t, tInputs), transformerApplyIndex) if t == index => {
-                    // First: Disconnect all the dependencies in the optimized pipeline on this TransformerApplyNode,
-                    // and replace them with the spliceEndpoint
-
-                    val indexInNewPipeline = oldIndexToNewIndex(transformerApplyIndex)
-                    val removeResult = WorkflowUtils.disconnectAndRemoveInstructions(
-                      Map(indexInNewPipeline -> spliceEndpoint),
-                      optimizedInstructions)
-                    optimizedInstructions = removeResult._1
-                    oldIndexToNewIndex = oldIndexToNewIndex andThen removeResult._2
-
-                    // Then: Splice in the transformer's optimization into the optimized pipeline
-                    // Note: We do not delete the optimizable transformer because it may be used elsewhere
-                    // if we've merged equivalent TransformerNodes.
-                    val spliceResult = WorkflowUtils.spliceInstructions(
-                      instructionsToSplice,
-                      optimizedInstructions,
-                      Map(spliceEndpoint -> oldIndexToNewIndex(inputIndices.head),
-                        Pipeline.SOURCE -> oldIndexToNewIndex(tInputs.head)),
-                      spliceEndpoint)
-                    optimizedInstructions = spliceResult._1
-                    oldIndexToNewIndex = oldIndexToNewIndex andThen spliceResult._2
-                  }
-
-                  case _ => Unit
-                }
-              }
-              oe
-            case EstimatorOutput(oe: OptimizableLabelEstimator[a, b, l]) =>
-              if (instructionsToOptimize.contains(index)) {
-
-                oe.optimize(inputs(0).asInstanceOf[RDD[a]], inputs(1).asInstanceOf[RDD[l]], numPerPartition.get)
-                val dataSpliceEndpoint = Pipeline.SOURCE - 1
-                val labelSpliceEndpoint = Pipeline.SOURCE - 2
-                val spliceEndpoint = Pipeline.SOURCE - 3
-
-                // Get the instructions to splice into the optimized pipeline
-                val dataSample = inputs(0).asInstanceOf[RDD[a]]
-                val labelSample = inputs(1).asInstanceOf[RDD[l]]
-                val pipeToSplice = oe.optimize(dataSample, labelSample, numPerPartition.get)
-                  .apply(dataSample, labelSample)
-                val initialInstructionsToSplice = WorkflowUtils.pipelineToInstructions(pipeToSplice)
-                val dataSampleIndices = initialInstructionsToSplice.indices.filter {
-                  initialInstructionsToSplice(_) == SourceNode(dataSample)
-                }.toSet
-                val labelSampleIndices = initialInstructionsToSplice.indices.filter {
-                  initialInstructionsToSplice(_) == SourceNode(labelSample)
-                }.toSet
-                val instructionsToSplice = WorkflowUtils.disconnectAndRemoveInstructions(
-                  dataSampleIndices.map(_ -> dataSpliceEndpoint).toMap ++
-                    labelSampleIndices.map(_ -> labelSpliceEndpoint).toMap,
-                  initialInstructionsToSplice
-                )._1
-
-                // First: Disconnect all the dependencies in the optimized pipeline on this EstimatorFitNode,
-                // and remove this node
-                val indexInNewPipeline = oldIndexToNewIndex(index)
-                val removeResult = WorkflowUtils.disconnectAndRemoveInstructions(
-                  Map(indexInNewPipeline -> (labelSpliceEndpoint - 1)),
-                  optimizedInstructions)
-                optimizedInstructions = removeResult._1
-                oldIndexToNewIndex = oldIndexToNewIndex andThen removeResult._2
-
-                instructions.zipWithIndex.foreach {
-                  case (TransformerApplyNode(t, tInputs), transformerApplyIndex) if t == index => {
-                    // First: Disconnect all the dependencies in the optimized pipeline on this TransformerApplyNode,
-                    // and replace them with the spliceEndpoint
-
-                    val indexInNewPipeline = oldIndexToNewIndex(transformerApplyIndex)
-                    val removeResult = WorkflowUtils.disconnectAndRemoveInstructions(
-                      Map(indexInNewPipeline -> spliceEndpoint),
-                      optimizedInstructions)
-                    optimizedInstructions = removeResult._1
-                    oldIndexToNewIndex = oldIndexToNewIndex andThen removeResult._2
-
-                    // Then: Splice in the transformer's optimization into the optimized pipeline
-                    // Note: We do not delete the optimizable transformer because it may be used elsewhere
-                    // if we've merged equivalent TransformerNodes.
-                    val spliceResult = WorkflowUtils.spliceInstructions(
-                      instructionsToSplice,
-                      optimizedInstructions,
-                      Map(
-                        dataSpliceEndpoint -> oldIndexToNewIndex(inputIndices(0)),
-                        labelSpliceEndpoint -> oldIndexToNewIndex(inputIndices(1)),
-                        Pipeline.SOURCE -> oldIndexToNewIndex(tInputs.head)
-                      ),
-                      spliceEndpoint)
-                    optimizedInstructions = spliceResult._1
-                    oldIndexToNewIndex = oldIndexToNewIndex andThen spliceResult._2
-                  }
-
-                  case _ => Unit
-                }
-              }
-              oe
-            case EstimatorOutput(e) => e
-            case _ => throw new ClassCastException("EstimatorFitNode dep wasn't pointing at an estimator")
-          }
-
-          if (instructionsToExecute.contains(index)) {
-            registers(index) = TransformerOutput(estimator.fitRDDs(inputs))
-            numPerPartitionPerNode(index) = numPerPartition
-          }
-        }
-
-        case node: Instruction => {
-          val deps = node.getDependencies.map(registers)
-          registers(index) = node.execute(deps)
-        }
+      case (optimizationState, _) => {
+        optimizationState
       }
     }
 
-    WorkflowUtils.instructionsToPipeline(optimizedInstructions)
+    WorkflowUtils.instructionsToPipeline(finalOptimization.optimizedInstructions)
   }
 }

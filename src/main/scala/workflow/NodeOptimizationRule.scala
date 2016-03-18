@@ -15,6 +15,13 @@ class NodeOptimizationRule(samplePerPartition: Int = 3) extends Rule {
     numPerPartitionPerNode: Map[Int, Map[Int, Int]]
   )
 
+  /**
+   * Get the set of instructions that we need to check for optimizations at.
+   *
+   * This is any instruction that either applies an optimizable transformer,
+   * or fits an optimizable estimator,
+   * and is not supposed to be executed on test data.
+   */
   private def getInstructionsToOptimize(instructions: Seq[Instruction]): Set[Int] = {
     instructions.zipWithIndex.collect {
       case (TransformerApplyNode(tIndex, _), index)
@@ -29,6 +36,14 @@ class NodeOptimizationRule(samplePerPartition: Int = 3) extends Rule {
     }.toSet -- WorkflowUtils.getChildren(Pipeline.SOURCE, instructions)
   }
 
+  /**
+   * Execute the instruction at the given index, and output the new state of the optimization process
+   *
+   * @param optimizationState
+   * @param instruction
+   * @param index
+   * @return
+   */
   private def executeInstruction(optimizationState: OptimizationState, instruction: Instruction, index: Int)
   : OptimizationState = {
     // Get the dependencies from the registers and run the instruction on them (caching RDD outputs)
@@ -55,6 +70,15 @@ class NodeOptimizationRule(samplePerPartition: Int = 3) extends Rule {
     optimizationState.copy(registers = newRegisters, numPerPartitionPerNode = newNumPerPartitionPerNode)
   }
 
+  /**
+   * Optimizes the transformer being applied by the instruction at the given index.
+   * Outputs a new optimization state.
+   *
+   * @param os The previous optimization state
+   * @param transformerApplyNode
+   * @param index
+   * @return
+   */
   private def optimizeTransformer(os: OptimizationState, transformerApplyNode: TransformerApplyNode, index: Int)
   : OptimizationState = {
     val tIndex = transformerApplyNode.transformer
@@ -102,6 +126,16 @@ class NodeOptimizationRule(samplePerPartition: Int = 3) extends Rule {
     }
   }
 
+  /**
+   * Optimizes the estimator being fit by the instruction at the given index.
+   * Outputs a new optimization state.
+   *
+   * @param os The previous optimization state
+   * @param estimatorFitNode
+   * @param instructions
+   * @param index
+   * @return
+   */
   private def optimizeEstimator(
       os: OptimizationState,
       estimatorFitNode: EstimatorFitNode,
@@ -266,23 +300,25 @@ class NodeOptimizationRule(samplePerPartition: Int = 3) extends Rule {
 
     // Execute the minimal amount necessary of the pipeline on sampled nodes, and optimize the optimizable nodes
     val finalOptimization = instructions.zipWithIndex.foldLeft[OptimizationState](initialState) {
-      case (optimizationState, (tApplyNode @ TransformerApplyNode(_, _), index)) if instructionsToOptimize.contains(index) => {
-        val newOptimizationState = optimizeTransformer(optimizationState, tApplyNode, index)
-        if (instructionsToExecute.contains(index)) {
-          executeInstruction(newOptimizationState, tApplyNode, index)
-        } else {
-          newOptimizationState
+      case (optimizationState, (tApplyNode @ TransformerApplyNode(_, _), index))
+        if instructionsToOptimize.contains(index) => {
+          val newOptimizationState = optimizeTransformer(optimizationState, tApplyNode, index)
+          if (instructionsToExecute.contains(index)) {
+            executeInstruction(newOptimizationState, tApplyNode, index)
+          } else {
+            newOptimizationState
+          }
         }
-      }
 
-      case (optimizationState, (estFitNode @ EstimatorFitNode(_, _), index)) if instructionsToOptimize.contains(index) => {
-        val newOptimizationState = optimizeEstimator(optimizationState, estFitNode, instructions, index)
-        if (instructionsToExecute.contains(index)) {
-          executeInstruction(newOptimizationState, estFitNode, index)
-        } else {
-          newOptimizationState
+      case (optimizationState, (estFitNode @ EstimatorFitNode(_, _), index))
+        if instructionsToOptimize.contains(index) => {
+          val newOptimizationState = optimizeEstimator(optimizationState, estFitNode, instructions, index)
+          if (instructionsToExecute.contains(index)) {
+            executeInstruction(newOptimizationState, estFitNode, index)
+          } else {
+            newOptimizationState
+          }
         }
-      }
 
       case (optimizationState, (SourceNode(rdd), index)) if instructionsToExecute.contains(index) => {
         // Sample the RDD (with a value copy to avoid serializing this class when doing mapPartitions)

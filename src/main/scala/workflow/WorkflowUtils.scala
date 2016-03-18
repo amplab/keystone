@@ -192,6 +192,19 @@ object WorkflowUtils {
     (newInstructions, oldToNewIndexMapping)
   }
 
+  /**
+   * This method first replaces all dependencies on specific instructions with a different int, effectively
+   * disconnecting them from the pipeline. It then removes the disconnected instructions from the pipeline.
+   *
+   * It is useful if you want to replace a section of the pipeline, by disconnecting and removing a section,
+   * and setting endpoints to use for splicing in new instructions.
+   *
+   * @param dependencyReplacement A map of (instruction index to remove) to
+   *                              (int to be swapped in for all previous dependencies on it)
+   * @param instructions The pipeline to remove from.
+   * @return A tuple containing the new instructions, and
+   *         a mapping of old dependency index to new dependency index
+   */
   def disconnectAndRemoveInstructions(dependencyReplacement: Map[Int, Int], instructions: Seq[Instruction])
   : (Seq[Instruction], Int => Int) = {
     val removeResult = removeInstructions(dependencyReplacement.keys.toSet, instructions.map(_.mapDependencies {

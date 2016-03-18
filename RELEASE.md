@@ -38,7 +38,7 @@ resolvers ++= Seq(
 
 ## Full Release
 
-1. Update build.sbt to the correct version
+1. Update the build.sbt and the Makefile to the new version
 
 2. Cut a release branch for major version releases
 

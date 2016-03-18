@@ -24,7 +24,7 @@ class NodeOptimizationRuleSuite extends FunSuite with LocalSparkContext with Log
       (optimizableEstimator, trainData) andThen
       (optimizableLabelEstimator, trainData, trainLabels)
 
-    val nodeOptimizedPipeline = new NodeOptimizationRule(0.01).apply(pipeline)
+    val nodeOptimizedPipeline = new NodeOptimizationRule().apply(pipeline)
     val outputState = nodeOptimizedPipeline.apply(State(), optimizer = None)
 
     assert(outputState.transformerChoice.isEmpty, "The optimizable transformer should use the default on test data")
@@ -45,7 +45,7 @@ class NodeOptimizationRuleSuite extends FunSuite with LocalSparkContext with Log
       (optimizableEstimator, trainData) andThen
       (optimizableLabelEstimator, trainData, trainLabels)
 
-    val nodeOptimizedPipeline = new NodeOptimizationRule(0.01).apply(pipeline)
+    val nodeOptimizedPipeline = new NodeOptimizationRule().apply(pipeline)
     val outputState = nodeOptimizedPipeline.apply(State(), optimizer = None)
 
     assert(outputState.transformerChoice.isEmpty, "The optimizable transformer should use the default on test data")
@@ -66,7 +66,7 @@ class NodeOptimizationRuleSuite extends FunSuite with LocalSparkContext with Log
       (estimatorB, trainData) andThen
       (labelEstimatorB, trainData, trainLabels)
 
-    val nodeOptimizedPipeline = new NodeOptimizationRule(0.01).apply(pipeline)
+    val nodeOptimizedPipeline = new NodeOptimizationRule().apply(pipeline)
     val outputState = nodeOptimizedPipeline.apply(State(), optimizer = None)
 
     assert(outputState === State(None, Some(false), Some(true), Some(true)))
@@ -84,7 +84,7 @@ class NodeOptimizationRuleSuite extends FunSuite with LocalSparkContext with Log
       (estimatorB, trainData) andThen
       (optimizableLabelEstimator, trainData, trainLabels)
 
-    val nodeOptimizedPipeline = new NodeOptimizationRule(0.01).apply(pipeline)
+    val nodeOptimizedPipeline = new NodeOptimizationRule().apply(pipeline)
     val outputState = nodeOptimizedPipeline.apply(State(), optimizer = None)
 
     assert(outputState === State(None, Some(false), Some(true), Some(true)))
@@ -100,7 +100,6 @@ object NodeOptimizationRuleSuite {
   )
 
   val transformerDoNothing = Transformer[State, State] { x =>
-    assert(x.choice.isEmpty, "The default transformer must only be used on test data")
     x.copy(transformerChoice = None)
   }
   val transformerA = Transformer[State, State](_.copy(transformerChoice = Some(false)))
@@ -128,11 +127,11 @@ object NodeOptimizationRuleSuite {
   }
   val optimizableEstimator = new OptimizableEstimator[State, State] {
     override val default: Estimator[State, State] = estimatorDoNothing
-    override def optimize(sample: RDD[State], numPerPartition: Map[Int, Int]): Estimator[State, State] = {
+    override def optimize(sample: RDD[State], numPerPartition: Map[Int, Int]): RDD[State] => Pipeline[State, State] = {
       if (sample.collect().exists(_.choice.get == false)) {
-        estimatorA
+        estimatorA.withData
       } else {
-        estimatorB
+        estimatorB.withData
       }
     }
   }
@@ -150,16 +149,16 @@ object NodeOptimizationRuleSuite {
   val optimizableLabelEstimator = new OptimizableLabelEstimator[State, State, Boolean] {
     override val default: LabelEstimator[State, State, Boolean] = labelEstimatorDoNothing
     override def optimize(sample: RDD[State], sampleLabels: RDD[Boolean], numPerPartition: Map[Int, Int])
-    : LabelEstimator[State, State, Boolean] = {
+    : (RDD[State], RDD[Boolean]) => Pipeline[State, State] = {
       // Test to make sure the zipping worked correctly
       sample.zip(sampleLabels).foreach { x =>
         assert(x._1.choice.get == x._2, "Label and choice must be equal!")
       }
 
       if (sample.collect().exists(_.choice.get == false)) {
-        labelEstimatorA
+        labelEstimatorA.withData
       } else {
-        labelEstimatorB
+        labelEstimatorB.withData
       }
     }
   }

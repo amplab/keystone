@@ -159,4 +159,112 @@ object WorkflowUtils {
       case (id, partition) => Iterator.single((id, partition.length))
     }.collect().toMap
   }
+
+  /**
+   * Remove the given set of instruction indices from the pipeline, updating all dependency pointers
+   * appropriately. Errors when the removed instructions have dependencies on them
+   *
+   * @param setToRemove
+   * @param instructions
+   * @return A tuple containing the new instructions, and
+   *         a mapping of old dependency index to new dependency index
+   */
+  def removeInstructions(setToRemove: Set[Int], instructions: Seq[Instruction]): (Seq[Instruction], Int => Int) = {
+    val offsets = collection.mutable.Map[Int, Int]()
+    for (indexToRemove <- setToRemove;
+         indexToOffset <- (indexToRemove + 1) until instructions.length) {
+      offsets(indexToOffset) = offsets.getOrElse(indexToOffset, 0) + 1
+    }
+
+    val newInstructions = instructions.zipWithIndex.collect {
+      case (instruction, i) if !setToRemove.contains(i) =>
+        instruction.mapDependencies(oldDep =>
+          if (setToRemove.contains(oldDep)) {
+            throw new RuntimeException("WorkflowUtils.removeInstructions attempted to break a dependency")
+          } else {
+            oldDep - offsets.getOrElse(oldDep, 0)
+          }
+        )
+    }
+
+    val oldToNewIndexMapping = (i: Int) => i - offsets.getOrElse(i, 0)
+
+    (newInstructions, oldToNewIndexMapping)
+  }
+
+  /**
+   * This method first replaces all dependencies on specific instructions with a different int, effectively
+   * disconnecting them from the pipeline. It then removes the disconnected instructions from the pipeline.
+   *
+   * It is useful if you want to replace a section of the pipeline, by disconnecting and removing a section,
+   * and setting endpoints to use for splicing in new instructions.
+   *
+   * @param dependencyReplacement A map of (instruction index to remove) to
+   *                              (int to be swapped in for all previous dependencies on it)
+   * @param instructions The pipeline to remove from.
+   * @return A tuple containing the new instructions, and
+   *         a mapping of old dependency index to new dependency index
+   */
+  def disconnectAndRemoveInstructions(dependencyReplacement: Map[Int, Int], instructions: Seq[Instruction])
+  : (Seq[Instruction], Int => Int) = {
+    val removeResult = removeInstructions(dependencyReplacement.keys.toSet, instructions.map(_.mapDependencies {
+      i => dependencyReplacement.getOrElse(i, i)
+    }))
+
+    (removeResult._1, (i: Int) => dependencyReplacement.getOrElse(i, removeResult._2(i)))
+  }
+
+  /**
+   * Splice a sequence of instructions into an existing sequence of instructions.
+   *
+   * @param splice The sequence to insert
+   * @param instructions The existing sequence to have instructions spliced into
+   * @param spliceSourceMap A mapping from dependencies in the instructions being spliced to instructions in the
+   *                        existing sequence.
+   * @param spliceSink The dependency in the existing sequence to map to the sink of the instructions
+   *                   being spliced
+   * @return A tuple containing the new instructions, and
+   *         a mapping of old dependency index to new dependency index
+   */
+  def spliceInstructions(
+    splice: Seq[Instruction],
+    instructions: Seq[Instruction],
+    spliceSourceMap: Map[Int, Int],
+    spliceSink: Int
+  ): (Seq[Instruction], Int => Int) = {
+    val spliceIndex = spliceSourceMap.values.max + 1
+    val indicesDependingOnSpliceSink = instructions.indices
+      .filter(instructions(_).getDependencies.contains(spliceSink)) :+ instructions.length
+    require(spliceIndex <= indicesDependingOnSpliceSink.min,
+      "Can't splice the instruction set because the splice " +
+        "depends on instructions that come after where it is supposed to be used.")
+
+    val start = instructions.take(spliceIndex)
+    val splicedInstructions = splice.map(_.mapDependencies { dep =>
+      spliceSourceMap.getOrElse(dep, dep + start.length)
+    })
+    val end = instructions.drop(spliceIndex).map(_.mapDependencies { dep =>
+      if (spliceSink == dep) {
+        start.length + splicedInstructions.length - 1
+      } else if (dep >= spliceIndex) {
+        dep + splicedInstructions.length
+      } else {
+        dep
+      }
+    })
+
+    val oldToNewIndexMapping = (i: Int) => {
+      if (spliceSink == i) {
+        start.length + splicedInstructions.length - 1
+      } else if (i >= spliceIndex) {
+        i + splicedInstructions.length
+      } else {
+        i
+      }
+    }
+
+    val newInstructions = start ++ splicedInstructions ++ end
+
+    (newInstructions, oldToNewIndexMapping)
+  }
 }

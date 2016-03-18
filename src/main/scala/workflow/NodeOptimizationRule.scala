@@ -84,6 +84,9 @@ class NodeOptimizationRule(samplesPerPartition: Int = 3) extends Rule {
     val tIndex = transformerApplyNode.transformer
     val inputIndices = transformerApplyNode.inputs
 
+    // Here we assume that if a transformer takes multiple RDDs as input,
+    // all of them are copartitioned and have the exact same number of partitions,
+    // and the same number of values in each partition
     val numPerPartition = optState.numPerPartitionPerNode(inputIndices.head)
     val inputs = inputIndices.map(optState.registers).collect {
       case RDDOutput(rdd) => rdd
@@ -92,7 +95,9 @@ class NodeOptimizationRule(samplesPerPartition: Int = 3) extends Rule {
     // Optimize the transformer if possible
     optState.registers(tIndex) match {
       case TransformerOutput(ot: OptimizableTransformer[a, b]) => {
-        // Get the partial pipeline that is the output of the transformer optimization, and prepare to splice it
+        // Actually optimize the transformer based on a data sample and statistics about the data partitions.
+        //
+        // Then, get the partial pipeline that is the output of the optimization, and prepare to splice it
         // into the optimized instructions
         val pipeToSplice = ot.optimize(inputs.head.asInstanceOf[RDD[a]], numPerPartition)
         val instructionsToSplice = WorkflowUtils.pipelineToInstructions(pipeToSplice)
@@ -153,10 +158,14 @@ class NodeOptimizationRule(samplesPerPartition: Int = 3) extends Rule {
     // Optimize the estimator if possible
     optState.registers(estIndex) match {
       case EstimatorOutput(oe: OptimizableEstimator[a, b]) => {
+        // We start by setting a constant to refer to endpoint 'ids'.
+        // The exact value does not matter, the only critical thing
+        // is that the value does not refer to any existing instructions
+        // or to the source
         val spliceEndpoint = Pipeline.SOURCE - 1
 
-        // Produce the optimized estimator fit instructions that we then
-        // need to splice into the pipeline
+        // Actually optimize the estimator based on a data sample and statistics about the data partitions.
+        // Then, extract the optimized instructions that we need to splice into the pipeline
         val dataSample = inputs.head.asInstanceOf[RDD[a]]
         val pipeToSplice = oe.optimize(dataSample, numPerPartition).apply(dataSample)
         val initialInstructionsToSplice = WorkflowUtils.pipelineToInstructions(pipeToSplice)
@@ -211,21 +220,26 @@ class NodeOptimizationRule(samplesPerPartition: Int = 3) extends Rule {
       }
 
       case EstimatorOutput(oe: OptimizableLabelEstimator[a, b, l]) => {
+        // We start by setting constants to refer to endpoint 'ids'.
+        // The exact values and ordering do not matter, the only critical thing
+        // is that the values are different and do not refer to any existing instructions
+        // or to the source
         val dataSpliceEndpoint = Pipeline.SOURCE - 1
         val labelSpliceEndpoint = Pipeline.SOURCE - 2
         val spliceEndpoint = Pipeline.SOURCE - 3
 
-        // Get the instructions to splice into the optimized pipeline
+        // Actually optimize the estimator based on a data sample and statistics about the data partitions.
+        // Then, extract the optimized instructions that we need to splice into the pipeline
         val dataSample = inputs(0).asInstanceOf[RDD[a]]
         val labelSample = inputs(1).asInstanceOf[RDD[l]]
         val pipeToSplice = oe.optimize(dataSample, labelSample, numPerPartition)
           .apply(dataSample, labelSample)
         val initialInstructionsToSplice = WorkflowUtils.pipelineToInstructions(pipeToSplice)
-        val dataSampleIndices = initialInstructionsToSplice.indices.filter {
-          initialInstructionsToSplice(_) == SourceNode(dataSample)
+        val dataSampleIndices = initialInstructionsToSplice.indices.filter { inx =>
+          initialInstructionsToSplice(inx) == SourceNode(dataSample)
         }.toSet
-        val labelSampleIndices = initialInstructionsToSplice.indices.filter {
-          initialInstructionsToSplice(_) == SourceNode(labelSample)
+        val labelSampleIndices = initialInstructionsToSplice.indices.filter { inx =>
+          initialInstructionsToSplice(inx) == SourceNode(labelSample)
         }.toSet
         val instructionsToSplice = WorkflowUtils.disconnectAndRemoveInstructions(
           dataSampleIndices.map(_ -> dataSpliceEndpoint).toMap ++

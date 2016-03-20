@@ -8,11 +8,12 @@ import org.apache.spark.rdd.RDD
 import org.netlib.util.intW
 import pipelines._
 import utils.MatrixUtils
-import workflow.{Transformer, Estimator}
+import workflow.{Pipeline, OptimizableEstimator, Transformer, Estimator}
 
 
 /**
  * Performs dimensionality reduction on an input dataset.
+ *
  * @param pcaMat The PCA matrix - usually obtained via PCAEstimator.
  */
 class PCATransformer(val pcaMat: DenseMatrix[Float]) extends Transformer[DenseVector[Float], DenseVector[Float]] {
@@ -51,6 +52,44 @@ case class ColumnPCAEstimator(dims: Int) extends Estimator[DenseMatrix[Float], D
   protected def fit(data: RDD[DenseMatrix[Float]]): Transformer[DenseMatrix[Float], DenseMatrix[Float]] = {
     val singleTransformer = new PCAEstimator(dims).fit(data.flatMap(x => MatrixUtils.matrixToColArray(x)))
     BatchPCATransformer(singleTransformer.pcaMat)
+  }
+}
+
+/**
+ * Estimates a PCA model for dimensionality reduction based on a sample of a larger input dataset,
+ * using a distributed PCA algorithm.
+ * Treats each column of the input matrices like a separate DenseVector input to [[DistributedPCAEstimator]].
+ *
+ * @param dims Dimensions to reduce input dataset to.
+ */
+case class DistributedColumnPCAEstimator(dims: Int) extends Estimator[DenseMatrix[Float], DenseMatrix[Float]] {
+  protected def fit(data: RDD[DenseMatrix[Float]]): Transformer[DenseMatrix[Float], DenseMatrix[Float]] = {
+    val singleTransformer = new DistributedPCAEstimator(dims).fit(data.flatMap(x => MatrixUtils.matrixToColArray(x)))
+    BatchPCATransformer(singleTransformer.pcaMat)
+  }
+}
+
+/**
+ * Estimates a PCA model for dimensionality reduction based on a sample of a larger input dataset.
+ * Treats each column of the input matrices like a separate DenseVector input to [[PCAEstimator]] or
+ * [[DistributedPCAEstimator]].
+ *
+ * Automatically decides between distributed and local implementations when node-level optimization is enabled.
+ *
+ * @param dims Dimensions to reduce input dataset to.
+ */
+class OptimizableColumnPCAEstimator(dims: Int) extends OptimizableEstimator[DenseMatrix[Float], DenseMatrix[Float]] {
+  val default = new DistributedColumnPCAEstimator(dims)
+
+  override def optimize(sample: RDD[DenseMatrix[Float]], numPerPartition: Map[Int, Int])
+  : RDD[DenseMatrix[Float]] => Pipeline[DenseMatrix[Float], DenseMatrix[Float]] = {
+    val numFeatures = sample.first().rows
+
+    if (numFeatures <= 100000) {
+      new ColumnPCAEstimator(dims).withData(_)
+    } else {
+      default.withData(_)
+    }
   }
 }
 

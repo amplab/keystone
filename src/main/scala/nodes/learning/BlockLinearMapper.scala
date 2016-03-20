@@ -197,7 +197,9 @@ object BlockLeastSquaresEstimator {
  * @param lambda L2-regularization to use
  */
 class BlockLeastSquaresEstimator(blockSize: Int, numIter: Int, lambda: Double = 0.0, numFeaturesOpt: Option[Int] = None)
-  extends LabelEstimator[DenseVector[Double], DenseVector[Double], DenseVector[Double]] with WeightedNode {
+  extends LabelEstimator[DenseVector[Double], DenseVector[Double], DenseVector[Double]]
+    with WeightedNode
+    with SolverCostModel {
 
   override val weight = (3*numIter)+1
 
@@ -261,5 +263,21 @@ class BlockLeastSquaresEstimator(blockSize: Int, numIter: Int, lambda: Double = 
     val vectorSplitter = new VectorSplitter(blockSize, numFeaturesOpt)
     val featureBlocks = vectorSplitter.apply(trainingFeatures)
     fit(featureBlocks, trainingLabels)
+  }
+
+  override def cost(
+    n: Long,
+    d: Int,
+    k: Int,
+    sparsity: Double,
+    numMachines: Int,
+    cpuWeight: Double,
+    memWeight: Double,
+    networkWeight: Double)
+  : Double = {
+    val flops = n.toDouble * d * (blockSize + k) / numMachines
+    val bytesScanned = n.toDouble * d / numMachines + (d.toDouble * k)
+    val network = 2.0 * (d.toDouble * (blockSize + k)) * math.log(numMachines)
+    numIter * (math.max(cpuWeight * flops, memWeight * bytesScanned) + networkWeight * network)
   }
 }

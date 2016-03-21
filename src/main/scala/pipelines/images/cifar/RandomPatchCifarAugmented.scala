@@ -16,7 +16,7 @@ import loaders.CifarLoader
 import nodes.images._
 import nodes.learning.{BlockLeastSquaresEstimator, ZCAWhitener, ZCAWhitenerEstimator}
 import nodes.stats.{StandardScaler, Sampler}
-import nodes.util.{Cacher, ClassLabelIndicatorsFromIntLabels, MaxClassifier}
+import nodes.util.{Cacher, ClassLabelIndicatorsFromIntLabels}
 
 import pipelines.FunctionNode
 import pipelines.Logging
@@ -71,7 +71,7 @@ object RandomPatchCifarAugmented extends Serializable with Logging {
     val trainLabels = labelExtractor(trainData)
     val trainLabelsAugmented = new LabelAugmenter(conf.numRandomImagesAugment).apply(trainLabels)
 
-    val augmentedPipeline =
+    val predictionPipeline =
       new Convolver(filters, augmentImgSize, augmentImgSize, numChannels, Some(whitener), true) andThen
         SymmetricRectifier(alpha=conf.alpha) andThen
         new Pooler(conf.poolStride, conf.poolSize, identity, sum(_)) andThen
@@ -79,9 +79,8 @@ object RandomPatchCifarAugmented extends Serializable with Logging {
         new Cacher[DenseVector[Double]](Some("features")) andThen
         (new StandardScaler, trainImagesAugmented) andThen
         (new BlockLeastSquaresEstimator(4096, 1, conf.lambda.getOrElse(0.0)), trainImagesAugmented,
-          trainLabelsAugmented)
-
-    val predictionPipeline = augmentedPipeline andThen new Cacher[DenseVector[Double]]
+          trainLabelsAugmented) andThen 
+        new Cacher[DenseVector[Double]]
 
     // Do testing.
     val testData = CifarLoader(sc, conf.testLocation)
@@ -97,7 +96,7 @@ object RandomPatchCifarAugmented extends Serializable with Logging {
       testImages.zipWithUniqueId.map(x => x._2))
 
     val testLabelsAugmented = new LabelAugmenter(numTestAugment).apply(LabelExtractor(testData))
-    val testPredictions = augmentedPipeline(testImagesAugmented)
+    val testPredictions = predictionPipeline(testImagesAugmented)
 
     val testEval = AugmentedExamplesEvaluator(
       testImageIdsAugmented, testPredictions, testLabelsAugmented, numClasses)

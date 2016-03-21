@@ -41,16 +41,15 @@ object RandomCifar extends Serializable with Logging {
     // Set up a filter Array.
     val filters = DenseMatrix.rand(conf.numFilters, conf.patchSize*conf.patchSize*numChannels, Rand.gaussian)
 
-    val featurizer = new Convolver(filters, imageSize, imageSize, numChannels, None, true) andThen
+    val predictionPipeline = new Convolver(filters, imageSize, imageSize, numChannels, None, true) andThen
         SymmetricRectifier(alpha=conf.alpha) andThen
         new Pooler(conf.poolStride, conf.poolSize, identity, _.sum) andThen
         ImageVectorizer andThen
         new Cacher[DenseVector[Double]] andThen
         (new StandardScaler, trainImages) andThen
         new Cacher[DenseVector[Double]] andThen
-        (LinearMapEstimator(conf.lambda), trainImages, trainLabels)
-
-    val predictionPipeline = featurizer andThen MaxClassifier
+        (LinearMapEstimator(conf.lambda), trainImages, trainLabels) andThen
+        MaxClassifier
 
     // Calculate training error.
     val trainEval = MulticlassClassifierEvaluator(

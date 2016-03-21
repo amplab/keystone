@@ -56,16 +56,17 @@ object RandomPatchCifar extends Serializable with Logging {
         ((unnormFilters(::, *) / (twoNorms + 1e-10)) * whitener.whitener.t, whitener)
     }
 
-    val featurizer =
+    val predictionPipeline =
         new Convolver(filters, imageSize, imageSize, numChannels, Some(whitener), true) andThen
         SymmetricRectifier(alpha=conf.alpha) andThen
         new Pooler(conf.poolStride, conf.poolSize, identity, _.sum) andThen
         ImageVectorizer andThen
         new Cacher[DenseVector[Double]] andThen
         (new StandardScaler, trainImages) andThen
-        (new BlockLeastSquaresEstimator(4096, 1, conf.lambda.getOrElse(0.0)), trainImages, trainLabels)
-
-    val predictionPipeline = featurizer andThen MaxClassifier andThen new Cacher[Int]
+        (new BlockLeastSquaresEstimator(4096, 1, conf.lambda.getOrElse(0.0)), trainImages,
+          trainLabels) andThen
+        MaxClassifier andThen
+        new Cacher[Int]
 
     // Calculate training error.
     val trainEval = MulticlassClassifierEvaluator(

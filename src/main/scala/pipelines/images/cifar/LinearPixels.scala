@@ -31,12 +31,11 @@ object LinearPixels extends Logging {
     val trainLabels = labelExtractor(trainData)
 
     // A featurizer maps input images into vectors. For this pipeline, we'll also convert the image to grayscale.
-    // We estimate our model by calling a linear solver on our data.
-    val featurizer = GrayScaler andThen
+    // We then estimate our model by calling a linear solver on our data.
+    val predictionPipeline = GrayScaler andThen
       ImageVectorizer andThen
-      (new LinearMapEstimator, trainImages, trainLabels)
-
-    val predictionPipeline = featurizer andThen MaxClassifier
+      (new LinearMapEstimator, trainImages, trainLabels) andThen
+      MaxClassifier
 
     // Calculate training error.
     val trainEval = MulticlassClassifierEvaluator(predictionPipeline(trainImages), LabelExtractor(trainData), numClasses)

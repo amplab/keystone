@@ -48,9 +48,6 @@ object MnistRandomFFT extends Serializable with Logging {
           train.data, labels) andThen
         MaxClassifier
 
-    // Train the model
-    val model = pipeline
-
     val test = LabeledData(
       CsvDataLoader(sc, conf.testLocation, conf.numPartitions)
         // The pipeline expects 0-indexed class labels, but the labels in the file are 1-indexed
@@ -58,11 +55,11 @@ object MnistRandomFFT extends Serializable with Logging {
         .cache())
 
     // Calculate train error
-    val trainEval = MulticlassClassifierEvaluator(model(train.data), train.labels, numClasses)
+    val trainEval = MulticlassClassifierEvaluator(pipeline(train.data), train.labels, numClasses)
     logInfo("TRAIN Error is " + (100 * trainEval.totalError) + "%")
 
     // Calculate test error
-    val testEval = MulticlassClassifierEvaluator(model(test.data), test.labels, numClasses)
+    val testEval = MulticlassClassifierEvaluator(pipeline(test.data), test.labels, numClasses)
     logInfo("TEST Error is " + (100 * testEval.totalError) + "%")
 
     val endTime = System.nanoTime()

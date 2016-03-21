@@ -20,6 +20,7 @@ import nodes.util.{Cacher, ClassLabelIndicatorsFromIntLabels, MaxClassifier}
 
 import pipelines.FunctionNode
 import pipelines.Logging
+import workflow.Pipeline
 import utils.{MatrixUtils, Stats, Image, ImageUtils}
 
 object RandomPatchCifarAugmented extends Serializable with Logging {
@@ -29,7 +30,7 @@ object RandomPatchCifarAugmented extends Serializable with Logging {
     def apply(in: RDD[T]) = in.flatMap(x => Seq.fill(mult)(x))
   }
 
-  def run(sc: SparkContext, conf: RandomCifarFeaturizerConfig) {
+  def run(sc: SparkContext, conf: RandomCifarFeaturizerConfig): Pipeline[Image, DenseVector[Double]] = {
     // Set up some constants.
     val numClasses = 10
     val numChannels = 3
@@ -105,6 +106,8 @@ object RandomPatchCifarAugmented extends Serializable with Logging {
     val testEval = AugmentedExamplesEvaluator(
       testImageIdsAugmented, testPredictions, testLabelsAugmented, numClasses)
     logInfo(s"Test error is: ${testEval.totalError}")
+
+    predictionPipeline
   }
 
   case class RandomCifarFeaturizerConfig(

@@ -34,7 +34,7 @@ object RandomPatchCifarAugmented extends Serializable with Logging {
     val numClasses = 10
     val numChannels = 3
     val whitenerSize = 100000
-    val augmentPatchSize = 24
+    val augmentImgSize = 24
     val flipChance = 0.5
 
     // Load up training data, and optionally sample.
@@ -63,24 +63,23 @@ object RandomPatchCifarAugmented extends Serializable with Logging {
     }
 
     val trainImagesAugmented = RandomImageTransformer(flipChance, ImageUtils.flipHorizontal).apply(
-      RandomPatcher(conf.numRandomPatchesAugment, augmentPatchSize, augmentPatchSize).apply(
+      RandomPatcher(conf.numRandomImagesAugment, augmentImgSize, augmentImgSize).apply(
         trainImages))
 
-    val unscaledFeaturizer = 
-      new Convolver(filters, augmentPatchSize, augmentPatchSize, numChannels, Some(whitener), true)
-        .andThen(SymmetricRectifier(alpha=conf.alpha))
-        .andThen(new Pooler(conf.poolStride, conf.poolSize, identity, sum(_)))
-        .andThen(ImageVectorizer)
-        .andThen(new Cacher[DenseVector[Double]](Some("features")))
+    val unscaledFeaturizer =
+      new Convolver(filters, augmentImgSize, augmentImgSize, numChannels, Some(whitener), true) andThen
+        SymmetricRectifier(alpha=conf.alpha) andThen
+        new Pooler(conf.poolStride, conf.poolSize, identity, sum(_)) andThen
+        ImageVectorizer andThen
+        new Cacher[DenseVector[Double]](Some("features"))
 
-    val featurizer = unscaledFeaturizer.andThen(new StandardScaler, trainImagesAugmented)
+    val featurizer = unscaledFeaturizer andThen (new StandardScaler, trainImagesAugmented)
 
-    val labelExtractor = LabelExtractor
-      .andThen(ClassLabelIndicatorsFromIntLabels(numClasses))
+    val labelExtractor = LabelExtractor andThen ClassLabelIndicatorsFromIntLabels(numClasses)
 
     val trainFeatures = featurizer(trainImagesAugmented)
     val trainLabels = labelExtractor(trainData)
-    val trainLabelsAugmented = new LabelAugmenter(conf.numRandomPatchesAugment).apply(trainLabels)
+    val trainLabelsAugmented = new LabelAugmenter(conf.numRandomImagesAugment).apply(trainLabels)
 
     val model = new BlockLeastSquaresEstimator(4096, 1, conf.lambda.getOrElse(0.0)).fit(
       trainFeatures, trainLabelsAugmented)
@@ -92,10 +91,10 @@ object RandomPatchCifarAugmented extends Serializable with Logging {
     val testImages = ImageExtractor(testData)
 
     val numTestAugment = 10 // 4 corners, center and flips of each of the 5
-    val testImagesAugmented = CenterCornerPatcher(augmentPatchSize, augmentPatchSize, true).apply(
+    val testImagesAugmented = CenterCornerPatcher(augmentImgSize, augmentImgSize, true).apply(
       testImages)
 
-    // Create augmented image-ids by assiging a unique id to each test image and then 
+    // Create augmented image-ids by assiging a unique id to each test image and then
     // augmenting the id
     val testImageIdsAugmented = new LabelAugmenter(numTestAugment).apply(
       testImages.zipWithUniqueId.map(x => x._2))
@@ -120,7 +119,7 @@ object RandomPatchCifarAugmented extends Serializable with Logging {
       alpha: Double = 0.25,
       lambda: Option[Double] = None,
       sampleFrac: Option[Double] = None,
-      numRandomPatchesAugment: Int = 10)
+      numRandomImagesAugment: Int = 10)
 
   def parse(args: Array[String]): RandomCifarFeaturizerConfig = new OptionParser[RandomCifarFeaturizerConfig](appName) {
     head(appName, "0.1")
@@ -132,7 +131,7 @@ object RandomPatchCifarAugmented extends Serializable with Logging {
     opt[Int]("patchSize") action { (x,c) => c.copy(patchSize=x) }
     opt[Int]("patchSteps") action { (x,c) => c.copy(patchSteps=x) }
     opt[Int]("poolSize") action { (x,c) => c.copy(poolSize=x) }
-    opt[Int]("numRandomPatchesAugment") action { (x,c) => c.copy(numRandomPatchesAugment=x) }
+    opt[Int]("numRandomImagesAugment") action { (x,c) => c.copy(numRandomImagesAugment=x) }
     opt[Double]("alpha") action { (x,c) => c.copy(alpha=x) }
     opt[Double]("lambda") action { (x,c) => c.copy(lambda=Some(x)) }
     opt[Double]("sampleFrac") action { (x,c) => c.copy(sampleFrac=Some(x)) }

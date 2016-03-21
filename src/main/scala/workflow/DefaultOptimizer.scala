@@ -1,12 +1,27 @@
 package workflow
 
+import workflow.AutoCacheRule.GreedyCache
+
 /**
  * Optimizes a Pipeline DAG
  */
 object DefaultOptimizer extends Optimizer {
   protected val batches: Seq[Batch] =
-    Batch("DAG Optimization", FixedPoint(100), EquivalentNodeMergeRule) ::
+    Batch("Common Sub-expression Elimination", FixedPoint(Int.MaxValue), EquivalentNodeMergeRule) ::
     Batch("Node Level Optimization", Once, new NodeOptimizationRule) ::
+    Batch("Common Sub-expression Elimination", FixedPoint(Int.MaxValue), EquivalentNodeMergeRule) ::
+      Nil
+}
+
+/**
+ * Optimizes a Pipeline DAG, with auto-caching
+ */
+class AutoCachingOptimizer(strategy: AutoCacheRule.CachingStrategy = GreedyCache()) extends Optimizer {
+  protected val batches: Seq[Batch] =
+    Batch("Common Sub-expression Elimination", FixedPoint(Int.MaxValue), EquivalentNodeMergeRule) ::
+    Batch("Node Level Optimization", Once, new NodeOptimizationRule) ::
+    Batch("Common Sub-expression Elimination", FixedPoint(Int.MaxValue), EquivalentNodeMergeRule) ::
+    Batch("Auto Cache", Once, new AutoCacheRule(strategy)) ::
       Nil
 }
 

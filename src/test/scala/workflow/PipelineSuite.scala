@@ -21,6 +21,29 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     assert(pipelineOut === Seq((32*2) - 3, (94*2) - 3, (12*2) - 3))
   }
 
+  test("Do not fit estimators multiple times") {
+    sc = new SparkContext("local", "test")
+
+    var numFits = 0
+
+    val intTransformer = Transformer[Int, Int](x => x)
+    val intEstimator = new Estimator[Int, Int] {
+      protected def fit(data: RDD[Int]): Transformer[Int, Int] = {
+        numFits = numFits + 1
+        Transformer(x => x)
+      }
+    }
+
+
+    val data = sc.parallelize(Seq(32, 94, 12))
+    val pipeline = intTransformer andThen (intEstimator, data)
+
+    val pipelineOut = pipeline(data).collect().toSeq
+    val pipelineOut2 = pipeline(data).collect().toSeq
+
+    assert(numFits === 1, "Estimator should have been fit exactly once")
+  }
+
   test("estimator chaining") {
     sc = new SparkContext("local", "test")
 

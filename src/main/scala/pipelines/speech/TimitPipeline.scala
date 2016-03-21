@@ -34,7 +34,7 @@ object TimitPipeline extends Logging {
     numEpochs: Int = 5,
     checkpointDir: Option[String] = None)
 
-  def run(sc: SparkContext, conf: TimitConfig) {
+  def run(sc: SparkContext, conf: TimitConfig): Pipeline[DenseVector[Double], Int] = {
 
     conf.checkpointDir.foreach(_ => sc.setCheckpointDir(_))
 
@@ -104,6 +104,8 @@ object TimitPipeline extends Logging {
       actual,
       TimitFeaturesDataLoader.numClasses)
     logInfo("TEST Error is " + (100 * testEval.totalError) + "%")
+
+    predictor
   }
 
   object Distributions extends Enumeration {

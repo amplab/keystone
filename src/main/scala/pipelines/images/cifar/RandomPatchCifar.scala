@@ -6,18 +6,19 @@ import evaluation.MulticlassClassifierEvaluator
 import loaders.CifarLoader
 import nodes.images._
 import nodes.learning.{BlockLeastSquaresEstimator, ZCAWhitener, ZCAWhitenerEstimator}
-import nodes.stats.{StandardScaler, Sampler}
+import nodes.stats.{Sampler, StandardScaler}
 import nodes.util.{Cacher, ClassLabelIndicatorsFromIntLabels, MaxClassifier}
 import org.apache.spark.{SparkConf, SparkContext}
 import pipelines.Logging
 import scopt.OptionParser
-import utils.{MatrixUtils, Stats}
+import utils.{Image, MatrixUtils, Stats}
+import workflow.Pipeline
 
 
 object RandomPatchCifar extends Serializable with Logging {
   val appName = "RandomPatchCifar"
 
-  def run(sc: SparkContext, conf: RandomCifarConfig) {
+  def run(sc: SparkContext, conf: RandomCifarConfig): Pipeline[Image, Int] = {
     //Set up some constants.
     val numClasses = 10
     val imageSize = 32
@@ -83,6 +84,8 @@ object RandomPatchCifar extends Serializable with Logging {
 
     logInfo(s"Training error is: ${trainEval.totalError}")
     logInfo(s"Test error is: ${testEval.totalError}")
+
+    predictionPipeline
   }
 
   case class RandomCifarConfig(
@@ -115,6 +118,7 @@ object RandomPatchCifar extends Serializable with Logging {
 
   /**
    * The actual driver receives its configuration parameters from spark-submit usually.
+   *
    * @param args
    */
   def main(args: Array[String]) = {

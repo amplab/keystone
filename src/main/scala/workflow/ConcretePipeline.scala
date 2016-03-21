@@ -19,6 +19,7 @@ private[workflow] class ConcretePipeline[A, B](
 
   private val fitCache: Array[Option[TransformerNode]] = nodes.map(_ => None).toArray
   private val dataCache: mutable.Map[(Int, RDD[_]), RDD[_]] = new mutable.HashMap()
+  private val optimizedPipelineCache: mutable.Map[Optimizer, Pipeline[A, B]] = new mutable.HashMap()
 
   /** validates (returns an exception if false) that
    * - nodes.size = dataDeps.size == fitDeps.size
@@ -135,14 +136,20 @@ private[workflow] class ConcretePipeline[A, B](
 
   def apply(in: A, optimizer: Option[Optimizer]): B = {
     optimizer match {
-      case Some(opt) => opt.execute(this).apply(in, None)
+      case Some(opt) => {
+        val optimizedPipeline = optimizedPipelineCache.getOrElseUpdate(opt, opt.execute(this))
+        optimizedPipeline.apply(in, None)
+      }
       case None => singleDataEval(sink, in).asInstanceOf[B]
     }
   }
 
   def apply(in: RDD[A], optimizer: Option[Optimizer]): RDD[B] = {
     optimizer match {
-      case Some(opt) => opt.execute(this).apply(in, None)
+      case Some(opt) => {
+        val optimizedPipeline = optimizedPipelineCache.getOrElseUpdate(opt, opt.execute(this))
+        optimizedPipeline.apply(in, None)
+      }
       case None => rddDataEval(sink, in).asInstanceOf[RDD[B]]
     }
   }

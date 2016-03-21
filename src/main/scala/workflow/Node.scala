@@ -22,7 +22,7 @@ case class TransformerOutput(transformerNode: TransformerNode) extends Instructi
  * @param transformer The index of the [[TransformerNode]] in the instructions
  * @param inputs The indices of the data inputs in the instructions
  */
-case class TransformerApplyNode(transformer: Int, inputs: Seq[Int]) extends Instruction {
+private[workflow] case class TransformerApplyNode(transformer: Int, inputs: Seq[Int]) extends Instruction {
   override def getDependencies: Seq[Int] = Seq(transformer) ++ inputs
   override def mapDependencies(func: (Int) => Int): TransformerApplyNode = {
     TransformerApplyNode(func(transformer), inputs.map(func))
@@ -47,7 +47,7 @@ case class TransformerApplyNode(transformer: Int, inputs: Seq[Int]) extends Inst
  * @param est The index of the [[EstimatorNode]] in the instructions
  * @param inputs The indices of the data inputs in the instructions
  */
-case class EstimatorFitNode(est: Int, inputs: Seq[Int]) extends Instruction {
+private[workflow] case class EstimatorFitNode(est: Int, inputs: Seq[Int]) extends Instruction {
   override def getDependencies: Seq[Int] = Seq(est) ++ inputs
   override def mapDependencies(func: (Int) => Int): EstimatorFitNode = {
     EstimatorFitNode(func(est), inputs.map(func))

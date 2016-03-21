@@ -1,5 +1,6 @@
 package pipelines.images.mnist
 
+import breeze.linalg.DenseVector
 import breeze.stats.distributions.{RandBasis, ThreadLocalRandomGenerator}
 import evaluation.MulticlassClassifierEvaluator
 import loaders.{CsvDataLoader, LabeledData}
@@ -10,13 +11,14 @@ import org.apache.commons.math3.random.MersenneTwister
 import org.apache.spark.{SparkConf, SparkContext}
 import pipelines._
 import scopt.OptionParser
+import utils.Image
 import workflow.Pipeline
 
 
 object MnistRandomFFT extends Serializable with Logging {
   val appName = "MnistRandomFFT"
 
-  def run(sc: SparkContext, conf: MnistRandomFFTConfig) {
+  def run(sc: SparkContext, conf: MnistRandomFFTConfig): Pipeline[DenseVector[Double], Int] = {
     // This is a property of the MNIST Dataset (digits 0 - 9)
     val numClasses = 10
 
@@ -64,6 +66,8 @@ object MnistRandomFFT extends Serializable with Logging {
 
     val endTime = System.nanoTime()
     logInfo(s"Pipeline took ${(endTime - startTime)/1e9} s")
+
+    pipeline
   }
 
   case class MnistRandomFFTConfig(
@@ -96,6 +100,7 @@ object MnistRandomFFT extends Serializable with Logging {
 
   /**
    * The actual driver receives its configuration parameters from spark-submit usually.
+   *
    * @param args
    */
   def main(args: Array[String]) = {

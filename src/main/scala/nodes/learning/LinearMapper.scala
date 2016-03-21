@@ -67,7 +67,7 @@ case class LinearMapper[T <: Vector[Double]](
  * @param lambda L2 Regularization parameter
  */
 class LinearMapEstimator(lambda: Option[Double] = None)
-    extends LabelEstimator[DenseVector[Double], DenseVector[Double], DenseVector[Double]] with SolverCostModel {
+    extends LabelEstimator[DenseVector[Double], DenseVector[Double], DenseVector[Double]] with CostModel {
 
   /**
    * Learns a linear model (OLS) based on training features and training labels.

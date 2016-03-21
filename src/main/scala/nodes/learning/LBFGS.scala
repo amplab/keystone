@@ -139,7 +139,7 @@ class DenseLBFGSwithL2[T <: Vector[Double]](
     val convergenceTol: Double = 1e-4,
     val numIterations: Int = 100,
     val regParam: Double = 0.0)
-  extends LabelEstimator[T, DenseVector[Double], DenseVector[Double]] with WeightedNode with SolverCostModel {
+  extends LabelEstimator[T, DenseVector[Double], DenseVector[Double]] with WeightedNode with CostModel {
 
   override val weight: Int = numIterations + 1
 
@@ -215,7 +215,7 @@ class SparseLBFGSwithL2(
     val sparseOverhead: Double = 8)
   extends LabelEstimator[SparseVector[Double], DenseVector[Double], DenseVector[Double]]
     with WeightedNode
-    with SolverCostModel {
+    with CostModel {
 
   override val weight: Int = numIterations + 1
 

@@ -49,7 +49,7 @@ case class BatchPCATransformer(pcaMat: DenseMatrix[Float]) extends Transformer[D
  * @param dims Dimensions to reduce input dataset to.
  */
 case class LocalColumnPCAEstimator(dims: Int) extends Estimator[DenseMatrix[Float], DenseMatrix[Float]]
-  with SolverCostModel {
+  with CostModel {
 
   val pcaEstimator = new PCAEstimator(dims)
 
@@ -79,7 +79,7 @@ case class LocalColumnPCAEstimator(dims: Int) extends Estimator[DenseMatrix[Floa
  * @param dims Dimensions to reduce input dataset to.
  */
 case class DistributedColumnPCAEstimator(dims: Int) extends Estimator[DenseMatrix[Float], DenseMatrix[Float]]
-  with SolverCostModel {
+  with CostModel {
 
   val pcaEstimator = new DistributedPCAEstimator(dims)
 
@@ -161,7 +161,7 @@ class ColumnPCAEstimator(
  * @param dims Dimensions to reduce input dataset to.
  */
 class PCAEstimator(dims: Int) extends Estimator[DenseVector[Float], DenseVector[Float]]
-  with SolverCostModel with Logging {
+  with CostModel with Logging {
 
   /**
    * Adapted from the "PCA2" matlab code given in appendix B of this paper:

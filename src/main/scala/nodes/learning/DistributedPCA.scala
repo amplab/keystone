@@ -18,7 +18,7 @@ import edu.berkeley.cs.amplab.mlmatrix.{RowPartition, NormalEquations, RowPartit
  * @param dims Dimensions to reduce input dataset to.
  */
 class DistributedPCAEstimator(dims: Int) extends Estimator[DenseVector[Float], DenseVector[Float]]
-  with SolverCostModel with Logging {
+  with CostModel with Logging {
 
   /**
    * Adapted from the "PCA2" matlab code given in appendix B of this paper:

@@ -3,7 +3,7 @@ package nodes.learning
 /**
  * A trait that represents a known system performance cost model for a solver.
  */
-trait SolverCostModel {
+trait CostModel {
   def cost(
     n: Long,
     d: Int,

@@ -199,7 +199,7 @@ object BlockLeastSquaresEstimator {
 class BlockLeastSquaresEstimator(blockSize: Int, numIter: Int, lambda: Double = 0.0, numFeaturesOpt: Option[Int] = None)
   extends LabelEstimator[DenseVector[Double], DenseVector[Double], DenseVector[Double]]
     with WeightedNode
-    with SolverCostModel {
+    with CostModel {
 
   override val weight = (3*numIter)+1
 

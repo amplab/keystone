@@ -33,7 +33,7 @@ class LeastSquaresEstimator[T <: Vector[Double]: ClassTag](
     with WeightedNode
     with Logging {
 
-  val options: Seq[(SolverCostModel, (RDD[T], RDD[DenseVector[Double]]) => Pipeline[T, DenseVector[Double]])] = Seq(
+  val options: Seq[(CostModel, (RDD[T], RDD[DenseVector[Double]]) => Pipeline[T, DenseVector[Double]])] = Seq(
     {
       val solver = new DenseLBFGSwithL2[T](new LeastSquaresDenseGradient, regParam = lambda, numIterations = 20)
       (solver, solver.withData(_, _))

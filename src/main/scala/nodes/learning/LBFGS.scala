@@ -199,8 +199,11 @@ class DenseLBFGSwithL2[T <: Vector[Double]](
  * @param fitIntercept Whether to fit the intercepts or not.
  * @param numCorrections 3 < numCorrections < 10 is recommended.
  * @param convergenceTol convergence tolerance for L-BFGS
- * @param regParam L2 regularization
  * @param numIterations max number of iterations to run
+ * @param regParam L2 regularization
+ * @param sparseOverhead The cost model overhead for how much more expensive
+ *                       a sparse operation on dense data is compared to the
+ *                       respective dense operation
  */
 class SparseLBFGSwithL2(
     val gradient: Gradient.SparseGradient,

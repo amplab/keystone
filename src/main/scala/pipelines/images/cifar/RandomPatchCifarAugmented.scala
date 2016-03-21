@@ -67,25 +67,21 @@ object RandomPatchCifarAugmented extends Serializable with Logging {
       RandomPatcher(conf.numRandomImagesAugment, augmentImgSize, augmentImgSize).apply(
         trainImages))
 
-    val unscaledFeaturizer =
+    val labelExtractor = LabelExtractor andThen ClassLabelIndicatorsFromIntLabels(numClasses)
+    val trainLabels = labelExtractor(trainData)
+    val trainLabelsAugmented = new LabelAugmenter(conf.numRandomImagesAugment).apply(trainLabels)
+
+    val augmentedPipeline =
       new Convolver(filters, augmentImgSize, augmentImgSize, numChannels, Some(whitener), true) andThen
         SymmetricRectifier(alpha=conf.alpha) andThen
         new Pooler(conf.poolStride, conf.poolSize, identity, sum(_)) andThen
         ImageVectorizer andThen
-        new Cacher[DenseVector[Double]](Some("features"))
+        new Cacher[DenseVector[Double]](Some("features")) andThen
+        (new StandardScaler, trainImagesAugmented) andThen
+        (new BlockLeastSquaresEstimator(4096, 1, conf.lambda.getOrElse(0.0)), trainImagesAugmented,
+          trainLabelsAugmented)
 
-    val featurizer = unscaledFeaturizer andThen (new StandardScaler, trainImagesAugmented)
-
-    val labelExtractor = LabelExtractor andThen ClassLabelIndicatorsFromIntLabels(numClasses)
-
-    val trainFeatures = featurizer(trainImagesAugmented)
-    val trainLabels = labelExtractor(trainData)
-    val trainLabelsAugmented = new LabelAugmenter(conf.numRandomImagesAugment).apply(trainLabels)
-
-    val model = new BlockLeastSquaresEstimator(4096, 1, conf.lambda.getOrElse(0.0)).fit(
-      trainFeatures, trainLabelsAugmented)
-
-    val predictionPipeline = featurizer andThen model andThen new Cacher[DenseVector[Double]]
+    val predictionPipeline = augmentedPipeline andThen new Cacher[DenseVector[Double]]
 
     // Do testing.
     val testData = CifarLoader(sc, conf.testLocation)
@@ -101,7 +97,7 @@ object RandomPatchCifarAugmented extends Serializable with Logging {
       testImages.zipWithUniqueId.map(x => x._2))
 
     val testLabelsAugmented = new LabelAugmenter(numTestAugment).apply(LabelExtractor(testData))
-    val testPredictions = predictionPipeline(testImagesAugmented)
+    val testPredictions = augmentedPipeline(testImagesAugmented)
 
     val testEval = AugmentedExamplesEvaluator(
       testImageIdsAugmented, testPredictions, testLabelsAugmented, numClasses)

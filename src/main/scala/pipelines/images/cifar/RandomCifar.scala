@@ -32,6 +32,12 @@ object RandomCifar extends Serializable with Logging {
 
     val trainImages = ImageExtractor(trainData)
 
+    val labelExtractor = LabelExtractor andThen
+      ClassLabelIndicatorsFromIntLabels(numClasses) andThen
+      new Cacher[DenseVector[Double]]
+
+    val trainLabels = labelExtractor(trainData)
+
     // Set up a filter Array.
     val filters = DenseMatrix.rand(conf.numFilters, conf.patchSize*conf.patchSize*numChannels, Rand.gaussian)
 
@@ -41,18 +47,10 @@ object RandomCifar extends Serializable with Logging {
         ImageVectorizer andThen
         new Cacher[DenseVector[Double]] andThen
         (new StandardScaler, trainImages) andThen
-        new Cacher[DenseVector[Double]]
+        new Cacher[DenseVector[Double]] andThen
+        (LinearMapEstimator(conf.lambda), trainImages, trainLabels)
 
-    val labelExtractor = LabelExtractor andThen
-      ClassLabelIndicatorsFromIntLabels(numClasses) andThen
-      new Cacher[DenseVector[Double]]
-
-    val trainFeatures = featurizer(trainImages)
-    val trainLabels = labelExtractor(trainData)
-
-    val model = LinearMapEstimator(conf.lambda).fit(trainFeatures, trainLabels)
-
-    val predictionPipeline = featurizer andThen model andThen MaxClassifier
+    val predictionPipeline = featurizer andThen MaxClassifier
 
     // Calculate training error.
     val trainEval = MulticlassClassifierEvaluator(

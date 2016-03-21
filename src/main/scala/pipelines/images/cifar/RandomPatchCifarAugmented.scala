@@ -44,9 +44,9 @@ object RandomPatchCifarAugmented extends Serializable with Logging {
     }
     val trainImages = ImageExtractor(trainData)
 
-    val patchExtractor = new Windower(conf.patchSteps, conf.patchSize)
-      .andThen(ImageVectorizer.apply)
-      .andThen(new Sampler(whitenerSize))
+    val patchExtractor = new Windower(conf.patchSteps, conf.patchSize) andThen
+      ImageVectorizer.apply andThen
+      new Sampler(whitenerSize)
 
     val (filters, whitener): (DenseMatrix[Double], ZCAWhitener) = {
         val baseFilters = patchExtractor(trainImages)

@@ -4,9 +4,10 @@ import breeze.linalg._
 import breeze.optimize.{CachedDiffFunction, DiffFunction, LBFGS => BreezeLBFGS}
 import edu.berkeley.cs.amplab.mlmatrix.util.{Utils => MLMatrixUtils}
 import nodes.stats.StandardScaler
+import nodes.util.Densify
 import org.apache.spark.rdd.RDD
 import pipelines.Logging
-import workflow.LabelEstimator
+import workflow.{WeightedNode, LabelEstimator}
 
 import scala.collection.mutable
 
@@ -123,6 +124,7 @@ object LBFGSwithL2 extends Logging {
 /**
  * Class used to solve an optimization problem using Limited-memory BFGS.
  * Reference: [[http://en.wikipedia.org/wiki/Limited-memory_BFGS]]
+ *
  * @param gradient Gradient function to be used.
  * @param fitIntercept Whether to fit the intercepts or not.
  * @param numCorrections 3 < numCorrections < 10 is recommended.
@@ -130,22 +132,26 @@ object LBFGSwithL2 extends Logging {
  * @param regParam L2 regularization
  * @param numIterations max number of iterations to run
  */
-class DenseLBFGSwithL2(
+class DenseLBFGSwithL2[T <: Vector[Double]](
     val gradient: Gradient.DenseGradient,
     val fitIntercept: Boolean = true,
     val numCorrections: Int = 10,
     val convergenceTol: Double = 1e-4,
     val numIterations: Int = 100,
     val regParam: Double = 0.0)
-  extends LabelEstimator[DenseVector[Double], DenseVector[Double], DenseVector[Double]] {
+  extends LabelEstimator[T, DenseVector[Double], DenseVector[Double]] with WeightedNode with SolverCostModel {
 
-  def fit(data: RDD[DenseVector[Double]], labels: RDD[DenseVector[Double]]): LinearMapper = {
+  override val weight: Int = numIterations + 1
+
+  def fit(data: RDD[T], labels: RDD[DenseVector[Double]]): LinearMapper[T] = {
+    val denseData = Densify().apply(data)
+
     if (fitIntercept) {
-      val featureScaler = new StandardScaler(normalizeStdDev = false).fit(data)
+      val featureScaler = new StandardScaler(normalizeStdDev = false).fit(denseData)
       val labelScaler = new StandardScaler(normalizeStdDev = false).fit(labels)
 
       val model = LBFGSwithL2.runLBFGS(
-        featureScaler.apply(data),
+        featureScaler.apply(denseData),
         labelScaler.apply(labels),
         gradient,
         numCorrections,
@@ -155,7 +161,7 @@ class DenseLBFGSwithL2(
       new LinearMapper(model, Some(labelScaler.mean), Some(featureScaler))
     } else {
       val model = LBFGSwithL2.runLBFGS(
-        data,
+        denseData,
         labels,
         gradient,
         numCorrections,
@@ -165,17 +171,39 @@ class DenseLBFGSwithL2(
       new LinearMapper(model, None, None)
     }
   }
+
+  override def cost(
+    n: Long,
+    d: Int,
+    k: Int,
+    sparsity: Double,
+    numMachines: Int,
+    cpuWeight: Double,
+    memWeight: Double,
+    networkWeight: Double)
+  : Double = {
+    val flops =  n.toDouble * d * k / numMachines // Time to compute a dense gradient.
+    val bytesScanned = n.toDouble * d / numMachines
+    val network = 2.0 * d * k * math.log(numMachines) // Need to communicate the dense model. Treereduce
+
+    numIterations *
+      (math.max(cpuWeight * flops, memWeight * bytesScanned) + networkWeight * network)
+  }
 }
 
 /**
  * Class used to solve an optimization problem using Limited-memory BFGS.
  * Reference: [[http://en.wikipedia.org/wiki/Limited-memory_BFGS]]
+ *
  * @param gradient Gradient function to be used.
  * @param fitIntercept Whether to fit the intercepts or not.
  * @param numCorrections 3 < numCorrections < 10 is recommended.
  * @param convergenceTol convergence tolerance for L-BFGS
- * @param regParam L2 regularization
  * @param numIterations max number of iterations to run
+ * @param regParam L2 regularization
+ * @param sparseOverhead The cost model overhead for how much more expensive
+ *                       a sparse operation on dense data is compared to the
+ *                       respective dense operation
  */
 class SparseLBFGSwithL2(
     val gradient: Gradient.SparseGradient,
@@ -183,8 +211,13 @@ class SparseLBFGSwithL2(
     val numCorrections: Int = 10,
     val convergenceTol: Double = 1e-4,
     val numIterations: Int = 100,
-    val regParam: Double = 0.0)
-  extends LabelEstimator[SparseVector[Double], DenseVector[Double], DenseVector[Double]] {
+    val regParam: Double = 0.0,
+    val sparseOverhead: Double = 8)
+  extends LabelEstimator[SparseVector[Double], DenseVector[Double], DenseVector[Double]]
+    with WeightedNode
+    with SolverCostModel {
+
+  override val weight: Int = numIterations + 1
 
   def fit(data: RDD[SparseVector[Double]], labels: RDD[DenseVector[Double]]): SparseLinearMapper = {
     if (fitIntercept) {
@@ -226,5 +259,23 @@ class SparseLBFGSwithL2(
 
       new SparseLinearMapper(model, None)
     }
+  }
+
+  override def cost(
+    n: Long,
+    d: Int,
+    k: Int,
+    sparsity: Double,
+    numMachines: Int,
+    cpuWeight: Double,
+    memWeight: Double,
+    networkWeight: Double)
+  : Double = {
+    val flops =  n.toDouble * sparsity * d * k / numMachines // Time to compute a sparse gradient.
+    val bytesScanned = n.toDouble * d * sparsity / numMachines
+    val network = 2.0 * d * k * math.log(numMachines) // Need to communicate the dense model. Treereduce
+
+    numIterations *
+      (sparseOverhead * math.max(cpuWeight * flops, memWeight * bytesScanned) + networkWeight * network)
   }
 }

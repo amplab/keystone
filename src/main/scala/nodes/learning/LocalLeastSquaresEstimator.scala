@@ -18,7 +18,7 @@ class LocalLeastSquaresEstimator(lambda: Double)
 
   override def fit(
     trainingFeatures: RDD[DenseVector[Double]],
-    trainingLabels: RDD[DenseVector[Double]]): LinearMapper = {
+    trainingLabels: RDD[DenseVector[Double]]): LinearMapper[DenseVector[Double]] = {
     LocalLeastSquaresEstimator.trainWithL2(trainingFeatures, trainingLabels, lambda)
   }
 }
@@ -35,7 +35,7 @@ object LocalLeastSquaresEstimator {
   def trainWithL2(
    trainingFeatures: RDD[DenseVector[Double]],
    trainingLabels: RDD[DenseVector[Double]],
-   lambda: Double) = {
+   lambda: Double): LinearMapper[DenseVector[Double]] = {
 
     val A_parts = trainingFeatures.mapPartitions { x =>
       MatrixUtils.rowsToMatrixIter(x)

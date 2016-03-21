@@ -62,7 +62,7 @@ case class FisherVector(gmm: GaussianMixtureModel)
  *
  * @param k Number of centers to estimate.
  */
-case class GMMFisherVectorEstimator(k: Int) extends Estimator[DenseMatrix[Float], DenseMatrix[Float]] {
+case class ScalaGMMFisherVectorEstimator(k: Int) extends Estimator[DenseMatrix[Float], DenseMatrix[Float]] {
   protected def fit(data: RDD[DenseMatrix[Float]]): FisherVector = {
     val gmmTrainingData = data.flatMap(x => convert(MatrixUtils.matrixToColArray(x), Double))
     val gmmEst = new GaussianMixtureModelEstimator(k)
@@ -81,15 +81,15 @@ case class GMMFisherVectorEstimator(k: Int) extends Estimator[DenseMatrix[Float]
  * @param k Number of centers to estimate.
  */
 
-case class OptimizableGMMFisherVectorEstimator(k: Int) extends OptimizableEstimator[DenseMatrix[Float], DenseMatrix[Float]] {
-  val default = GMMFisherVectorEstimator(k)
+case class GMMFisherVectorEstimator(k: Int) extends OptimizableEstimator[DenseMatrix[Float], DenseMatrix[Float]] {
+  val default = ScalaGMMFisherVectorEstimator(k)
 
   override def optimize(sample: RDD[DenseMatrix[Float]], numPerPartition: Map[Int, Int])
   : RDD[DenseMatrix[Float]] => Pipeline[DenseMatrix[Float], DenseMatrix[Float]] = {
     if (k >= 32) {
-      nodes.images.external.GMMFisherVectorEstimator(k).withData(_)
+      nodes.images.external.EncEvalGMMFisherVectorEstimator(k).withData(_)
     } else {
-      GMMFisherVectorEstimator(k).withData(_)
+      ScalaGMMFisherVectorEstimator(k).withData(_)
     }
   }
 }

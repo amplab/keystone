@@ -48,10 +48,26 @@ case class BatchPCATransformer(pcaMat: DenseMatrix[Float]) extends Transformer[D
  *
  * @param dims Dimensions to reduce input dataset to.
  */
-case class ColumnPCAEstimator(dims: Int) extends Estimator[DenseMatrix[Float], DenseMatrix[Float]] {
+case class LocalColumnPCAEstimator(dims: Int) extends Estimator[DenseMatrix[Float], DenseMatrix[Float]]
+  with SolverCostModel {
+
+  val pcaEstimator = new PCAEstimator(dims)
+
   protected def fit(data: RDD[DenseMatrix[Float]]): Transformer[DenseMatrix[Float], DenseMatrix[Float]] = {
-    val singleTransformer = new PCAEstimator(dims).fit(data.flatMap(x => MatrixUtils.matrixToColArray(x)))
+    val singleTransformer = pcaEstimator.fit(data.flatMap(x => MatrixUtils.matrixToColArray(x)))
     BatchPCATransformer(singleTransformer.pcaMat)
+  }
+
+  override def cost(
+    n: Long,
+    d: Int,
+    k: Int,
+    sparsity: Double,
+    numMachines: Int,
+    cpuWeight: Double,
+    memWeight: Double,
+    networkWeight: Double): Double = {
+    pcaEstimator.cost(n, d, k, sparsity, numMachines, cpuWeight, memWeight, networkWeight)
   }
 }
 
@@ -62,10 +78,26 @@ case class ColumnPCAEstimator(dims: Int) extends Estimator[DenseMatrix[Float], D
  *
  * @param dims Dimensions to reduce input dataset to.
  */
-case class DistributedColumnPCAEstimator(dims: Int) extends Estimator[DenseMatrix[Float], DenseMatrix[Float]] {
+case class DistributedColumnPCAEstimator(dims: Int) extends Estimator[DenseMatrix[Float], DenseMatrix[Float]]
+  with SolverCostModel {
+
+  val pcaEstimator = new DistributedPCAEstimator(dims)
+
   protected def fit(data: RDD[DenseMatrix[Float]]): Transformer[DenseMatrix[Float], DenseMatrix[Float]] = {
-    val singleTransformer = new DistributedPCAEstimator(dims).fit(data.flatMap(x => MatrixUtils.matrixToColArray(x)))
+    val singleTransformer = pcaEstimator.fit(data.flatMap(x => MatrixUtils.matrixToColArray(x)))
     BatchPCATransformer(singleTransformer.pcaMat)
+  }
+
+  override def cost(
+    n: Long,
+    d: Int,
+    k: Int,
+    sparsity: Double,
+    numMachines: Int,
+    cpuWeight: Double,
+    memWeight: Double,
+    networkWeight: Double): Double = {
+    pcaEstimator.cost(n, d, k, sparsity, numMachines, cpuWeight, memWeight, networkWeight)
   }
 }
 
@@ -75,20 +107,50 @@ case class DistributedColumnPCAEstimator(dims: Int) extends Estimator[DenseMatri
  * [[DistributedPCAEstimator]].
  *
  * Automatically decides between distributed and local implementations when node-level optimization is enabled.
+ * The default weights were determined empirically via results run on a 16 r3.4xlarge node cluster.
  *
  * @param dims Dimensions to reduce input dataset to.
+ * @param numMachines
+ * @param cpuWeight
+ * @param memWeight
+ * @param networkWeight
  */
-class OptimizableColumnPCAEstimator(dims: Int) extends OptimizableEstimator[DenseMatrix[Float], DenseMatrix[Float]] {
-  val default = new DistributedColumnPCAEstimator(dims)
+class ColumnPCAEstimator(
+    dims: Int,
+    numMachines: Option[Int] = None,
+    cpuWeight: Double = 3.8e-4,
+    memWeight: Double = 2.9e-1,
+    networkWeight: Double = 1.32)
+  extends OptimizableEstimator[DenseMatrix[Float], DenseMatrix[Float]] {
+  val localEstimator = new LocalColumnPCAEstimator(dims)
+  val distributedEstimator = new DistributedColumnPCAEstimator(dims)
+  val default = distributedEstimator
 
   override def optimize(sample: RDD[DenseMatrix[Float]], numPerPartition: Map[Int, Int])
   : RDD[DenseMatrix[Float]] => Pipeline[DenseMatrix[Float], DenseMatrix[Float]] = {
-    val numFeatures = sample.first().rows
+    val numColsPerMatrix: Double = sample.map(_.cols.toDouble).sum() / sample.count()
+    val n = (numColsPerMatrix * numPerPartition.values.sum).toInt
+    val d = sample.first().rows
 
-    if (numFeatures <= 100000) {
-      new ColumnPCAEstimator(dims).withData(_)
+    val realNumMachines = numMachines.getOrElse {
+      if (sample.sparkContext.getExecutorStorageStatus.length == 1) {
+        1
+      } else {
+        sample.sparkContext.getExecutorStorageStatus.length - 1
+      }
+    }
+
+    val localCost = localEstimator.cost(
+      n, d, dims, 1.0, realNumMachines, cpuWeight, memWeight, networkWeight
+    )
+    val distributedCost = distributedEstimator.cost(
+      n, d, dims, 1.0, realNumMachines, cpuWeight, memWeight, networkWeight
+    )
+
+    if (localCost < distributedCost) {
+      localEstimator.withData(_)
     } else {
-      default.withData(_)
+      distributedEstimator.withData(_)
     }
   }
 }
@@ -98,7 +160,8 @@ class OptimizableColumnPCAEstimator(dims: Int) extends OptimizableEstimator[Dens
  *
  * @param dims Dimensions to reduce input dataset to.
  */
-class PCAEstimator(dims: Int) extends Estimator[DenseVector[Float], DenseVector[Float]] with Logging {
+class PCAEstimator(dims: Int) extends Estimator[DenseVector[Float], DenseVector[Float]]
+  with SolverCostModel with Logging {
 
   /**
    * Adapted from the "PCA2" matlab code given in appendix B of this paper:
@@ -143,6 +206,21 @@ class PCAEstimator(dims: Int) extends Estimator[DenseVector[Float], DenseVector[
 
     // Return a subset of the columns.
     pca(::, 0 until dims)
+  }
+
+  override def cost(
+    n: Long,
+    d: Int,
+    k: Int,
+    sparsity: Double,
+    numMachines: Int,
+    cpuWeight: Double,
+    memWeight: Double,
+    networkWeight: Double): Double = {
+    val flops = n.toDouble * d * d
+    val bytesScanned = n.toDouble * d
+    val network = n.toDouble * d
+    math.max(cpuWeight * flops, memWeight * bytesScanned) + networkWeight * network
   }
 }
 

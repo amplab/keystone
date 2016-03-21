@@ -184,7 +184,7 @@ class DenseLBFGSwithL2[T <: Vector[Double]](
   : Double = {
     val flops =  n.toDouble * d * k / numMachines // Time to compute a dense gradient.
     val bytesScanned = n.toDouble * d / numMachines
-    val network = 2.0 * d * k * math.log(numMachines) // Need to communicate the dense model. Treereduce
+    val network = 2.0 * d * k * math.log(numMachines) / math.log(2.0) // Need to communicate the dense model. Treereduce
 
     numIterations *
       (math.max(cpuWeight * flops, memWeight * bytesScanned) + networkWeight * network)
@@ -273,7 +273,7 @@ class SparseLBFGSwithL2(
   : Double = {
     val flops =  n.toDouble * sparsity * d * k / numMachines // Time to compute a sparse gradient.
     val bytesScanned = n.toDouble * d * sparsity / numMachines
-    val network = 2.0 * d * k * math.log(numMachines) // Need to communicate the dense model. Treereduce
+    val network = 2.0 * d * k * math.log(numMachines) / math.log(2.0) // Need to communicate the dense model. Treereduce
 
     numIterations *
       (sparseOverhead * math.max(cpuWeight * flops, memWeight * bytesScanned) + networkWeight * network)

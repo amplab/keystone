@@ -277,7 +277,7 @@ class BlockLeastSquaresEstimator(blockSize: Int, numIter: Int, lambda: Double = 
   : Double = {
     val flops = n.toDouble * d * (blockSize + k) / numMachines
     val bytesScanned = n.toDouble * d / numMachines + (d.toDouble * k)
-    val network = 2.0 * (d.toDouble * (blockSize + k)) * math.log(numMachines)
+    val network = 2.0 * (d.toDouble * (blockSize + k)) * math.log(numMachines) / math.log(2.0)
     numIter * (math.max(cpuWeight * flops, memWeight * bytesScanned) + networkWeight * network)
   }
 }

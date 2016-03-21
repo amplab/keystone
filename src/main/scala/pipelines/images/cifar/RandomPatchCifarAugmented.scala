@@ -74,7 +74,6 @@ object RandomPatchCifarAugmented extends Serializable with Logging {
         .andThen(new Cacher[DenseVector[Double]](Some("features")))
 
     val featurizer = unscaledFeaturizer.andThen(new StandardScaler, trainImagesAugmented)
-        .andThen(new Cacher[DenseVector[Double]])
 
     val labelExtractor = LabelExtractor
       .andThen(ClassLabelIndicatorsFromIntLabels(numClasses))
@@ -84,7 +83,7 @@ object RandomPatchCifarAugmented extends Serializable with Logging {
     val trainLabelsAugmented = new LabelAugmenter(conf.numRandomPatchesAugment).apply(trainLabels)
 
     val model = new BlockLeastSquaresEstimator(4096, 1, conf.lambda.getOrElse(0.0)).fit(
-      trainFeatures, trainLabels)
+      trainFeatures, trainLabelsAugmented)
 
     val predictionPipeline = featurizer andThen model andThen new Cacher[DenseVector[Double]]
 

@@ -38,11 +38,22 @@ resolvers ++= Seq(
 
 ## Full Release
 
-1. Update the build.sbt and the Makefile to the new version
+1. Update the build.sbt and the Makefile to reference the new version
 
 2. Cut a release branch for major version releases
+```
+git checkout -b branch-v[major_version_here]
+git add build.sbt
+git add Makefile
+git commit -m "Cut release branch for [major_version_here]"
+```
 
-3. Tag the specific commit of the release branch to be released with its version
+3. Tag the specific commit of the release branch to be released with its version, and push to the upstream AMPLab
+KeystoneML repo.
+```
+git tag v[full_version_here]
+git push [upstream_keystoneml_reference] branch-v[major_version_here] --tags
+```
 
 4. We publish KeystoneML releases and snapshots to sonatype repository https://oss.sonatype.org/. To
 create a release you will first need to create a SonaType account.
@@ -68,7 +79,8 @@ credentials += Credentials("Sonatype Nexus Repository Manager",
                            "<userame>",
                            "<password>")
 
-8. Run `sbt/sbt publishSigned` to upload to sonatype a staging repository.
+8. Run `sbt/sbt publishSigned` to deploy your artifact to a staging repository on Sonatype.
 
-9. Follow [these instructions](http://central.sonatype.org/pages/releasing-the-deployment.html) to
+9. Run `sbt/sbt sonatypeRelease` to close and release the repository.
+If that doesn't work, follow [these instructions](http://central.sonatype.org/pages/releasing-the-deployment.html) to
 close and release the staging repository. It will soon after be synced to the Central Repository.

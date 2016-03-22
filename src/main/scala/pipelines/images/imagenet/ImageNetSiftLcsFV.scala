@@ -14,7 +14,7 @@ import evaluation.MulticlassClassifierEvaluator
 import loaders.ImageNetLoader
 import pipelines.Logging
 
-import nodes.images.external.{GMMFisherVectorEstimator, FisherVector, SIFTExtractor}
+import nodes.images.external.{FisherVector, SIFTExtractor}
 import nodes.images._
 import nodes.learning._
 import nodes.stats._
@@ -212,6 +212,7 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
 
   /**
    * The actual driver receives its configuration parameters from spark-submit usually.
+ *
    * @param args
    */
   def main(args: Array[String]) = {

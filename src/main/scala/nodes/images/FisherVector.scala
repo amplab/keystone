@@ -3,8 +3,10 @@ package nodes.images
 import breeze.linalg._
 import breeze.numerics._
 import breeze.stats.mean
-import nodes.learning.GaussianMixtureModel
-import workflow.Transformer
+import nodes.learning.{GaussianMixtureModelEstimator, GaussianMixtureModel}
+import org.apache.spark.rdd.RDD
+import utils.MatrixUtils
+import workflow.{Pipeline, OptimizableEstimator, Estimator, Transformer}
 
 /**
  * Abstract interface for Fisher Vector.
@@ -47,5 +49,47 @@ case class FisherVector(gmm: GaussianMixtureModel)
 
     // concatenate the two fv terms
     convert(DenseMatrix.horzcat(fv1, fv2), Float)
+  }
+}
+
+/**
+ * Trains a scala Fisher Vector implementation, via
+ * estimating a GMM by treating each column of the inputs as a separate
+ * DenseVector input to [[GaussianMixtureModelEstimator]]
+ *
+ * TODO: Pending philosophical discussions on how to best make it so you can
+ * swap in GMM, KMeans++, etc. for Fisher Vectors. For now just hard-codes GMM here
+ *
+ * @param k Number of centers to estimate.
+ */
+case class ScalaGMMFisherVectorEstimator(k: Int) extends Estimator[DenseMatrix[Float], DenseMatrix[Float]] {
+  protected def fit(data: RDD[DenseMatrix[Float]]): FisherVector = {
+    val gmmTrainingData = data.flatMap(x => convert(MatrixUtils.matrixToColArray(x), Double))
+    val gmmEst = new GaussianMixtureModelEstimator(k)
+    val gmm = gmmEst.fit(gmmTrainingData)
+    FisherVector(gmm)
+  }
+}
+
+/**
+ * Trains either a scala or an `enceval` Fisher Vector implementation, via
+ * estimating a GMM by treating each column of the inputs as a separate
+ * DenseVector input to [[GaussianMixtureModelEstimator]]
+ *
+ * Automatically decides which implementation to use when node-level optimization is enabled.
+ *
+ * @param k Number of centers to estimate.
+ */
+
+case class GMMFisherVectorEstimator(k: Int) extends OptimizableEstimator[DenseMatrix[Float], DenseMatrix[Float]] {
+  val default = ScalaGMMFisherVectorEstimator(k)
+
+  override def optimize(sample: RDD[DenseMatrix[Float]], numPerPartition: Map[Int, Int])
+  : RDD[DenseMatrix[Float]] => Pipeline[DenseMatrix[Float], DenseMatrix[Float]] = {
+    if (k >= 32) {
+      nodes.images.external.EncEvalGMMFisherVectorEstimator(k).withData(_)
+    } else {
+      ScalaGMMFisherVectorEstimator(k).withData(_)
+    }
   }
 }

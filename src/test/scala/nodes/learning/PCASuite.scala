@@ -8,6 +8,7 @@ import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
 import pipelines._
 import utils.{TestUtils, Stats, MatrixUtils}
+import workflow.WorkflowUtils
 
 class PCASuite extends FunSuite with LocalSparkContext with Logging {
 
@@ -111,7 +112,8 @@ class PCASuite extends FunSuite with LocalSparkContext with Logging {
     * B is Gaussian(0,1) \in R^{k \times d}
     * E is Gaussian(0,eps) in R^{n \times d}
     *
-    * @param n Number of rows.
+   *
+   * @param n Number of rows.
     * @param d Number of columns.
     * @param k Rank of factors.
     * @param eps Variance of the Gaussian noise.
@@ -222,5 +224,58 @@ class PCASuite extends FunSuite with LocalSparkContext with Logging {
     logDebug(s"maximum off-diagonal covariance ${max(offDiagCadm)}")
 
     assert(Stats.aboutEq(offDiagCadm, DenseMatrix.zeros[Double](cadm.rows, cadm.rows), 0.1))
+  }
+
+
+  test("small n small d dense column pca") {
+    sc = new SparkContext("local", "test")
+
+    val n = 1000
+    val numColsPerMatrix = 10
+    val d = 1000
+    val k = 100
+    val numMachines = 16
+    val numParts = numMachines
+
+    val data = sc.parallelize(
+      Seq.fill(numParts)(convert(DenseMatrix.rand[Double](d, numColsPerMatrix), Float)), numParts
+    )
+    val numPerPartition = WorkflowUtils.numPerPartition(data).mapValues(x => n / (numColsPerMatrix * numParts))
+
+    val solver = new ColumnPCAEstimator(dims = k, numMachines = Some(numMachines))
+    val optimizedSolver = solver.optimize(data, numPerPartition).apply(data)
+
+    val instructions = WorkflowUtils.pipelineToInstructions(optimizedSolver)
+    val isLocalColumnPCAEstimator = instructions.exists {
+      case _: LocalColumnPCAEstimator => true
+      case _ => false
+    }
+    assert(isLocalColumnPCAEstimator, "Expected local pca estimator")
+  }
+
+  test("big n big d dense column pca") {
+    sc = new SparkContext("local", "test")
+
+    val n = 100000
+    val numColsPerMatrix = 10
+    val d = 10000
+    val k = 100
+    val numMachines = 16
+    val numParts = numMachines
+
+    val data = sc.parallelize(
+      Seq.fill(numParts)(convert(DenseMatrix.rand[Double](d, numColsPerMatrix), Float)), numParts
+    )
+    val numPerPartition = WorkflowUtils.numPerPartition(data).mapValues(x => n / (numColsPerMatrix * numParts))
+
+    val solver = new ColumnPCAEstimator(dims = k, numMachines = Some(numMachines))
+    val optimizedSolver = solver.optimize(data, numPerPartition).apply(data)
+
+    val instructions = WorkflowUtils.pipelineToInstructions(optimizedSolver)
+    val isDistributedColumnPCAEstimator = instructions.exists {
+      case _: DistributedColumnPCAEstimator => true
+      case _ => false
+    }
+    assert(isDistributedColumnPCAEstimator, "Expected distributed pca estimator")
   }
 }

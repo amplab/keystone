@@ -17,7 +17,8 @@ import edu.berkeley.cs.amplab.mlmatrix.{RowPartition, NormalEquations, RowPartit
  *
  * @param dims Dimensions to reduce input dataset to.
  */
-class DistributedPCAEstimator(dims: Int) extends Estimator[DenseVector[Float], DenseVector[Float]] with Logging {
+class DistributedPCAEstimator(dims: Int) extends Estimator[DenseVector[Float], DenseVector[Float]]
+  with CostModel with Logging {
 
   /**
    * Adapted from the "PCA2" matlab code given in appendix B of this paper:
@@ -53,5 +54,21 @@ class DistributedPCAEstimator(dims: Int) extends Estimator[DenseVector[Float], D
 
     // Return a subset of the columns.
     matlabConventionPCA(::, 0 until dims)
+  }
+
+  override def cost(
+    n: Long,
+    d: Int,
+    k: Int,
+    sparsity: Double,
+    numMachines: Int,
+    cpuWeight: Double,
+    memWeight: Double,
+    networkWeight: Double): Double = {
+    val log2NumMachines = math.log(numMachines.toDouble) / math.log(2.0)
+    val flops = n.toDouble * d * d / numMachines + d.toDouble * d * d * log2NumMachines
+    val bytesScanned = n.toDouble * d
+    val network = d.toDouble * d * log2NumMachines
+    math.max(cpuWeight * flops, memWeight * bytesScanned) + networkWeight * network
   }
 }

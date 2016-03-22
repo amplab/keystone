@@ -6,8 +6,8 @@ import breeze.linalg._
 import breeze.stats._
 import evaluation.MeanAveragePrecisionEvaluator
 import loaders.{VOCDataPath, VOCLabelPath, VOCLoader}
-import nodes.images.external.{FisherVector, GMMFisherVectorEstimator, SIFTExtractor}
-import nodes.images.{GrayScaler, MultiLabelExtractor, MultiLabeledImageExtractor, PixelScaler}
+import nodes.images.external.{FisherVector, SIFTExtractor}
+import nodes.images._
 import nodes.learning._
 import nodes.stats.{ColumnSampler, NormalizeRows, SignedHellingerMapper}
 import nodes.util.{Cacher, ClassLabelIndicatorsFromIntArrayLabels, FloatToDouble, MatrixVectorizer}

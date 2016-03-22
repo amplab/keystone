@@ -32,27 +32,24 @@ object RandomCifar extends Serializable with Logging {
 
     val trainImages = ImageExtractor(trainData)
 
+    val labelExtractor = LabelExtractor andThen
+      ClassLabelIndicatorsFromIntLabels(numClasses) andThen
+      new Cacher[DenseVector[Double]]
+
+    val trainLabels = labelExtractor(trainData)
+
     // Set up a filter Array.
     val filters = DenseMatrix.rand(conf.numFilters, conf.patchSize*conf.patchSize*numChannels, Rand.gaussian)
 
-    val featurizer = new Convolver(filters, imageSize, imageSize, numChannels, None, true) andThen
+    val predictionPipeline = new Convolver(filters, imageSize, imageSize, numChannels, None, true) andThen
         SymmetricRectifier(alpha=conf.alpha) andThen
         new Pooler(conf.poolStride, conf.poolSize, identity, _.sum) andThen
         ImageVectorizer andThen
         new Cacher[DenseVector[Double]] andThen
         (new StandardScaler, trainImages) andThen
-        new Cacher[DenseVector[Double]]
-
-    val labelExtractor = LabelExtractor andThen
-      ClassLabelIndicatorsFromIntLabels(numClasses) andThen
-      new Cacher[DenseVector[Double]]
-
-    val trainFeatures = featurizer(trainImages)
-    val trainLabels = labelExtractor(trainData)
-
-    val model = LinearMapEstimator(conf.lambda).fit(trainFeatures, trainLabels)
-
-    val predictionPipeline = featurizer andThen model andThen MaxClassifier
+        new Cacher[DenseVector[Double]] andThen
+        (LinearMapEstimator(conf.lambda), trainImages, trainLabels) andThen
+        MaxClassifier
 
     // Calculate training error.
     val trainEval = MulticlassClassifierEvaluator(

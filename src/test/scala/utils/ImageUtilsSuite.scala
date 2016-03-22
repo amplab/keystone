@@ -27,4 +27,30 @@ class ImageUtilsSuite extends FunSuite {
     assert(cropped.get(1, 1, 0) == 10.0)
   }
 
+  test("flipHorizontal") {
+    val imgArr =
+      (0 until 4).flatMap { x =>
+        (0 until 4).flatMap { y =>
+          (0 until 1).map { c =>
+            (c + x * 1 + y * 4 * 1).toDouble
+          }
+        }
+      }.toArray
+
+    val image = new ChannelMajorArrayVectorizedImage(imgArr, ImageMetadata(4, 4, 1))
+
+    val flipped = ImageUtils.flipHorizontal(image)
+
+    assert(flipped.metadata.xDim == 4)
+    assert(flipped.metadata.yDim == 4)
+    assert(flipped.metadata.numChannels == 1)
+
+    (0 until 4).foreach { x =>
+      assert(flipped.get(x, 0, 0) == image.get(x, 3, 0))
+      assert(flipped.get(x, 1, 0) == image.get(x, 2, 0))
+      assert(flipped.get(x, 2, 0) == image.get(x, 1, 0))
+      assert(flipped.get(x, 3, 0) == image.get(x, 0, 0))
+    }
+  }
+
 }

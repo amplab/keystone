@@ -23,23 +23,19 @@ object LinearPixels extends Logging {
     // Load and cache the training data.
     val trainData = CifarLoader(sc, config.trainLocation).cache()
 
-    // A featurizer maps input images into vectors. For this pipeline, we'll also convert the image to grayscale.
-    val featurizer = GrayScaler andThen ImageVectorizer
+    val trainImages = ImageExtractor(trainData)
+
     val labelExtractor = LabelExtractor andThen
         ClassLabelIndicatorsFromIntLabels(numClasses) andThen
         new Cacher[DenseVector[Double]]
-
-    // Our training features are the featurizer applied to our training data.
-    val trainImages = ImageExtractor(trainData)
-    val trainFeatures = featurizer(trainImages)
     val trainLabels = labelExtractor(trainData)
 
-    // We estimate our model as by calling a linear solver on our data.
-    val model = LinearMapEstimator().fit(trainFeatures, trainLabels)
-
-    // The final prediction pipeline is the composition of our featurizer and our model.
-    // Since we end up using the results of the prediction twice, we'll add a caching node.
-    val predictionPipeline = featurizer andThen model andThen MaxClassifier
+    // A featurizer maps input images into vectors. For this pipeline, we'll also convert the image to grayscale.
+    // We then estimate our model by calling a linear solver on our data.
+    val predictionPipeline = GrayScaler andThen
+      ImageVectorizer andThen
+      (new LinearMapEstimator, trainImages, trainLabels) andThen
+      MaxClassifier
 
     // Calculate training error.
     val trainEval = MulticlassClassifierEvaluator(predictionPipeline(trainImages), LabelExtractor(trainData), numClasses)

@@ -115,7 +115,7 @@ case class DistributedColumnPCAEstimator(dims: Int) extends Estimator[DenseMatri
  * @param memWeight
  * @param networkWeight
  */
-class ColumnPCAEstimator(
+case class ColumnPCAEstimator(
     dims: Int,
     numMachines: Option[Int] = None,
     cpuWeight: Double = 3.8e-4,

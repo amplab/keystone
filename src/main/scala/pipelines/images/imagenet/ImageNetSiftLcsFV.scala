@@ -14,7 +14,7 @@ import evaluation.MulticlassClassifierEvaluator
 import loaders.ImageNetLoader
 import pipelines.Logging
 
-import nodes.images.external.{EncEvalGMMFisherVectorEstimator, FisherVector, SIFTExtractor}
+import nodes.images.external.{FisherVector, SIFTExtractor}
 import nodes.images._
 import nodes.learning._
 import nodes.stats._
@@ -48,7 +48,7 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
         new BatchPCATransformer(convert(csvread(new File(fname)), Float).t)
       case None =>
         val pca = sampledColumns andThen
-            (LocalColumnPCAEstimator(numPCADesc), trainingData)
+            (ColumnPCAEstimator(numPCADesc), trainingData)
 
         pca.fittedTransformer
     }
@@ -65,7 +65,7 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
       case None =>
         val fisherVector = sampledColumns andThen
             pcaTransformer andThen
-            (EncEvalGMMFisherVectorEstimator(gmmVocabSize), trainingData)
+            (GMMFisherVectorEstimator(gmmVocabSize), trainingData)
         fisherVector.fittedTransformer
     }
 

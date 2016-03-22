@@ -6,8 +6,8 @@ import breeze.linalg._
 import breeze.stats._
 import evaluation.MeanAveragePrecisionEvaluator
 import loaders.{VOCDataPath, VOCLabelPath, VOCLoader}
-import nodes.images.external.{FisherVector, EncEvalGMMFisherVectorEstimator, SIFTExtractor}
-import nodes.images.{GrayScaler, MultiLabelExtractor, MultiLabeledImageExtractor, PixelScaler}
+import nodes.images.external.{FisherVector, SIFTExtractor}
+import nodes.images._
 import nodes.learning._
 import nodes.stats.{ColumnSampler, NormalizeRows, SignedHellingerMapper}
 import nodes.util.{Cacher, ClassLabelIndicatorsFromIntArrayLabels, FloatToDouble, MatrixVectorizer}
@@ -52,7 +52,7 @@ object VOCSIFTFisher extends Serializable with Logging {
       case None =>
         val pca = siftExtractor andThen
             ColumnSampler(numPCASamplesPerImage) andThen
-            (LocalColumnPCAEstimator(conf.descDim), trainingData)
+            (ColumnPCAEstimator(conf.descDim), trainingData)
 
         siftExtractor andThen pca.fittedTransformer
     }) andThen new Cacher
@@ -69,7 +69,7 @@ object VOCSIFTFisher extends Serializable with Logging {
       case None =>
         val fisherVector = pcaFeaturizer andThen
             ColumnSampler(numGMMSamplesPerImage) andThen
-            (EncEvalGMMFisherVectorEstimator(conf.vocabSize), trainingData)
+            (GMMFisherVectorEstimator(conf.vocabSize), trainingData)
         pcaFeaturizer andThen fisherVector.fittedTransformer
     }) andThen
         FloatToDouble andThen

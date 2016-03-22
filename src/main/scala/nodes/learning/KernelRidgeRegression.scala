@@ -11,6 +11,7 @@ import org.apache.spark.SparkConf
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
 import utils._
+import nodes.util.VectorSplitter
 
 
 import edu.berkeley.cs.amplab.mlmatrix.RowPartitionedMatrix
@@ -282,13 +283,20 @@ object KernelRidgeRegression {
       }
     }
 
-    /* Models for lambdas */
-    val localModelSplit:Array[Array[DenseMatrix[Double]]] = models.collect()
-    val localModel:Array[DenseMatrix[Double]] = (0 until lambdas.size).toArray.map(i => localModelSplit.map(_(i)).reduce(DenseMatrix.vertcat(_,_)))
+    val vectorSplitter = new VectorSplitter(blockSize)
+    /* Models for single lambda
+     * Change here for multi lambda
+     * TODO (vaishaal)
+     * */
+    val model = models.map(_(0))
 
-    // TODO(vaishaal): Intercepts
-    // TODO(vaishaal): Multi lambda
-    new KernelBlockModel(localModel(0), blockSize, lambdas, kernelBlockGenerator, nTrain)
+    val modelVector:RDD[DenseVector[Double]] = model.flatMap(mat => MatrixUtils.matrixToRowArray(mat))
+    val modelBlocked:Seq[RDD[DenseVector[Double]]] = vectorSplitter(modelVector)
+
+    val localModel: Seq[Array[DenseVector[Double]]] = modelBlocked.map(_.collect())
+    val localModelBlocked: Seq[DenseMatrix[Double]] = localModel.map(MatrixUtils.rowsToMatrix(_))
+
+    new KernelBlockModel(localModelBlocked, blockSize, lambdas, kernelBlockGenerator, nTrain)
   }
 
   def updateModel(

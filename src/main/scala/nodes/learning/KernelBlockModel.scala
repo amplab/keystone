@@ -20,47 +20,60 @@ import workflow.{Transformer, LabelEstimator}
  **/
 
 class KernelBlockModel(
-  model: DenseMatrix[Double],
+  model: Seq[DenseMatrix[Double]],
   blockSize: Int,
   lambdas: Array[Double],
   kernelGen: KernelGenerator,
   nTrain: Int)
   extends Transformer[DenseVector[Double], DenseVector[Double]] {
 
-  override  def apply(in: RDD[DenseVector[Double]]): RDD[DenseVector[Double]] =  {
-    val trainSize: Int = nTrain
-    val testSize = in.count()
-    val numBlocks = math.ceil(trainSize.toDouble/blockSize).toInt
+  val vectorSplitter = new VectorSplitter(blockSize)
+  val numClasses = model(0).cols
 
-    val modelB = in.context.broadcast(model)
-    val numClasses = model.cols
-    val testMatrix = MatrixUtils.rowsToMatrix(in)
+  override  def apply(in: RDD[DenseVector[Double]]): RDD[DenseVector[Double]] = {
+    apply(vectorSplitter(in))
+  }
+
+  def apply(in: Seq[RDD[DenseVector[Double]]]): RDD[DenseVector[Double]] = 
+  {
+    val out: Seq[RDD[DenseMatrix[Double]]] = in.zipWithIndex.map { (xi: (RDD[DenseVector[Double]], Int)) =>
+      val x = xi._1
+      val i = xi._2
+      val trainSize: Int = nTrain
+      val testSize = x.count()
+      val numBlocks = math.ceil(trainSize.toDouble/blockSize).toInt
+
+      val modelB = x.context.broadcast(model(i))
+      val testMatrix = MatrixUtils.rowsToMatrix(x)
 
 
-    /* Initially all predictions are 0 */
-    var predictions = testMatrix.map(x => DenseMatrix.zeros[Double](x.rows, numClasses))
+      /* Initially all predictions are 0 */
+      var predictions = testMatrix.map(x => DenseMatrix.zeros[Double](x.rows, numClasses))
 
-    for (block <- (0 until numBlocks)) {
-      val blockIdxs = (blockSize * block) until (math.min(trainSize, (block + 1) * blockSize))
-      val blockIdxsBroadcast =  in.context.broadcast(blockIdxs)
-      val testKernelMat:  RDD[DenseMatrix[Double]] = MatrixUtils.rowsToMatrix(kernelGen(in, blockIdxs)).cache()
+      for (block <- (0 until numBlocks)) {
+        val blockIdxs = (blockSize * block) until (math.min(trainSize, (block + 1) * blockSize))
+        val blockIdxsBroadcast =  x.context.broadcast(blockIdxs)
+        val testKernelMat:  RDD[DenseMatrix[Double]] = MatrixUtils.rowsToMatrix(kernelGen(x, blockIdxs)).cache()
 
-      val partialPredictions =
-      testKernelMat.map {  testKernelBB =>
-        val modelBlock = modelB.value(blockIdxsBroadcast.value,::)
-        val pp = testKernelBB * modelBlock
-        pp
+        val partialPredictions =
+        testKernelMat.map {  testKernelBB =>
+          val modelBlock = modelB.value(blockIdxsBroadcast.value,::)
+          val pp = testKernelBB * modelBlock
+          pp
+        }
+
+        /* Update predictions  */
+        predictions =
+        predictions.zip(partialPredictions).map  { case(pred, partialPred) =>
+            pred :+ partialPred
+        }
       }
-
-      /* Update predictions  */
-      predictions =
-      predictions.zip(partialPredictions).map  { case(pred, partialPred) =>
-          pred :+ partialPred
-      }
+      /* Materialize  predictions */
+      predictions.count()
+      predictions
     }
-    /* Materialize  predictions */
-    predictions.count()
-    MatrixUtils.matrixToRows(predictions)
+    val matOut:RDD[DenseMatrix[Double]] = out.reduceLeft((sum, next) => sum.zip(next).map(c => c._1 + c._2))
+    matOut.flatMap(x => MatrixUtils.matrixToRowArray(x))
   }
 
   def apply(in: DenseVector[Double]): DenseVector[Double]  = {

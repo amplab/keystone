@@ -23,7 +23,7 @@ abstract class KernelGenerator extends Transformer[DenseVector[Double], DenseVec
    * blockIdx
    */
 
-  def apply(testMat: RDD[DenseVector[Double]], blockIdxs: Seq[Int], same: Boolean = false): RDD[DenseVector[Double]]
+  def apply(testMat: RDD[DenseVector[Double]], blockIdxs: Seq[Int]): RDD[DenseVector[Double]]
 
 
 }
@@ -47,7 +47,7 @@ class GaussianKernelGenerator(gamma: Double, trainMat: RDD[DenseVector[Double]])
    * WARNING: Observe the order that test comes first
    */
 
-  def apply(testMat: RDD[DenseVector[Double]], blockIdxs: Seq[Int], same: Boolean = false): RDD[DenseVector[Double]] = {
+  def apply(testMat: RDD[DenseVector[Double]], blockIdxs: Seq[Int]): RDD[DenseVector[Double]] = {
     logInfo("testMat.count=" + testMat.count +
       ",trainMat.count=" + trainMat.count +
       ", blockSize=" + blockIdxs.length)
@@ -55,7 +55,7 @@ class GaussianKernelGenerator(gamma: Double, trainMat: RDD[DenseVector[Double]])
     assert(MatrixUtils.isSorted(blockIdxs)) // limitation for now
     // Dot product of rows of X with each other
     val testDotProd =
-    if (same) {
+    if (testMat.id == trainMat.id) {
       trainDotProd
     } else {
       testMat.map {x =>
@@ -101,7 +101,7 @@ class GaussianKernelGenerator(gamma: Double, trainMat: RDD[DenseVector[Double]])
   }
 
   def apply(testMat: DenseVector[Double]): DenseVector[Double] = {
-    apply(trainMat.context.parallelize(Array(testMat)), (0 until testMat.size), false).collect()(0)
+    apply(trainMat.context.parallelize(Array(testMat)), (0 until testMat.size)).collect()(0)
   }
 
 }

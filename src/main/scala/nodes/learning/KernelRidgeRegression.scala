@@ -71,7 +71,7 @@ object KernelRidgeRegression {
     //val sc = labels.context
     val nTrain = labels.count.toInt
     val nClasses = labels.first.length
-    val kernelMatrix = new BlockedKernelMatrix(kernelBlockGenerator, data, true, cacheKernel)
+    val kernelMatrix = new BlockedKernelMatrix(kernelBlockGenerator, data, cacheKernel)
 
     /* Currently we only support one lambda but the code
      * but the code is structured to support multiple lambdas

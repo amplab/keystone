@@ -25,31 +25,29 @@ trait KernelMatrix {
 
 }
 
-class BlockedKernelMatrix (kernelGen: KernelGenerator,
-                           data: RDD[DenseVector[Double]],
-                           train: Boolean,
-                           cacheKernel: Boolean) extends KernelMatrix
+class BlockedKernelMatrix(
+    val kernelGen: KernelGenerator,
+    val data: RDD[DenseVector[Double]],
+    val cacheKernel: Boolean)
+  extends KernelMatrix
 {
   val cache = HashMap.empty[(Seq[Int], Seq[Int]),RDD[DenseMatrix[Double]]]
 
   def apply(colIdxs: Seq[Int]):RDD[DenseMatrix[Double]] = {
-    val kBlock =
       if (cache contains ((Seq.empty[Int], colIdxs))) {
         cache((Seq.empty[Int], colIdxs))
       } else {
-        val kBlock = toMatrix(kernelGen(data, colIdxs, train))
+        val kBlock = toMatrix(kernelGen(data, colIdxs))
         if (cacheKernel) {
           kBlock.cache()
           cache += ((Seq.empty[Int], colIdxs)  -> kBlock)
         }
         kBlock
       }
-      kBlock
   }
 
   def apply(rowIdxs: Seq[Int], colIdxs: Seq[Int]):RDD[DenseMatrix[Double]] = {
     /* Check if the block we are looking for is in cache */
-   val kBlockMatrix =
      if (cache contains (rowIdxs, colIdxs)) {
        cache((rowIdxs, colIdxs))
      } else {
@@ -57,7 +55,7 @@ class BlockedKernelMatrix (kernelGen: KernelGenerator,
          if (cache contains (Seq.empty[Int], colIdxs)) {
            cache((Seq.empty[Int], colIdxs)).flatMap(MatrixUtils.matrixToRowArray(_))
          } else {
-           kernelGen(data, colIdxs, false)
+           kernelGen(data, colIdxs)
          }
 
          val kBlockBlock =
@@ -70,7 +68,6 @@ class BlockedKernelMatrix (kernelGen: KernelGenerator,
          }
          kBlockBlock
      }
-     kBlockMatrix
   }
 
   def toMatrix(vectors: RDD[DenseVector[Double]]) = {

@@ -11,7 +11,7 @@ import utils.{MatrixUtils, Stats}
 import workflow.{Transformer, LabelEstimator}
 
 /* Defines a distributed KernelMatrix
- * Note this is a lazy matrix, 
+ * Note this is a lazy matrix,
  */
 
 trait KernelMatrix {
@@ -25,49 +25,52 @@ trait KernelMatrix {
 
 }
 
-class BlockedKernelMatrix (kernelGen: KernelGenerator, data: RDD[DenseVector[Double]],  train: Boolean, cacheKernel: Boolean) extends KernelMatrix
+class BlockedKernelMatrix (kernelGen: KernelGenerator,
+                           data: RDD[DenseVector[Double]],
+                           train: Boolean,
+                           cacheKernel: Boolean) extends KernelMatrix
 {
   val cache = HashMap.empty[(Seq[Int], Seq[Int]),RDD[DenseMatrix[Double]]]
 
-  def apply(idxs: Seq[Int]):RDD[DenseMatrix[Double]] = {
+  def apply(colIdxs: Seq[Int]):RDD[DenseMatrix[Double]] = {
     val kBlock =
-    if (cache contains ((idxs, Seq.empty[Int]))) {
-      cache((idxs, Seq.empty[Int]))
-    } else {
-    val kBlock = toMatrix(kernelGen(data, idxs, train))
-      if (cacheKernel) {
-        kBlock.cache()
-        cache += ((idxs, Seq.empty[Int])  -> kBlock)
+      if (cache contains ((Seq.empty[Int], colIdxs))) {
+        cache((Seq.empty[Int], colIdxs))
+      } else {
+        val kBlock = toMatrix(kernelGen(data, colIdxs, train))
+        if (cacheKernel) {
+          kBlock.cache()
+          cache += ((Seq.empty[Int], colIdxs)  -> kBlock)
+        }
+        kBlock
       }
-    kBlock
-    }
-    kBlock
+      kBlock
   }
 
-  def apply(idxs1: Seq[Int], idxs2: Seq[Int]):RDD[DenseMatrix[Double]] = {
+  def apply(rowIdxs: Seq[Int], colIdxs: Seq[Int]):RDD[DenseMatrix[Double]] = {
     /* Check if the block we are looking for is in cache */
-    val kBlockMatrix =
-    if (cache contains (idxs1, idxs2)) {
-      cache((idxs1, idxs2))
-    } else {
-      val kBlock =
-      if (cache contains (idxs1, Seq.empty[Int])) {
-        cache((idxs1, Seq.empty[Int])).flatMap(MatrixUtils.matrixToRowArray(_))
-      } else {
-        kernelGen(data, idxs1, false)
-      }
+   val kBlockMatrix =
+     if (cache contains (rowIdxs, colIdxs)) {
+       cache((rowIdxs, colIdxs))
+     } else {
+       val kBlock =
+         if (cache contains (Seq.empty[Int], colIdxs)) {
+           cache((Seq.empty[Int], colIdxs)).flatMap(MatrixUtils.matrixToRowArray(_))
+         } else {
+           kernelGen(data, colIdxs, false)
+         }
 
-      val kBlockBlock =
-      toMatrix(kBlock.zipWithIndex.filter{ case (vec, idx) =>
-        idxs2.contains(idx)
-      }.map(x=>x._1))
-      if (cacheKernel) {
-        kBlockBlock.cache()
-        cache += ((idxs1, idxs2) -> kBlockBlock)
-      }
-      kBlockBlock
-    }
-    kBlockMatrix
+         val kBlockBlock =
+           toMatrix(kBlock.zipWithIndex.filter{ case (vec, idx) =>
+             rowIdxs.contains(idx)
+           }.map(x=>x._1))
+         if (cacheKernel) {
+           kBlockBlock.cache()
+           cache += ((rowIdxs, colIdxs) -> kBlockBlock)
+         }
+         kBlockBlock
+     }
+     kBlockMatrix
   }
 
   def toMatrix(vectors: RDD[DenseVector[Double]]) = {

@@ -22,9 +22,8 @@ abstract class KernelGenerator extends Transformer[DenseVector[Double], DenseVec
   /* Cached KernelBlockBlock (used for training), and corresponding
    * blockIdx
    */
-  var cachedBlockBlock:Option[(DenseMatrix[Double], Seq[Int])] = None
 
-  def apply(testMat: RDD[DenseVector[Double]], blockIdxs: Seq[Int], same: Boolean = false, cache: Boolean = false): RDD[DenseVector[Double]]
+  def apply(testMat: RDD[DenseVector[Double]], blockIdxs: Seq[Int], same: Boolean = false): RDD[DenseVector[Double]]
 
 
 }
@@ -39,8 +38,6 @@ class GaussianKernelGenerator(gamma: Double, trainMat: RDD[DenseVector[Double]])
     (x.t*x).toDouble
   }
 
-  cachedBlockBlock = None
-
   /**
    * Return a column block of the kernel test matrix
    *
@@ -50,7 +47,7 @@ class GaussianKernelGenerator(gamma: Double, trainMat: RDD[DenseVector[Double]])
    * WARNING: Observe the order that test comes first
    */
 
-  def apply(testMat: RDD[DenseVector[Double]], blockIdxs: Seq[Int], same: Boolean = false, cache: Boolean = false): RDD[DenseVector[Double]] = {
+  def apply(testMat: RDD[DenseVector[Double]], blockIdxs: Seq[Int], same: Boolean = false): RDD[DenseVector[Double]] = {
     logInfo("testMat.count=" + testMat.count +
       ",trainMat.count=" + trainMat.count +
       ", blockSize=" + blockIdxs.length)
@@ -97,17 +94,9 @@ class GaussianKernelGenerator(gamma: Double, trainMat: RDD[DenseVector[Double]])
       }
     }
 
-    kTestBlock.cache()
     kTestBlock.count
     blockDataBC.unpersist()
     trainBlockDotProdBC.unpersist()
-    if (cache) {
-      val kBlockBlock = blockData * blockData.t
-      kBlockBlock :*= (-2.0)
-      kBlockBlock(::, *) :+= trainBlockDotProd
-      kBlockBlock(*, ::) :+= trainBlockDotProd
-      cachedBlockBlock = Some((exp(kBlockBlock * -gamma), blockIdxs))
-    }
     kTestBlock
   }
 

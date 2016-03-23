@@ -71,7 +71,7 @@ object KernelRidgeRegression {
     //val sc = labels.context
     val nTrain = labels.count.toInt
     val nClasses = labels.first.length
-
+    val kernelMatrix = new BlockedKernelMatrix(kernelBlockGenerator, data, true, cacheKernel)
 
     /* Currently we only support one lambda but the code
      * but the code is structured to support multiple lambdas
@@ -134,9 +134,6 @@ object KernelRidgeRegression {
 
     val blockShuffler = blockPermuter.map(seed => new Random(seed))
 
-    val kernelBlockCache = new Array[RDD[DenseMatrix[Double]]](numBlocks)
-    val kernelBBCache = new Array[DenseMatrix[Double]](numBlocks)
-
     (0 until numEpochs).foreach { pass =>
       val epochBegin = System.nanoTime
 
@@ -156,42 +153,9 @@ object KernelRidgeRegression {
         val blockIdxsBC = labels.context.broadcast(blockIdxsSeq)
 
         val kernelBegin = System.nanoTime
-        val (kernelBlockMat, k_bb) = if (cacheKernel && pass != 0) {
-            (kernelBlockCache(block), kernelBBCache(block))
-          } else {
-
-            // Columns corresponding to block b of the data
-            val kernelBlock = kernelBlockGenerator(data, blockIdxs.toArray, true, true)
-            val kernelBlockBlockComputed =
-              kernelBlockGenerator.cachedBlockBlock.map { cache =>
-              /* Make sure we are getting data for the right block */
-              assert(blockIdxs.toArray.deep == cache._2.toArray.deep)
-              /* Clear cache */
-              kernelBlockGenerator.cachedBlockBlock = None
-              cache._1 }.getOrElse {
-                /* Redoing annoying work */
-                val blockData = data.zipWithIndex.filter{ case (vec, idx) =>
-                  blockIdxs.contains(idx)
-                }.map(x=> x._1)
-                MatrixUtils.rowsToMatrix(kernelBlockGenerator(blockData).collect())
-              }
-
-
-
-            // Convert to a matrix form and cache this RDD
-            // Since this is n*b we should be fine.
-            val kernelBlockMatComputed = kernelBlock.mapPartitions { part =>
-              Iterator.single(MatrixUtils.rowsToMatrix(part))
-            }.cache()
-            kernelBlockMatComputed.count
-            kernelBlock.unpersist()
-            if (cacheKernel) {
-              kernelBlockCache(block) = kernelBlockMatComputed
-              kernelBBCache(block) = kernelBlockBlockComputed
-            }
-            (kernelBlockMatComputed, kernelBlockBlockComputed)
-          }
-
+        val kernelBlockMat = kernelMatrix(blockIdxs)
+        val kernelBlockBlockMat = kernelMatrix(blockIdxs, blockIdxs)
+        val k_bb = DenseMatrix.vertcat(kernelBlockBlockMat.collect():_*)
         val kernelTime = timeElasped(kernelBegin)
 
         // TODO: Should we zero mean the kernel block ?

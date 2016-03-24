@@ -1,6 +1,5 @@
 safe: true
 lsi: false
-highlighter: pygments
 
 name: KeystoneML
 

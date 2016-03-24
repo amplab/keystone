@@ -57,8 +57,8 @@ This will take a bit longer to run and you may want to launch a small (8-node cl
 
 {% highlight bash %}
 #Get the data
-wget http://pascallin.ecs.soton.ac.uk/challenges/VOC/voc2007/VOCtrainval_06-Nov-2007.tar
-wget http://pascallin.ecs.soton.ac.uk/challenges/VOC/voc2007/VOCtest_06-Nov-2007.tar
+wget https://s3-us-west-2.amazonaws.com/voc-data/VOCtrainval_06-Nov-2007.tar
+wget https://s3-us-west-2.amazonaws.com/voc-data/VOCtest_06-Nov-2007.tar
 
 #Copy to HDFS
 /root/ephemeral-hdfs/bin/hadoop fs -copyFromLocal VOCtrainval_06-Nov-2007.tar /data/

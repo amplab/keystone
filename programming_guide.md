@@ -23,10 +23,24 @@ We've done our best to adhere to these principles throughout the development of 
 At the center of KeystoneML are a handful of core API concepts that allow us to build complex machine learning pipelines out of simple parts: `pipelines`, `nodes`, `transformers`, and `estimators`.
 
 ### Pipelines
-A `pipeline` is a dataflow that takes some input data and maps it to some output data through a series of `nodes`. 
+A `Pipeline` is a dataflow that takes some input data and maps it to some output data through a series of `nodes`. 
 By design, these nodes can operate on one data item (for point lookup) or many data items: for batch model evaluation.
 
-In a sense, a pipeline is just a function that is composed of simpler functions.
+In a sense, a pipeline is just a function that is composed of simpler functions. Here's part of the `Pipeline` definition:
+
+{% highlight scala %}
+package workflow
+
+trait Pipeline[A, B] {
+  // ...
+  def apply(in: A): B
+  def apply(in: RDD[A]): RDD[B]
+  // ...
+}
+{% endhighlight %}
+
+From this we can see that a Pipeline has two type parameters: its input and output types.
+We can also see that it has methods to operate on just a single input data item, or on a batch RDD of data items.
 
 ### Nodes
 Nodes come in two flavors: `Transformers` and `Estimators`. 
@@ -37,9 +51,9 @@ As already mentioned, a `Transformer` is the simplest type of node, and takes an
 Here's an abridged definition of the `Transformer` class.
 
 {% highlight scala %}
-package nodes
+package workflow
 
-abstract class Transformer[A, B : ClassTag] extends Serializable {
+abstract class Transformer[A, B : ClassTag] extends TransformerNode[B] with Pipeline[A, B] {
   def apply(in: A): B
   def apply(in: RDD[A]): RDD[B] = in.map(apply)
   //...
@@ -48,10 +62,11 @@ abstract class Transformer[A, B : ClassTag] extends Serializable {
 
 There are a few things going on in this class definition.
 First: A Transformer has two type parameters: its input and output types.
-Second, *every* Transformer extends serializable. 
-This means it can be written out and shipped over the network to run on any machine in a Spark cluster.
-Third, it is `abstract` because it has an `apply` method which needs to be filled out by the implementor.
-Fourth, it provides a default implementation of `apply(in: RDD[A]): RDD[B]` which simply runs the single-item version on each item in an RDD.
+Second, *every* Transformer extends TransformerNode, which is used internally by Keystone for Pipeline construction and execution. 
+In turn TransformerNode extends Serializable, which means it can be written out and shipped over the network to run on any machine in a Spark cluster.
+Third, it extends Pipeline because every Transformer can be treated as a full pipeline in it's own right.
+Fourth, it is `abstract` because it has an `apply` method which needs to be filled out by the implementor.
+Fifth, it provides a default implementation of `apply(in: RDD[A]): RDD[B]` which simply runs the single-item version on each item in an RDD.
 Developers worried about performance of their transformers on bulk datasets are welcome to override this method, and we do so in KeystoneML with some frequency.
 
 While transformers are unary functions, they themselves may be parameterized by more than just their input. 
@@ -81,13 +96,14 @@ If you want to play around with defining new Transformers, you can do so at the 
 #### Estimators
 
 `Estimators` are what puts the **ML** in KeystoneML.
-The `Estimator` interface looks like this:
+An abridged `Estimator` interface looks like this:
 
 {% highlight scala %}
-package pipelines
+package workflow
 
-abstract class Estimator[A, B] extends Serializable {
-  def fit(data: RDD[A]): Transformer[A, B]
+abstract class Estimator[A, B] extends EstimatorNode {
+  protected def fit(data: RDD[A]): Transformer[A, B]
+  // ...
 }
 {% endhighlight %}
 
@@ -121,33 +137,33 @@ In most cases, `Estimators` are things that estimate machine learning models - l
 
 ### Chaining Nodes and Building Pipelines
 
-Pipelines are created by chaining transformers and estimators with the `then` methods. Going back to a different part of the `Transformer` interface: 
+Pipelines are created by chaining transformers and estimators with the `andThen` methods. Going back to a different part of the `Transformer` interface: 
 
 {% highlight scala %}
-package pipelines
+package workflow
 
-abstract class Transformer[A, B : ClassTag] extends Serializable {
+trait Pipeline[A, B] {
   //...
-  def then[C : ClassTag](next: Transformer[B, C]): Transformer[A, C] = //...
+  final def andThen[C](next: Pipeline[B, C]): Pipeline[A, C] = //...
 }
 {% endhighlight %}
 
-Ignoring the implementation, `then` allows you to take a transformer and add another onto it, yielding a new `Transformer[A,C]` which works by first applying the first transformer (`A` => `B`) and then applying the `next` transformer (`B` => `C`). 
+Ignoring the implementation, `andThen` allows you to take a pipeline and add another onto it, yielding a new `Pipeline[A,C]` which works by first applying the first pipeline (`A` => `B`) and then applying the `next` pipeline (`B` => `C`). 
 
 This is where **type safety** comes in to ensure robustness. As your pipelines get more complicated, you may end up trying to chain together nodes that are incompatible, but the compiler won't let you. This is powerful, because it means that if your pipeline compiles, it is more likely to work when you go to run it at scale. Here's an example of a simple two stage pipeline that adds 4.0 to every coordinate of a 3-dimensional vector:
 
 {% highlight scala %}
-val pipeline = new Adder(Vector(1.0,2.0,3.0)) then new Adder(Vector(3.0,2.0,1.0))
+val pipeline = new Adder(Vector(1.0,2.0,3.0)) andThen new Adder(Vector(3.0,2.0,1.0))
 {% endhighlight %}
 
-Since sometimes transformers are just simple unary functions, you can also just tack a function on to the end of a pipeline, here's a three-stage pipeline that adds 2.0 to each element of a vector, computes its sum, and then translates that to a string:
+Since sometimes transformers are just simple unary functions, you can also inline a Transformer definition. Here's a three-stage pipeline that adds 2.0 to each element of a vector, computes its sum, and then translates that to a string:
 {% highlight scala %}
 import breeze.linalg._
 
-val pipeline = new Adder(Vector(2.0, 2.0, 2.0)) then sum then _.toString
+val pipeline = new Adder(Vector(2.0, 2.0, 2.0)) andThen Transformer(sum) andThen Transformer(_.toString)
 {% endhighlight %}
 
-You can *also* chain `Estimators` onto transformers via the `thenEstimator` or `thenLabelEstimator` method methods. The latter makes sense if you're training a supervised learning model which needs ground truth training labels.
+You can *also* chain `Estimators` onto transformers via the `andThen (estimator, data)` or `andThen (labelEstimator, data, labels)` methods. The latter makes sense if you're training a supervised learning model which needs ground truth training labels.
 Suppose you want to chain together a pipeline which takes a raw image, converts it to grayscale, and then fits a linear model on the pixel space, and returns the most likely class according to the linear model.
 
 You can do this with some code that looks like the following:
@@ -156,13 +172,13 @@ You can do this with some code that looks like the following:
 val labels: RDD[Vector[Double]] = //...
 val trainImages: RDD[Image] = //...
 
-val pipe = (GrayScaler then 
-  ImageVectorizer thenLabelEstimator 
-  LinearMapEstimator()).fit(trainImages, trainLabels) then 
+val pipe = GrayScaler andThen 
+  ImageVectorizer andThen 
+  (LinearMapEstimator(), trainImages, trainLabels) andThen 
   MaxClassifier
 {% endhighlight %}
 
-In this example `pipe` has a type Transformer[Image, Int] and predicts the most likely class of an input image according to the model fit on the training data
+In this example `pipe` has a type Pipeline[Image, Int] and predicts the most likely class of an input image according to the model fit on the training data
 While this pipeline won't give you a very high quality model (because pixels are bad predictors of an image class), it demonstrates the APIs.
 
 
@@ -187,7 +203,7 @@ Example nodes fall in several categories:
 
 For several nodes (particularly in images) we call into external libraries (both Java and C) that contain fast, high quality implementations of the nodes in question - pushing reuse across language boundaries.
 
-Full documentation of the nodes is available in <a href="api/">the scaladoc</a>.
+Full documentation of the nodes is available in <a href="api/latest/">the scaladoc</a>.
 
 
 ### Data Loaders

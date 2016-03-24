@@ -5,10 +5,10 @@ To run KeystoneML on EC2 you can use the
 
 ## Getting spark-ec2
 
-As the KeystoneML scripts require a recent version of spark-ec2 (Spark 1.4.0 or later), it is
-recommended that you clone the Spark source code master branch for this. You can do this with
+As the KeystoneML scripts require a recent version of spark-ec2, it is
+recommended that you clone the spark-ec2 master branch for this. You can do this with
 ```
-git clone https://github.com/apache/spark.git
+git clone https://github.com/amplab/spark-ec2.git
 ``` 
 
 ## Launching a Cluster
@@ -17,7 +17,7 @@ You can now use the `bin/keystone-ec2.sh` to launch a cluster with KeystoneML pr
 To do that you can run a command which looks like 
 
 ```
-SPARK_EC2_DIR=<path_to_your_spark>/ec2 ./bin/keystone-ec2.sh \
+SPARK_EC2_DIR=<path_to_your_spark-ec2> ./bin/keystone-ec2.sh \
   -s 4 \
   -t r3.4xlarge \
   -i <key-file> \

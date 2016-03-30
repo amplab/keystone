@@ -37,7 +37,7 @@ private[workflow] case class TransformerApplyNode(transformer: Int, inputs: Seq[
       case RDDOutput(rdd) => rdd
     }
 
-    RDDOutput(transformer.transformRDD(dataInputs))
+    RDDOutput(transformer.transformRDD(dataInputs.toIterator))
   }
 }
 
@@ -62,7 +62,7 @@ private[workflow] case class EstimatorFitNode(est: Int, inputs: Seq[Int]) extend
       case RDDOutput(rdd) => rdd
     }
 
-    TransformerOutput(estimator.fitRDDs(dataInputs))
+    TransformerOutput(estimator.fitRDDs(dataInputs.toIterator))
   }
 }
 
@@ -74,15 +74,15 @@ sealed trait Node  {
 }
 
 private[workflow] abstract class EstimatorNode extends Node with Serializable with Instruction {
-  private[workflow] def fitRDDs(dependencies: Seq[RDD[_]]): TransformerNode
+  private[workflow] def fitRDDs(dependencies: Iterator[RDD[_]]): TransformerNode
   override def getDependencies: Seq[Int] = Seq()
   override def mapDependencies(func: (Int) => Int): EstimatorNode = this
   override def execute(deps: Seq[InstructionOutput]): EstimatorOutput = EstimatorOutput(this)
 }
 
 private[workflow] abstract class TransformerNode extends Node with Serializable with Instruction {
-  private[workflow] def transform(dataDependencies: Seq[_]): Any
-  private[workflow] def transformRDD(dataDependencies: Seq[RDD[_]]): RDD[_]
+  private[workflow] def transform(dataDependencies: Iterator[_]): Any
+  private[workflow] def transformRDD(dataDependencies: Iterator[RDD[_]]): RDD[_]
 
   override def getDependencies: Seq[Int] = Seq()
   override def mapDependencies(func: (Int) => Int): TransformerNode = this

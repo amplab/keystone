@@ -1,5 +1,6 @@
 package workflow
 
+import nodes.util.Identity
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.scalatest.FunSuite
@@ -129,5 +130,92 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
       thirdPipeline.apply(x))
     }
     assert(pipeline(sc.parallelize(data)).collect().toSeq === correctOut)
+  }
+
+  test("Lazy execution") {
+    sc = new SparkContext("local", "test")
+
+    def gatherToTransformer[A, B](branches: Seq[Pipeline[A, _]], transformerNode: TransformerNode): Pipeline[A, B] = {
+      // attach a value per branch to offset all existing node ids by.
+      val branchesWithNodeOffsets = branches.scanLeft(0)(_ + _.nodes.size).zip(branches)
+
+      val newNodes = branches.map(_.nodes).reduceLeft(_ ++ _) :+ transformerNode
+
+      val newDataDeps = branchesWithNodeOffsets.map { case (offset, branch) =>
+        val dataDeps = branch.dataDeps
+        dataDeps.map(_.map(x => if (x == Pipeline.SOURCE) Pipeline.SOURCE else x + offset))
+      }.reduceLeft(_ ++ _) :+  branchesWithNodeOffsets.map { case (offset, branch) =>
+        val sink = branch.sink
+        if (sink == Pipeline.SOURCE) Pipeline.SOURCE else sink + offset
+      }
+
+      val newFitDeps = branchesWithNodeOffsets.map { case (offset, branch) =>
+        val fitDeps = branch.fitDeps
+        fitDeps.map(_.map(x => if (x == Pipeline.SOURCE) Pipeline.SOURCE else x + offset))
+      }.reduceLeft(_ ++ _) :+  None
+
+      val newSink = newNodes.size - 1
+      Pipeline(newNodes, newDataDeps, newFitDeps, newSink)
+    }
+
+    val accessNoneNode = new TransformerNode {
+      override private[workflow] def transform(dataDependencies: Iterator[_]): Any = 0
+      override private[workflow] def transformRDD(dataDependencies: Iterator[RDD[_]]): RDD[_] = sc.parallelize(Seq(0))
+    }
+
+    val accessOneNode = new TransformerNode {
+      override private[workflow] def transform(dataDependencies: Iterator[_]): Any = {
+        dataDependencies.next()
+        0
+      }
+      override private[workflow] def transformRDD(dataDependencies: Iterator[RDD[_]]): RDD[_] = {
+        dataDependencies.next()
+        sc.parallelize(Seq(0))
+      }
+    }
+
+    val accessTwoNode = new TransformerNode {
+      override private[workflow] def transform(dataDependencies: Iterator[_]): Any = {
+        dataDependencies.next()
+        dataDependencies.next()
+        0
+      }
+      override private[workflow] def transformRDD(dataDependencies: Iterator[RDD[_]]): RDD[_] = {
+        dataDependencies.next()
+        dataDependencies.next()
+        sc.parallelize(Seq(0))
+      }
+    }
+
+    val mutableState = Array(0)
+    val data = sc.parallelize(Seq(0))
+
+    val branchOne = Estimator[Int, Int] { _ =>
+      mutableState(0) = mutableState(0) + 1
+      new Identity[Int]
+    }.withData(data)
+
+    val branchTwo = Estimator[Int, Int] { _ =>
+      mutableState(0) = mutableState(0) - 2
+      Transformer(_ + 1)
+    }.withData(data)
+
+    val pipeNone = gatherToTransformer[Int, Int](Seq(branchOne, branchTwo), accessNoneNode)
+    val pipeOne = gatherToTransformer[Int, Int](Seq(branchOne, branchTwo), accessOneNode)
+    val pipeTwo = gatherToTransformer[Int, Int](Seq(branchOne, branchTwo), accessTwoNode)
+
+    assert(mutableState(0) === 0)
+
+    pipeNone(data)
+    assert(mutableState(0) === 0)
+    mutableState(0) = 0
+
+    pipeOne(data)
+    assert(mutableState(0) === 1)
+    mutableState(0) = 0
+
+    pipeTwo(data)
+    assert(mutableState(0) === -1)
+    mutableState(0) = 0
   }
 }

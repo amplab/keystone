@@ -74,7 +74,7 @@ private[workflow] class ConcretePipeline[A, B](
       case _: DelegatingTransformerNode =>
         throw new RuntimeException("Pipeline DAG error: Cannot have a data dependency on a Transformer")
       case estimator: EstimatorNode =>
-        val nodeDataDeps = dataDeps(node).map(x => rddDataEval(x, null))
+        val nodeDataDeps = dataDeps(node).toIterator.map(x => rddDataEval(x, null))
         logInfo(s"Fitting '${estimator.label}' [$node]")
         val fitOut = estimator.fitRDDs(nodeDataDeps)
         fitCache(node) = Some(fitOut)
@@ -89,11 +89,11 @@ private[workflow] class ConcretePipeline[A, B](
     } else {
       nodes(node) match {
         case transformer: TransformerNode =>
-          val nodeDataDeps = dataDeps(node).map(x => singleDataEval(x, in))
+          val nodeDataDeps = dataDeps(node).toIterator.map(x => singleDataEval(x, in))
           transformer.transform(nodeDataDeps)
         case delTransformer: DelegatingTransformerNode =>
           val nodeFitDep = fitDeps(node).map(fitEstimator).get
-          val nodeDataDeps = dataDeps(node).map(x => singleDataEval(x, in))
+          val nodeDataDeps = dataDeps(node).toIterator.map(x => singleDataEval(x, in))
           nodeFitDep.transform(nodeDataDeps)
         case _: SourceNode => throw new RuntimeException(
           "Pipeline DAG error: came across an RDD source dependency when trying to do a single item apply"
@@ -113,13 +113,13 @@ private[workflow] class ConcretePipeline[A, B](
         nodes(node) match {
           case SourceNode(rdd) => rdd
           case transformer: TransformerNode =>
-            val nodeDataDeps = dataDeps(node).map(x => rddDataEval(x, in))
+            val nodeDataDeps = dataDeps(node).toIterator.map(x => rddDataEval(x, in))
             val outputData = transformer.transformRDD(nodeDataDeps)
             dataCache((node, in)) = outputData
             outputData
           case delTransformer: DelegatingTransformerNode =>
             val nodeFitDep = fitDeps(node).map(fitEstimator).get
-            val nodeDataDeps = dataDeps(node).map(x => rddDataEval(x, in))
+            val nodeDataDeps = dataDeps(node).toIterator.map(x => rddDataEval(x, in))
             val outputData = nodeFitDep.transformRDD(nodeDataDeps)
             dataCache((node, in)) = outputData
             outputData

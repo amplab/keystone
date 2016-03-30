@@ -23,7 +23,9 @@ abstract class OptimizableEstimator[A, B] extends Estimator[A, B] {
 
   // By default should just fit using whatever the default is.
   // Due to some crazy Scala compiler shenanigans we need to do this roundabout fitRDDs call thing.
-  override def fit(data: RDD[A]): Transformer[A, B] = default.fitRDDs(Seq(data)).asInstanceOf[Transformer[A, B]]
+  override def fit(data: RDD[A]): Transformer[A, B] = {
+    default.fitRDDs(Iterator.single(data)).asInstanceOf[Transformer[A, B]]
+  }
 
   def optimize(sample: RDD[A], numPerPartition: Map[Int, Int]): RDD[A] => Pipeline[A, B]
 }
@@ -37,7 +39,7 @@ abstract class OptimizableLabelEstimator[A, B, L] extends LabelEstimator[A, B, L
   // By default should just fit using whatever the default is.
   // Due to some crazy Scala compiler shenanigans we need to do this roundabout fitRDDs call thing.
   override protected def fit(data: RDD[A], labels: RDD[L]): Transformer[A, B] = {
-    default.fitRDDs(Seq(data, labels)).asInstanceOf[Transformer[A, B]]
+    default.fitRDDs(Iterator(data, labels)).asInstanceOf[Transformer[A, B]]
   }
 
   def optimize(sample: RDD[A], sampleLabels: RDD[L], numPerPartition: Map[Int, Int]): (RDD[A], RDD[L]) => Pipeline[A, B]

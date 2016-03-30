@@ -35,8 +35,10 @@ abstract class LabelEstimator[A, B, L] extends EstimatorNode {
    */
   protected def fit(data: RDD[A], labels: RDD[L]): Transformer[A, B]
 
-  private[workflow] final def fitRDDs(dependencies: Seq[RDD[_]]): TransformerNode = {
-    fit(dependencies(0).asInstanceOf[RDD[A]], dependencies(1).asInstanceOf[RDD[L]])
+  private[workflow] final def fitRDDs(dependencies: Iterator[RDD[_]]): TransformerNode = {
+    val data = dependencies.next().asInstanceOf[RDD[A]]
+    val labels = dependencies.next().asInstanceOf[RDD[L]]
+    fit(data, labels)
   }
 }
 

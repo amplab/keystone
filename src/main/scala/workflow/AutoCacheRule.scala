@@ -224,7 +224,7 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
               // Profile sample timing
               val start = System.nanoTime()
               // Construct and cache a sample
-              val sample = transformer.transformRDD(sampledInputs).cache()
+              val sample = transformer.transformRDD(sampledInputs.toIterator).cache()
               sample.count()
               val duration = System.nanoTime() - start
 
@@ -279,7 +279,7 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
               // Profile sample timing
               val start = System.nanoTime()
               // fit the estimator
-              val sampleTransformer = estimator.fitRDDs(sampledInputs)
+              val sampleTransformer = estimator.fitRDDs(sampledInputs.toIterator)
               val duration = System.nanoTime() - start
 
               // Profile fit transformer memory

@@ -35,12 +35,12 @@ abstract class Transformer[A, B : ClassTag] extends TransformerNode with Pipelin
   def apply(in: A): B
   def apply(in: A, optimizer: Option[Optimizer]): B = apply(in)
 
-  private[workflow] final def transform(dataDependencies: Seq[_]): B = {
-    apply(dataDependencies.head.asInstanceOf[A])
+  private[workflow] final def transform(dataDependencies: Iterator[_]): B = {
+    apply(dataDependencies.next().asInstanceOf[A])
   }
 
-  private[workflow] final def transformRDD(dataDependencies: Seq[RDD[_]]): RDD[B] = {
-    apply(dataDependencies.head.asInstanceOf[RDD[A]])
+  private[workflow] final def transformRDD(dataDependencies: Iterator[RDD[_]]): RDD[B] = {
+    apply(dataDependencies.next().asInstanceOf[RDD[A]])
   }
 }
 

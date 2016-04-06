@@ -43,12 +43,17 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
    * Get an estimate for how many times each instruction will be executed, assuming
    * the given set of instructions have their outputs cached
    */
-  def getRuns(instructions: Seq[Instruction], cache: Set[Int], nodeWeights: Map[Int, Int]): Map[Int, Int] = {
-    val immediateChildrenByInstruction = getImmediateChildrenByInstruction(instructions)
-
-    instructions.indices.foldRight(Map[Int, Int]()) { case (i, runsByIndex) =>
+  def getRuns(
+      instructions: Seq[Instruction],
+      immediateChildrenByInstruction: Map[Int, Seq[Int]],
+      cache: Set[Int],
+      nodeWeights: Map[Int, Int]
+    ): Array[Int] = {
+    val runsByIndex = new Array[Int](instructions.size)
+    var i = instructions.size - 1
+    while (i >= 0) {
       if (immediateChildrenByInstruction(i).isEmpty) {
-        runsByIndex + (i -> 1)
+        runsByIndex(i) = 1
       }
       else {
         val runs = immediateChildrenByInstruction(i).map(j => if (cache.contains(j)) {
@@ -56,9 +61,13 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
         } else {
           nodeWeights(j) * runsByIndex(j)
         }).sum
-        runsByIndex + (i -> runs)
+        runsByIndex(i) = runs
       }
+
+      i = i - 1
     }
+
+    runsByIndex
   }
 
   /**
@@ -127,7 +136,8 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
   ): Map[Int, Profile] = {
     val cached = initCacheSet(instructions)
     val nodeWeights = getNodeWeights(instructions)
-    val runs = getRuns(instructions, cached, nodeWeights)
+    val immediateChildrenByInstruction = getImmediateChildrenByInstruction(instructions)
+    val runs = getRuns(instructions, immediateChildrenByInstruction, cached, nodeWeights)
     // We have the possibility of caching all uncached nodes accessed more than once,
     // That don't depend on the test data.
     val instructionsToProfile = instructions.indices.toSet
@@ -356,11 +366,12 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
    */
   def estimateCachedRunTime(
     instructions: Seq[Instruction],
+    immediateChildrenByInstruction: Map[Int, Seq[Int]],
     cached: Set[Int],
     profiles: Map[Int, Profile]
   ): Double = {
     val nodeWeights = getNodeWeights(instructions)
-    val runs = getRuns(instructions, cached, nodeWeights)
+    val runs = getRuns(instructions, immediateChildrenByInstruction, cached, nodeWeights)
     val localWork = instructions.indices.map(i => profiles.getOrElse(i, Profile(0, 0, 0)).ns.toDouble).toArray
 
     instructions.indices.map(i => {
@@ -423,19 +434,20 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
    * Returns true iff there is still an uncached node whose output is used > once, that would fit in memory
    * if cached
    */
-  def stillRoom(caches: Set[Int], runs: Map[Int, Int], profiles: Map[Int, Profile], spaceLeft: Long): Boolean = {
-    runs.exists { i =>
-      (i._2 > 1) &&
-        (!caches.contains(i._1)) &&
-        (profiles.getOrElse(i._1, Profile(0, 0, 0)).rddMem < spaceLeft)
+  def stillRoom(caches: Set[Int], runs: Array[Int], profiles: Map[Int, Profile], spaceLeft: Long): Boolean = {
+    runs.zipWithIndex.exists { case (curRuns, index) =>
+      (curRuns > 1) &&
+        (!caches.contains(index)) &&
+        (profiles.getOrElse(index, Profile(0, 0, 0)).rddMem < spaceLeft)
     }
   }
 
   def selectNext(
     pipe: Seq[Instruction],
     profiles: Map[Int, Profile],
+    immediateChildrenByInstruction: Map[Int, Seq[Int]],
     cached: Set[Int],
-    runs: Map[Int, Int],
+    runs: Array[Int],
     spaceLeft: Long
   ): Int = {
     //Get the uncached node which fits that maximizes savings in runtime.
@@ -443,7 +455,7 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
       !cached(i) &&
         profiles.getOrElse(i, Profile(0, 0, 0)).rddMem < spaceLeft &&
         runs(i) > 1)
-      .minBy(i => estimateCachedRunTime(pipe, cached + i, profiles))
+      .minBy(i => estimateCachedRunTime(pipe, immediateChildrenByInstruction, cached + i, profiles))
   }
 
   def greedyCache(
@@ -452,6 +464,7 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
     maxMem: Option[Long]
   ): Seq[Instruction] = {
     val nodeWeights = getNodeWeights(instructions)
+    val immediateChildrenByInstruction = getImmediateChildrenByInstruction(instructions)
 
     var cached = initCacheSet(instructions)
     val memBudget = maxMem.getOrElse(instructions.collectFirst {
@@ -469,10 +482,16 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
     }.getOrElse(0.0).toLong)
 
     var usedMem = cacheMem(cached, profiles)
-    var runs = getRuns(instructions, cached, nodeWeights)
+    var runs = getRuns(instructions, immediateChildrenByInstruction, cached, nodeWeights)
     while (usedMem < memBudget && stillRoom(cached, runs, profiles, memBudget - usedMem)) {
-      cached = cached + selectNext(instructions, profiles, cached, runs, memBudget - usedMem)
-      runs = getRuns(instructions, cached, nodeWeights)
+      cached = cached + selectNext(
+        instructions,
+        profiles,
+        immediateChildrenByInstruction,
+        cached,
+        runs,
+        memBudget - usedMem)
+      runs = getRuns(instructions, immediateChildrenByInstruction, cached, nodeWeights)
       usedMem = cacheMem(cached, profiles)
     }
 

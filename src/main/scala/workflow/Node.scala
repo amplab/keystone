@@ -70,16 +70,16 @@ sealed trait GraphId {
   val id: Long
 }
 
-sealed trait NodeOrSourceID extends GraphId
-case class NodeId(id: Long) extends NodeOrSourceID
-case class SourceId(id: Long) extends NodeOrSourceID
+sealed trait NodeOrSourceId extends GraphId
+case class NodeId(id: Long) extends NodeOrSourceId
+case class SourceId(id: Long) extends NodeOrSourceId
 case class SinkId(id: Long) extends GraphId
 
 // Currently this only contains DAG manipulation utils
 case class InstructionGraph(
-    instructions: Map[NodeId, (Node, Seq[NodeOrSourceID])],
+    instructions: Map[NodeId, (Node, Seq[NodeOrSourceId])],
     sources: Seq[SourceId],
-    sinks: Seq[(SinkId, NodeOrSourceID)]
+    sinks: Seq[(SinkId, NodeOrSourceId)]
   ) {
 
   // Analysis utils
@@ -89,28 +89,68 @@ case class InstructionGraph(
   }
 
   // Other Analysis Utils:
-  // getParents
-  // getAncestors
-  // getChildren
-  // getDescendents
+  def linearize(): Seq[NodeId]
 
-
-
-  def addEdge(a: GraphId, b: NodeOrSourceID): InstructionGraph = addEdges(Seq((a, b)))
-  def addEdges(edges: Seq[(GraphId, NodeOrSourceID)]): InstructionGraph = {
-      // require that all edges connect to existing ids
-
-    // can connect sink -> anything else, but it removes that as a sink (but may take multiple edges w/ the same sink in this method call...)
-    // can connect anything -> source, but it removes that as a source (but may only take one edge that connects to that source in this method call...)
-    // Also means: can connect sink -> source
-
-
-    // To do this:
-    // First add all node -> node and node -> source connections
-    //
+  def getChildren(node: GraphId): Set[GraphId] = {
+    // FIXME: Figure out if I should include Sinks as children!!! This current impl does not...
+    node match {
+      case id: NodeOrSourceId => {
+        val instructionsWithIdAsDep = instructions.filter(_._2._2.contains(id))
+        val nodeIds = instructionsWithIdAsDep.keySet
+        nodeIds.map(x => x : GraphId)
+      }
+      case sinkId: SinkId => Set()
+    }
   }
 
-  def addSinks(nodes: Seq[NodeOrSourceID]): (InstructionGraph, Seq[SinkId]) = {
+  def getDescendents(node: GraphId): Set[GraphId] = {
+    val children = getChildren(node)
+    children.map {
+      child => getDescendents(child) + child
+    }.fold(Set())(_ union _)
+  }
+
+  def getParents(node: GraphId): Set[NodeOrSourceId] = {
+    // FIXME: Figure out if I should include Sources as parents!!! This current impl does...
+    node match {
+      case sourceId: SourceId => Set()
+      case nodeId: NodeId => instructions(nodeId)._2.toSet
+      case sinkId: SinkId => Set(sinks.toMap.apply(sinkId))
+    }
+  }
+
+  def getAncestors(node: GraphId): Set[NodeOrSourceId] = {
+    val parents = getParents(node)
+    parents.map {
+      parent => getAncestors(parent) + parent
+    }.fold(Set())(_ union _)
+  }
+
+  def connectSinkToSource(sinkId: SinkId, sourceId: SourceId): InstructionGraph = {
+    val sinkNode = sinks.toMap.get(sinkId).get
+    require(sinkNode != sourceId, "Trying to connect a source into itself")
+    val newInstructions = instructions.mapValues {
+      case (node, deps) => (node, deps.map(dep => if (dep == sourceId) sinkNode else dep))
+    }
+
+    copy(instructions = newInstructions).removeSource(sourceId).removeSink(sinkId)
+  }
+
+
+  def addEdge(a: NodeOrSourceId, b: NodeId): InstructionGraph = addEdges(Seq((a, b)))
+  def addEdges(edges: Seq[(NodeOrSourceId, NodeId)]): InstructionGraph = {
+    val depEdgesToAdd = edges.groupBy(_._2).mapValues(_.map(_._1))
+    val newInstructions = depEdgesToAdd.foldLeft(instructions) {
+      case (curInstructions, (nodeId, deps)) =>
+        val curInstruction = curInstructions(nodeId)
+        val newInstruction = (curInstruction._1, curInstruction._2 ++ deps)
+        curInstructions.updated(nodeId, newInstruction)
+    }
+
+    this.copy(instructions = newInstructions)
+  }
+
+  def addSinks(nodes: Seq[NodeOrSourceId]): (InstructionGraph, Seq[SinkId]) = {
     require(nodes.forall {
       case sourceId: SourceId => sources.contains(sourceId)
       case nodeId: NodeId => instructions.contains(nodeId)
@@ -126,7 +166,7 @@ case class InstructionGraph(
     (newGraph, newSinks.map(_._1))
   }
 
-  def addSink(node: NodeOrSourceID): (InstructionGraph, SinkId) = {
+  def addSink(node: NodeOrSourceId): (InstructionGraph, SinkId) = {
     val (graph, newSinks) = addSinks(Seq(node))
     (graph, newSinks.head)
   }
@@ -147,7 +187,7 @@ case class InstructionGraph(
     val newIdStart = maxId + 1
     val newNodesWithIds = newNodes.zipWithIndex.map {
       case (node, index) =>
-        (NodeId(newIdStart + index), (node, Seq[NodeOrSourceID]()))
+        (NodeId(newIdStart + index), (node, Seq[NodeOrSourceId]()))
     }
 
     val newGraph = this.copy(instructions = this.instructions ++ newNodesWithIds)
@@ -160,8 +200,23 @@ case class InstructionGraph(
   }
 
   // Need to add Utils to remove nodes, edges, sinks, sources
-  def removeEdges(edges: Set[(NodeOrSourceID, NodeId)]): InstructionGraph
-  def removeEdge(a: NodeOrSourceID, b: NodeId): InstructionGraph = removeEdges(Set((a, b)))
+  def removeEdges(edges: Set[(NodeOrSourceId, NodeId)]): InstructionGraph = {
+    val edgesToRemoveByNodeId = edges.groupBy(_._2).mapValues(_.map(_._1))
+    val newInstructions = edgesToRemoveByNodeId.foldLeft(instructions) {
+      case (curInstructions, (curNode, depsToRemove)) => {
+        val curNodeInstruction = curInstructions(curNode)
+        val newCurNodeInstruction = (
+          curNodeInstruction._1,
+          curNodeInstruction._2.filter(i => !depsToRemove.contains(i))
+          )
+        curInstructions.updated(curNode, newCurNodeInstruction)
+      }
+    }
+
+    this.copy(instructions = newInstructions)
+  }
+
+  def removeEdge(a: NodeOrSourceId, b: NodeId): InstructionGraph = removeEdges(Set((a, b)))
 
   def removeSinks(sinksToRemove: Set[SinkId]): InstructionGraph = {
     val newSinks = sinks.filter(sink => !sinksToRemove.contains(sink._1))
@@ -175,8 +230,8 @@ case class InstructionGraph(
 
   // when removing a node: turn all of its input deps into sinks, and anything that depends on it into a source
   // when removing multiple nodes: remove all edges in between them, then do the above (all ingress into sinks, all egress into sources)
-  def removeNodes(nodes: Set[NodeId]): (InstructionGraph, Seq[SourceId], Seq[SinkId])
-  def removeNode(node: NodeId): (InstructionGraph, Seq[SourceId], Seq[SinkId]) = removeNodes(Set(node))
+  def removeNodes(nodes: Seq[NodeId]): (InstructionGraph, Seq[SourceId], Seq[SinkId])
+  def removeNode(node: NodeId): (InstructionGraph, Seq[SourceId], Seq[SinkId]) = removeNodes(Seq(node))
 
   // Util to combine w/ another graph (potentially connecting/splicing some of the endpoints, but not necessarily)
   // Do I leave sinks that were spliced to? (I definitely don't leave sources that were spliced to)

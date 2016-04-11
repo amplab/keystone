@@ -91,17 +91,21 @@ case class InstructionGraph(
   // Other Analysis Utils:
   def linearize(): Seq[NodeId]
 
-  def getChildren(node: GraphId): Set[GraphId] = {
+  def getOrderedChildren(node: GraphId): Seq[GraphId] = {
     // FIXME: Figure out if I should include Sinks as children!!! This current impl does...
     node match {
       case id: NodeOrSourceId => {
         val instructionsWithIdAsDep = instructions.filter(_._2._2.contains(id))
-        val childrenNodes = instructionsWithIdAsDep.keySet
+        val childrenNodes = instructionsWithIdAsDep.keys.toSeq
         val childrenSinks = sinks.filter(_._2 == id).map(_._1)
         childrenNodes ++ childrenSinks
       }
-      case sinkId: SinkId => Set()
+      case sinkId: SinkId => Seq()
     }
+  }
+
+  def getChildren(node: GraphId): Set[GraphId] = {
+    getOrderedChildren(node).toSet
   }
 
   def getDescendents(node: GraphId): Set[GraphId] = {
@@ -111,13 +115,17 @@ case class InstructionGraph(
     }.fold(Set())(_ union _)
   }
 
-  def getParents(node: GraphId): Set[NodeOrSourceId] = {
+  def getOrderedParents(node: GraphId): Seq[NodeOrSourceId] = {
     // FIXME: Figure out if I should include Sources as parents!!! This current impl does...
     node match {
-      case sourceId: SourceId => Set()
-      case nodeId: NodeId => instructions(nodeId)._2.toSet
-      case sinkId: SinkId => Set(sinks.toMap.apply(sinkId))
+      case sourceId: SourceId => Seq()
+      case nodeId: NodeId => instructions(nodeId)._2
+      case sinkId: SinkId => Seq(sinks.toMap.apply(sinkId))
     }
+  }
+
+  def getParents(node: GraphId): Set[NodeOrSourceId] = {
+    getOrderedParents(node).toSet
   }
 
   def getAncestors(node: GraphId): Set[NodeOrSourceId] = {
@@ -257,19 +265,18 @@ case class InstructionGraph(
   // when removing a node: turn all of its input deps into sinks, and anything that depends on it into a source
   // when removing multiple nodes: remove all edges in between them, then do the above (all ingress into sinks, all egress into sources)
   def removeNodes(nodesToRemove: Seq[NodeId]): (InstructionGraph, Seq[SourceId], Seq[SinkId]) = {
-    val nodesToRemoveSet: Set[NodeOrSourceId] = nodesToRemove.toSet
-    val edgeFilteredInstructions = instructions.map {
-      case (nodeId, (node, deps)) => (nodeId, (node, deps.filterNot(dep => nodesToRemoveSet.contains(dep) && nodesToRemoveSet.contains(nodeId))))
+    val nodesToRemoveSet: Set[GraphId] = nodesToRemove.toSet
+    val edgesToReplaceWithSinks = instructions.filterKeys(nodesToRemoveSet).map {
+      case (nodeId, (node, deps)) => (deps.filterNot(dep => nodesToRemoveSet.contains(dep)), nodeId)
     }
 
     // FIXME: maybe need an orderedGetChildren?...
     // Or maybe just have a boolean of "dependency on this node or not?" (children size > 0)
     // How do I turn it into sources? Separate source for each dependency on a nodeToRemove, or single source for each nodeToRemove?
     // Lets go w/ separate source for each dep edge (but that does require an ordered get children)
-    val nodesWithDepsOnNodesToRemove = nodesToRemove.map(getChildren)
-    nodesW
-    val sinksToCreate =
-    val edgesBetweenNodes = instructions.filter
+    val nodesWithDepsOnNodesToRemove = nodesToRemove.map(getOrderedChildren)
+    val edgesToReplaceWithSources = nodesWithDepsOnNodesToRemove.map(_.filterNot(nodesToRemoveSet))
+
     // get & remove all edges fully in between the nodes being removed
     // get all remaining deps of these nodes (in order), those become new sinks
     // get all remaining edges that depend on these nodes (in order), those become sources

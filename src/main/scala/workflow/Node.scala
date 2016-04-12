@@ -266,33 +266,84 @@ case class InstructionGraph(
   // when removing multiple nodes: remove all edges in between them, then do the above (all ingress into sinks, all egress into sources)
   def removeNodes(nodesToRemove: Seq[NodeId]): (InstructionGraph, Seq[SourceId], Seq[SinkId]) = {
     val nodesToRemoveSet: Set[GraphId] = nodesToRemove.toSet
-    val edgesToReplaceWithSinks = instructions.filterKeys(nodesToRemoveSet).map {
-      case (nodeId, (node, deps)) => (deps.filterNot(dep => nodesToRemoveSet.contains(dep)), nodeId)
-    }
+    val sinksToAdd = nodesToRemove.flatMap(i => getOrderedParents(i).filterNot(nodesToRemoveSet))
+
+    val (graphWithAddedSinks, newSinks) = addSinks(sinksToAdd)
+
 
     // FIXME: maybe need an orderedGetChildren?...
     // Or maybe just have a boolean of "dependency on this node or not?" (children size > 0)
     // How do I turn it into sources? Separate source for each dependency on a nodeToRemove, or single source for each nodeToRemove?
     // Lets go w/ separate source for each dep edge (but that does require an ordered get children)
-    val nodesWithDepsOnNodesToRemove = nodesToRemove.map(getOrderedChildren)
-    val edgesToReplaceWithSources = nodesWithDepsOnNodesToRemove.map(_.filterNot(nodesToRemoveSet))
+    val edgesToInsertSources = nodesToRemove.map(i => (i, getOrderedChildren(i).filterNot(nodesToRemoveSet)))
+    // double zip to replace edges w/ newly made sources
+
+    val numSources = edgesToInsertSources.map(_._2.size).sum
+    val (graphWithAddedSinksAndSources, newSources) = addSources(numSources)
+
+    // have to connect the sources, awkwardly matching them up in the exact same locations :/
+
 
     // get & remove all edges fully in between the nodes being removed
     // get all remaining deps of these nodes (in order), those become new sinks
     // get all remaining edges that depend on these nodes (in order), those become sources
     // filter out these nodes from instructions
+
   }
 
   def removeNode(node: NodeId): (InstructionGraph, Seq[SourceId], Seq[SinkId]) = removeNodes(Seq(node))
+
+  def addGraph(otherGraph: InstructionGraph): (InstructionGraph, Map[SourceId, SourceId], Map[SinkId, SinkId]) = {
+    val newIdStart = maxId + 1
+    val otherSourceIds = otherGraph.sources
+    val otherNodeIds = otherGraph.instructions.keys
+    val otherSinkIds = otherGraph.sinks.map(_._1)
+
+    val otherSourceIdMap: Map[SourceId, SourceId] = otherSourceIds.zipWithIndex.toMap.mapValues(i => SourceId(i + newIdStart))
+    val otherNodeIdMap: Map[NodeId, NodeId] = otherNodeIds.zipWithIndex.toMap.mapValues(i => NodeId(i + newIdStart + otherSourceIdMap.size))
+    val otherNodeOrSourceIdMap: Map[NodeOrSourceId, NodeOrSourceId] = otherSourceIdMap ++ otherNodeIdMap
+    val otherSinkIdMap: Map[SinkId, SinkId] = otherSinkIds.zipWithIndex.toMap.mapValues(i => SinkId(i + newIdStart + otherNodeOrSourceIdMap.size))
+
+    val newInstructions = instructions ++ otherGraph.instructions.map {
+      case (nodeId, (node, deps)) => (otherNodeIdMap(nodeId), (node, deps.map(otherNodeOrSourceIdMap)))
+    }
+    val newSources = sources ++ otherGraph.sources.map(otherSourceIdMap)
+    val newSinks = sinks ++ otherGraph.sinks.map {
+      case (sinkId, nodeId) => (otherSinkIdMap(sinkId), otherNodeOrSourceIdMap(nodeId))
+    }
+
+    val newGraph = new InstructionGraph(newInstructions, newSources, newSinks)
+    (newGraph, otherSourceIdMap, otherSinkIdMap)
+  }
 
   // Util to combine w/ another graph (potentially connecting/splicing some of the endpoints, but not necessarily)
   // Do I leave sinks that were spliced to? (I definitely don't leave sources that were spliced to)
   // For consistency, I won't leave sinks that were spliced to.
   def combine(
     otherGraph: InstructionGraph,
-    otherSourceToThisSink: Map[SourceId, SinkId],
-    thisSourceToOtherSink: Map[SourceId, SinkId]
-  ): InstructionGraph
+    otherSinkToThisSource: Seq[(SinkId, SourceId)],
+    thisSinkToOtherSource: Seq[(SinkId, SourceId)]
+  ): InstructionGraph = {
+    require(otherSinkToThisSource.map(_._1).toSet.size == otherSinkToThisSource.size,
+      "May only connect each sink/source once!")
+    require(otherSinkToThisSource.map(_._2).toSet.size == otherSinkToThisSource.size,
+      "May only connect each sink/source once!")
+    require(thisSinkToOtherSource.map(_._1).toSet.size == otherSinkToThisSource.size,
+      "May only connect each sink/source once!")
+    require(thisSinkToOtherSource.map(_._2).toSet.size == otherSinkToThisSource.size,
+      "May only connect each sink/source once!")
+    val (addedGraph, otherSourceIdMap, otherSinkIdMap) = addGraph(otherGraph)
+
+    val graphWithSomeConnections = otherSinkToThisSource.foldLeft(addedGraph) {
+      case (curGraph, (sinkId, sourceId)) => curGraph.connectSinkToSource(otherSinkIdMap(sinkId), sourceId)
+    }
+
+    val newGraph = thisSinkToOtherSource.foldLeft(graphWithSomeConnections) {
+      case (curGraph, (sinkId, sourceId)) => curGraph.connectSinkToSource(sinkId, otherSourceIdMap(sourceId))
+    }
+
+    newGraph
+  }
 
   // Maybe also a util to re-assign all Node, Source, & Sink ids to not collide w/ a given set?
     // - map each GraphId to a unique index

@@ -89,7 +89,23 @@ case class InstructionGraph(
   }
 
   // Other Analysis Utils:
-  def linearize(): Seq[NodeId]
+  def linearize(): Seq[GraphId] = {
+    def linearize(graphId: GraphId): Seq[GraphId] = {
+      getOrderedParents(graphId).foldLeft(Seq[GraphId]()) {
+        case (linearization, parent) => if (!linearization.contains(parent)) {
+          linearization ++ linearize(parent).filter(id => !linearization.contains(id))
+        } else {
+          linearization
+        }
+      } :+ graphId
+    }
+
+    sinks.map(_._1).foldLeft(Seq[GraphId]()) {
+      case (linearization, sink) => {
+        linearization ++ linearize(sink).filter(id => !linearization.contains(id))
+      }
+    }
+  }
 
   def getOrderedChildren(node: GraphId): Seq[GraphId] = {
     // FIXME: Figure out if I should include Sinks as children!!! This current impl does...

@@ -171,7 +171,7 @@ case class InstructionGraph(
     copy(instructions = newInstructions).removeSink(sinkId)
   }
 
-  def connectNodeToSource(nodeId: NodeId, sourceId: SourceId): InstructionGraph = {
+  def connectNodeToSource(nodeId: NodeOrSourceId, sourceId: SourceId): InstructionGraph = {
     val newInstructions = instructions.mapValues {
       case (node, deps) => (node, deps.map(dep => if (dep == sourceId) nodeId else dep))
     }
@@ -241,25 +241,6 @@ case class InstructionGraph(
     (graph, newNodes.head)
   }
 
-  // Need to add Utils to remove nodes, edges, sinks, sources
-  def removeEdges(edges: Set[(NodeOrSourceId, NodeId)]): InstructionGraph = {
-    val edgesToRemoveByNodeId = edges.groupBy(_._2).mapValues(_.map(_._1))
-    val newInstructions = edgesToRemoveByNodeId.foldLeft(instructions) {
-      case (curInstructions, (curNode, depsToRemove)) => {
-        val curNodeInstruction = curInstructions(curNode)
-        val newCurNodeInstruction = (
-          curNodeInstruction._1,
-          curNodeInstruction._2.filter(i => !depsToRemove.contains(i))
-          )
-        curInstructions.updated(curNode, newCurNodeInstruction)
-      }
-    }
-
-    this.copy(instructions = newInstructions)
-  }
-
-  def removeEdge(a: NodeOrSourceId, b: NodeId): InstructionGraph = removeEdges(Set((a, b)))
-
   def removeSinks(sinksToRemove: Set[SinkId]): InstructionGraph = {
     val newSinks = sinks.filter(sink => !sinksToRemove.contains(sink._1))
     this.copy(sinks = newSinks)
@@ -278,36 +259,60 @@ case class InstructionGraph(
 
   def removeSource(source: SourceId): InstructionGraph = removeSources(Set(source))
 
-  // when removing a node: turn all of its input deps into sinks, and anything that depends on it into a source
-  // when removing multiple nodes: remove all edges in between them, then do the above (all ingress into sinks, all egress into sources)
-  def removeNodes(nodesToRemove: Seq[NodeId]): (InstructionGraph, Seq[SourceId], Seq[SinkId]) = {
-    val nodesToRemoveSet: Set[GraphId] = nodesToRemove.toSet
-    val sinksToAdd = nodesToRemove.flatMap(i => getOrderedParents(i).filterNot(nodesToRemoveSet))
+  def replaceNodes(
+    nodesToRemove: Set[NodeId],
+    replacement: InstructionGraph,
+    graphSourceConnections: Map[SourceId, NodeOrSourceId],
+    removedNodeToReplacementSinks: Map[NodeId, SinkId]
+  ): InstructionGraph = {
+    // requirements:
+    // - all nodes being removed w/ external edges on them are being replaced w/ a sink of the replacement
+    // - All Sources of the replacement are being connected to a NodeOrSourceId that exists in the initial graph
+    // - All sinks in the replacement end up connected to an edge previously on a node being removed
 
-    val (graphWithAddedSinks, newSinks) = addSinks(sinksToAdd)
+    // Order:
+    // - (done) Remove nodes from Instruction keys
+    // - (done) do requires
+    // - (done) addGraph replacement, making sure to track old->new sink and source mappings
+    // - (done) connectNodeToSource
+    // - not exactly a connectSinkToNode, more of a replaceEdge...
+    // - removeSinks on the newly connected sinks
+    val graphWithNodesRemoved = this.copy(instructions = instructions.filterKeys(id => !nodesToRemove.contains(id)))
+    require(graphSourceConnections.keys.toSet == replacement.sources.toSet)
+    require(removedNodeToReplacementSinks.values.toSet == replacement.sinks.map(_._1).toSet)
+    require(removedNodeToReplacementSinks.keys.forall(id => nodesToRemove.contains(id)))
+    require(graphSourceConnections.values.forall {
+      case id: NodeId => !nodesToRemove.contains(id)
+      case _ => true
+    })
+    require(nodesToRemove.forall { id =>
+      if (graphWithNodesRemoved.getChildren(id).nonEmpty) {
+        removedNodeToReplacementSinks.contains(id)
+      } else {
+        true
+      }
+    })
 
+    val (graphWithReplacement, replacementSourceIdMap, replacementSinkIdMap) =
+      graphWithNodesRemoved.addGraph(replacement)
 
-    // FIXME: maybe need an orderedGetChildren?...
-    // Or maybe just have a boolean of "dependency on this node or not?" (children size > 0)
-    // How do I turn it into sources? Separate source for each dependency on a nodeToRemove, or single source for each nodeToRemove?
-    // Lets go w/ separate source for each dep edge (but that does require an ordered get children)
-    val edgesToInsertSources = nodesToRemove.map(i => (i, getOrderedChildren(i).filterNot(nodesToRemoveSet)))
-    // double zip to replace edges w/ newly made sources
+    val graphWithReplacementAndSourceConnections = graphSourceConnections.foldLeft(graphWithReplacement) {
+      case (curGraph, (replacementSource, nodeToConnectToSource)) =>
+        curGraph.connectNodeToSource(nodeToConnectToSource, replacementSourceIdMap(replacementSource))
+    }
 
-    val numSources = edgesToInsertSources.map(_._2.size).sum
-    val (graphWithAddedSinksAndSources, newSources) = addSources(numSources)
+    val graphWithReplacementAndConnections = removedNodeToReplacementSinks.foldLeft(graphWithReplacementAndSourceConnections) {
+      case (curGraph, (removedNode, sinkToUse)) =>
+        val idToInsert = curGraph.sinks.toMap.apply(replacementSinkIdMap(sinkToUse))
+        val newInstructions = curGraph.instructions.map {
+          case (id, (node, deps)) => (id, (node, deps.map(dep => if (dep == removedNode) idToInsert else dep)))
+        }
 
-    // have to connect the sources, awkwardly matching them up in the exact same locations :/
+        curGraph.copy(instructions = newInstructions)
+    }
 
-
-    // get & remove all edges fully in between the nodes being removed
-    // get all remaining deps of these nodes (in order), those become new sinks
-    // get all remaining edges that depend on these nodes (in order), those become sources
-    // filter out these nodes from instructions
-
+    graphWithReplacementAndConnections.removeSinks(replacementSinkIdMap.values.toSet)
   }
-
-  def removeNode(node: NodeId): (InstructionGraph, Seq[SourceId], Seq[SinkId]) = removeNodes(Seq(node))
 
   def addGraph(otherGraph: InstructionGraph): (InstructionGraph, Map[SourceId, SourceId], Map[SinkId, SinkId]) = {
     val newIdStart = maxId + 1

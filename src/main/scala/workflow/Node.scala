@@ -91,7 +91,7 @@ case class InstructionGraph(
   // Other Analysis Utils:
   def linearize(): Seq[GraphId] = {
     def linearize(graphId: GraphId): Seq[GraphId] = {
-      getOrderedParents(graphId).foldLeft(Seq[GraphId]()) {
+      getDependencies(graphId).foldLeft(Seq[GraphId]()) {
         case (linearization, parent) => if (!linearization.contains(parent)) {
           linearization ++ linearize(parent).filter(id => !linearization.contains(id))
         } else {
@@ -107,21 +107,17 @@ case class InstructionGraph(
     }
   }
 
-  def getOrderedChildren(node: GraphId): Seq[GraphId] = {
+  def getChildren(node: GraphId): Set[GraphId] = {
     // FIXME: Figure out if I should include Sinks as children!!! This current impl does...
     node match {
       case id: NodeOrSourceId => {
         val instructionsWithIdAsDep = instructions.filter(_._2._2.contains(id))
         val childrenNodes = instructionsWithIdAsDep.keys.toSeq
         val childrenSinks = sinks.filter(_._2 == id).map(_._1)
-        childrenNodes ++ childrenSinks
+        (childrenNodes ++ childrenSinks).toSet
       }
-      case sinkId: SinkId => Seq()
+      case sinkId: SinkId => Set()
     }
-  }
-
-  def getChildren(node: GraphId): Set[GraphId] = {
-    getOrderedChildren(node).toSet
   }
 
   def getDescendents(node: GraphId): Set[GraphId] = {
@@ -131,7 +127,7 @@ case class InstructionGraph(
     }.fold(Set())(_ union _)
   }
 
-  def getOrderedParents(node: GraphId): Seq[NodeOrSourceId] = {
+  def getDependencies(node: GraphId): Seq[NodeOrSourceId] = {
     // FIXME: Figure out if I should include Sources as parents!!! This current impl does...
     node match {
       case sourceId: SourceId => Seq()
@@ -141,7 +137,7 @@ case class InstructionGraph(
   }
 
   def getParents(node: GraphId): Set[NodeOrSourceId] = {
-    getOrderedParents(node).toSet
+    getDependencies(node).toSet
   }
 
   def getAncestors(node: GraphId): Set[NodeOrSourceId] = {

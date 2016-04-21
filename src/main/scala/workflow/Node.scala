@@ -66,14 +66,131 @@ private[workflow] case class EstimatorFitNode(est: Int, inputs: Seq[Int]) extend
   }
 }
 
-sealed trait GraphId {
-  val id: Long
-}
-
+sealed trait GraphId { val id: Long }
 sealed trait NodeOrSourceId extends GraphId
 case class NodeId(id: Long) extends NodeOrSourceId
 case class SourceId(id: Long) extends NodeOrSourceId
 case class SinkId(id: Long) extends GraphId
+
+trait Operator
+class Graph(
+    val sources: Set[SourceId],
+    val sinkDependencies: Map[SinkId, NodeOrSourceId],
+    val operators: Map[NodeId, Operator],
+    val dependencies: Map[NodeId, Seq[NodeOrSourceId]]
+  ) {
+  def nodes: Set[NodeId] = operators.keySet
+  def sinks: Set[SinkId] = sinkDependencies.keySet
+
+  def getDependencies(id: NodeId): Seq[NodeOrSourceId] = dependencies(id)
+  def getSinkDependency(id: SinkId): NodeOrSourceId = sinkDependencies(id)
+  def getOperator(id: NodeId): Operator = operators(id)
+
+  private def nextId(): Long = {
+    val allIds = nodes ++ sources ++ sinks
+    allIds.map(_.id).max + 1
+  }
+
+  def addNode(op: Operator, deps: Seq[NodeOrSourceId]): (Graph, NodeId) = {
+    require ({
+      val nodesAndSources: Set[NodeOrSourceId] = nodes ++ sources
+      deps.forall(dep => nodesAndSources.contains(dep))
+    }, "Node must have dependencies on existing ids")
+
+    val id = NodeId(nextId())
+    val newOperators = operators.updated(id, op)
+    val newDependencies = dependencies.updated(id, deps)
+    (new Graph(sources, sinkDependencies, newOperators, newDependencies), id)
+  }
+
+  def addSink(dep: NodeOrSourceId): (Graph, SinkId) = {
+    require ({
+      val nodesAndSources: Set[NodeOrSourceId] = nodes ++ sources
+      nodesAndSources.contains(dep)
+    }, "Sink must have dependencies on an existing id")
+
+    val id = SinkId(nextId())
+    val newSinkDependencies = sinkDependencies.updated(id, dep)
+    (new Graph(sources, newSinkDependencies, operators, dependencies), id)
+  }
+
+  def addSource(): (Graph, SourceId) = {
+    val id = SourceId(nextId())
+    val newSources = sources + id
+    (new Graph(newSources, sinkDependencies, operators, dependencies), id)
+  }
+
+  def setDependencies(node: NodeId, deps: Seq[NodeOrSourceId]): Graph = {
+    require(dependencies.contains(node), "Node being updated must exist")
+    require ({
+      val nodesAndSources: Set[NodeOrSourceId] = nodes ++ sources
+      deps.forall(dep => nodesAndSources.contains(dep))
+    }, "Node must have dependencies on existing ids")
+
+    val newDependencies = dependencies.updated(node, deps)
+    new Graph(sources, sinkDependencies, operators, newDependencies)
+  }
+
+  def setOperator(node: NodeId, op: Operator): Graph = {
+    require(dependencies.contains(node), "Node being updated must exist")
+
+    val newOperators = operators.updated(node, op)
+    new Graph(sources, sinkDependencies, newOperators, dependencies)
+  }
+
+  def setSinkDependency(sink: SinkId, dep: NodeOrSourceId): Graph = {
+    require(sinkDependencies.contains(sink), "Sink being updated must exist")
+
+    require ({
+      val nodesAndSources: Set[NodeOrSourceId] = nodes ++ sources
+      nodesAndSources.contains(dep)
+    }, "Sink must have dependencies on an existing id")
+
+    val newSinkDependencies = sinkDependencies.updated(sink, dep)
+    new Graph(sources, newSinkDependencies, operators, dependencies)
+  }
+
+  def removeSink(sink: SinkId): Graph = {
+    require(sinkDependencies.contains(sink), "Sink being removed must exist")
+
+    val newSinkDependencies = sinkDependencies - sink
+    new Graph(sources, newSinkDependencies, operators, dependencies)
+  }
+
+  def removeSource(source: SourceId): Graph = {
+    require(sources.contains(source), "Source being removed must exist")
+
+    val newSources = sources - source
+    new Graph(newSources, sinkDependencies, operators, dependencies)
+  }
+
+  def removeNode(node: NodeId): Graph = {
+    require(nodes.contains(node), "Node being removed must exist")
+
+    val newOperators = operators - node
+    val newDependencies = dependencies - node
+    new Graph(sources, sinkDependencies, newOperators, newDependencies)
+  }
+
+  def replaceDependency(oldDep: NodeOrSourceId, newDep: NodeOrSourceId): Graph = {
+    require ({
+      val nodesAndSources: Set[NodeOrSourceId] = nodes ++ sources
+      nodesAndSources.contains(newDep)
+    }, "Replacement dependency id must exist")
+
+    val newDependencies = dependencies.map { nodeAndDeps =>
+      val newNodeDeps = nodeAndDeps._2.map(dep => if (dep == oldDep) newDep else dep)
+      (nodeAndDeps._1, newNodeDeps)
+    }
+
+    val newSinkDependencies = sinkDependencies.map { sinkAndDep =>
+      val newSinkDep = if (sinkAndDep._2 == oldDep) newDep else sinkAndDep._2
+      (sinkAndDep._1, newSinkDep)
+    }
+
+    new Graph(sources, newSinkDependencies, operators, newDependencies)
+  }
+}
 
 // Currently this only contains DAG manipulation utils
 case class InstructionGraph(

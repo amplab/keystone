@@ -66,13 +66,96 @@ private[workflow] case class EstimatorFitNode(est: Int, inputs: Seq[Int]) extend
   }
 }
 
+sealed trait Operator {
+  def label: String = {
+    val className = getClass.getSimpleName
+    if (className endsWith "$") className.dropRight(1) else className
+  }
+
+  def execute(deps: Seq[OperatorOutput]): OperatorOutput
+}
+
+sealed trait OperatorOutput
+case class DatasetOutput(rdd: RDD[_]) extends OperatorOutput
+case class DatumOutput(data: Any) extends OperatorOutput
+case class TransformerOperatorOutput(op: TransformerOperator) extends OperatorOutput
+
+private[workflow] case class DatasetOperator(rdd: RDD[_]) extends Operator {
+  override def label: String = "%s[%d]".format(
+    Option(rdd.name).map(_ + " ").getOrElse(""), rdd.id)
+
+  override def execute(deps: Seq[OperatorOutput]): DatasetOutput = {
+    DatasetOutput(rdd)
+  }
+}
+
+private[workflow] case class DatumOperator(datum: Any) extends Operator {
+  override def label: String = {
+    val className = datum.getClass.getSimpleName
+    val datumName = if (className endsWith "$") className.dropRight(1) else className
+    s"Datum [$datumName]"
+  }
+
+  override def execute(deps: Seq[OperatorOutput]): DatumOutput = {
+    DatumOutput(datum)
+  }
+}
+
+private[workflow] abstract class TransformerOperator extends Operator with Serializable {
+  private[workflow] def singleTransform(dataDependencies: Seq[_]): Any
+  private[workflow] def bulktransform(dataDependencies: Seq[RDD[_]]): RDD[_]
+
+  override def execute(deps: Seq[OperatorOutput]): OperatorOutput = {
+    require(deps.forall(_.isInstanceOf[DatasetOutput]) || deps.forall(_.isInstanceOf[DatumOutput]),
+      "Transformer dependencies must be either all RDDs or all single data items")
+
+    val depsAsRDD = deps.collect {
+      case DatasetOutput(data) => data
+    }
+
+    val depsAsDatum = deps.collect {
+      case DatumOutput(datum) => datum
+    }
+
+    if (depsAsRDD.nonEmpty) {
+      DatasetOutput(bulktransform(depsAsRDD))
+    } else {
+      DatumOutput(singleTransform(depsAsDatum))
+    }
+  }
+}
+
+private[workflow] abstract class EstimatorOperator extends Operator with Serializable {
+  def fitRDDs(in: Seq[RDD[_]]): TransformerOperator
+
+  override def execute(deps: Seq[OperatorOutput]): TransformerOperatorOutput = {
+    val rdds = deps.collect {
+      case DatasetOutput(rdd) => rdd
+    }
+    require(rdds.size == deps.size)
+
+    val fittedTransformer = fitRDDs(rdds)
+    TransformerOperatorOutput(fittedTransformer)
+  }
+}
+
+private[workflow] class DelegatingOperator extends Operator with Serializable {
+  override def execute(deps: Seq[OperatorOutput]): OperatorOutput = {
+    val transformer = deps.collectFirst {
+      case TransformerOperatorOutput(t) => t
+    }.get
+
+    transformer.execute(deps.tail)
+  }
+}
+
+
 sealed trait GraphId { val id: Long }
 sealed trait NodeOrSourceId extends GraphId
 case class NodeId(id: Long) extends NodeOrSourceId
 case class SourceId(id: Long) extends NodeOrSourceId
 case class SinkId(id: Long) extends GraphId
 
-trait Operator
 class Graph(
     val sources: Set[SourceId],
     val sinkDependencies: Map[SinkId, NodeOrSourceId],
@@ -366,7 +449,6 @@ class Graph(
       parent => getAncestors(parent) + parent
     }.fold(Set())(_ union _)
   }
-
 }
 
 sealed trait Node  {

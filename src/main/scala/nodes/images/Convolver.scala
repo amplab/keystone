@@ -11,11 +11,13 @@ import workflow.Transformer
 /**
  * Convolves images with a bank of convolution filters. Convolution filters must be square.
  * Used for using the same label for all patches from an image.
- * TODO: Look into using Breeze's convolve
  *
  * @param filters Bank of convolution filters to apply - each filter is an array in row-major order.
  * @param imgWidth Width of images in pixels.
  * @param imgHeight Height of images in pixels.
+ * @param imgChannels Number of channels in input images.
+ * @param whitener An optional whitening matrix to apply to the image patches.
+ * @param varConstant
  */
 class Convolver(
     filters: DenseMatrix[Double],
@@ -24,24 +26,29 @@ class Convolver(
     imgChannels: Int,
     whitener: Option[ZCAWhitener] = None,
     normalizePatches: Boolean = true,
-    varConstant: Double = 10.0)
+    varConstant: Double = 10.0,
+    patchStride: Int = 1)
   extends Transformer[Image, Image] {
 
   val convSize = math.sqrt(filters.cols/imgChannels).toInt
   val convolutions = filters.t
 
-  val resWidth = imgWidth - convSize + 1
-  val resHeight = imgHeight - convSize + 1
+  val resWidth = (imgWidth - convSize + 1)
+  val resHeight = (imgHeight - convSize + 1)
 
   override def apply(in: RDD[Image]): RDD[Image] = {
     in.mapPartitions(Convolver.convolvePartitions(_, resWidth, resHeight, imgChannels, convSize,
-      normalizePatches, whitener, convolutions, varConstant))
+      normalizePatches, whitener, convolutions, varConstant, patchStride))
   }
 
   def apply(in: Image): Image = {
-    var patchMat = new DenseMatrix[Double](resWidth*resHeight, convSize*convSize*imgChannels)
+
+    val outWidth = math.ceil(resWidth/patchStride).toInt
+    val outHeight = math.ceil(resHeight/patchStride).toInt
+
+    var patchMat = new DenseMatrix[Double](outWidth*outHeight, convSize*convSize*imgChannels)
     Convolver.convolve(in, patchMat, resWidth, resHeight,
-      imgChannels, convSize, normalizePatches, whitener, convolutions)
+      imgChannels, convSize, normalizePatches, whitener, convolutions, varConstant, patchStride)
   }
 }
 
@@ -134,16 +141,20 @@ object Convolver {
       normalizePatches: Boolean,
       whitener: Option[ZCAWhitener],
       convolutions: DenseMatrix[Double],
-      varConstant: Double = 10.0): Image = {
+      varConstant: Double = 10.0,
+      patchStride: Int = 1): Image = {
 
+
+    val outWidth = math.ceil(resWidth/patchStride).toInt
+    val outHeight = math.ceil(resHeight/patchStride).toInt
     val imgMat = makePatches(img, patchMat, resWidth, resHeight, imgChannels, convSize,
-      normalizePatches, whitener, varConstant)
+      normalizePatches, whitener, varConstant, patchStride)
 
     val convRes: DenseMatrix[Double] = imgMat * convolutions
 
     val res = new RowMajorArrayVectorizedImage(
       convRes.toArray,
-      ImageMetadata(resWidth, resHeight, convolutions.cols))
+      ImageMetadata(outWidth, outHeight, convolutions.cols))
 
     res
   }
@@ -163,9 +174,9 @@ object Convolver {
       convSize: Int,
       normalizePatches: Boolean,
       whitener: Option[ZCAWhitener],
-      varConstant: Double): DenseMatrix[Double] = {
+      varConstant: Double,
+      patchStride: Int): DenseMatrix[Double] = {
     var x,y,chan,pox,poy,py,px = 0
-
     poy = 0
     while (poy < convSize) {
       pox = 0
@@ -177,15 +188,13 @@ object Convolver {
             chan = 0
             while (chan < imgChannels) {
               px = chan + pox*imgChannels + poy*imgChannels*convSize
-              py = x + y*resWidth
-
+              py = math.ceil((x/patchStride + y*resWidth/(patchStride*patchStride))).toInt
               patchMat(py, px) = img.get(x+pox, y+poy, chan)
-
               chan+=1
             }
-            x+=1
+            x += patchStride
           }
-          y+=1
+          y += patchStride
         }
         pox+=1
       }
@@ -211,11 +220,14 @@ object Convolver {
       normalizePatches: Boolean,
       whitener: Option[ZCAWhitener],
       convolutions: DenseMatrix[Double],
-      varConstant: Double): Iterator[Image] = {
+      varConstant: Double,
+      patchStride: Int): Iterator[Image] = {
 
-    var patchMat = new DenseMatrix[Double](resWidth*resHeight, convSize*convSize*imgChannels)
+    val outWidth = math.ceil(resWidth/patchStride).toInt
+    val outHeight = math.ceil(resWidth/patchStride).toInt
+    var patchMat = new DenseMatrix[Double](outWidth*outHeight, convSize*convSize*imgChannels)
     imgs.map(convolve(_, patchMat, resWidth, resHeight, imgChannels, convSize, normalizePatches,
-      whitener, convolutions, varConstant))
+      whitener, convolutions, varConstant, patchStride))
 
   }
 }

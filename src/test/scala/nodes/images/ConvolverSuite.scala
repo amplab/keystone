@@ -159,7 +159,7 @@ class ConvolverSuite extends FunSuite with LocalSparkContext with Logging {
 
     val convBank = convert(new DenseMatrix(2, 5*5*3, (0 until 2*5*5*3).toArray.map(x => 1)), Double)
 
-    val convolver = new Convolver(convBank, imgWidth, imgHeight, imgChannels)
+    val convolver = new Convolver(convBank, imgWidth, imgHeight, imgChannels, normalizePatches=false)
 
     val poolImage = convolver(image)
 
@@ -194,7 +194,7 @@ class ConvolverSuite extends FunSuite with LocalSparkContext with Logging {
 
     val convBank = convert(new DenseMatrix(2, 5*5*3, (0 until 2*5*5*3).toArray.map(x => 1)), Double)
 
-    val convolver = new Convolver(convBank, imgWidth, imgHeight, imgChannels, patchStride=2)
+    val convolver = new Convolver(convBank, imgWidth, imgHeight, imgChannels, patchStride=2, normalizePatches=false)
 
     val poolImage = convolver(image)
 

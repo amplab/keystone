@@ -86,10 +86,12 @@ object TestUtils {
   }
 
   /* Convert a BGR image (channels x (rows x cols)) to RGB */
-  def BGRtoRGB(im: DenseMatrix[Double]) = {
-    val im2 = im.copy
-    im2(0,::) := im(2,::)
-    im2(2,::) := im(0,::)
-    im2
+  def BGRtoRGB(im: Image) = {
+    val imArray = im.toArray
+    val imMat = new DenseMatrix(im.metadata.numChannels, im.metadata.xDim*im.metadata.yDim, imArray)
+    val imMat2 = imMat.copy
+    imMat2(0,::) := imMat(2,::)
+    imMat2(2,::) := imMat(0,::)
+    new ChannelMajorArrayVectorizedImage(imMat2.toArray, im.metadata)
   }
 }

@@ -136,31 +136,33 @@ class ConvolverSuite extends FunSuite with LocalSparkContext with Logging {
     assert(testImg.equals(chans(0)), "Convolved images should match.")
 
   }
+
+  /* How to generate theano csv
+   * >>> im = scipy.ndimage.imread("images/test.jpeg")
+   * >>> im = im.reshape(1,256,256,3)
+   * >>> im = im.transpose(0,3,1,2)
+   * >>> filterBank = np.ones((2,3,5,5))
+   * >>> out = nnet.conv2d(theano.shared(im), theano.shared(filterBank)).eval()
+   * >>> np.savetxt("theano_conv2d_nostride.csv", out.reshape(-1))
+   */
   test("5x5 patches convolutions no stride") {
-    val imgWidth = 256
-    val imgHeight = 256
-    val imgChannels = 3
+    val imageBGR  = TestUtils.loadTestImage("images/test.jpeg")
+    val image = TestUtils.BGRtoRGB(imageBGR)
+
+    val imgChannels = image.metadata.numChannels
+    val imgWidth = image.metadata.xDim
+    val imgHeight = image.metadata.yDim
     val numFilters = 2
     val convSize = 5
-
-    val imageBGR  = TestUtils.loadTestImage("images/test.jpeg")
-
-    val imArray = imageBGR.toArray
-
-    val imArrayRGB  = TestUtils.BGRtoRGB(new DenseMatrix(3, 256*256, imArray)).data
-
-     val image = new ChannelMajorArrayVectorizedImage(imArrayRGB, imageBGR.metadata)
+    val inDim = convSize*convSize*imgChannels
 
     val theanoFile = new File(TestUtils.getTestResourceFileName("images/theano_conv2d_nostride.csv"))
-
     val convolvedImgRaw:Array[Double] = csvread(theanoFile).data
-
     val convolvedImg = new ColumnMajorArrayVectorizedImage(convolvedImgRaw, ImageMetadata(imgWidth - convSize + 1, imgHeight - convSize + 1, numFilters))
 
-    val convBank = convert(new DenseMatrix(2, 5*5*3, (0 until 2*5*5*3).toArray.map(x => 1)), Double)
 
+    val convBank = DenseMatrix.ones[Double](numFilters, inDim)
     val convolver = new Convolver(convBank, imgWidth, imgHeight, imgChannels, normalizePatches=false)
-
     val poolImage = convolver(image)
 
     logInfo(s"Image Dimensions ${poolImage.metadata.xDim} ${poolImage.metadata.yDim} ${poolImage.metadata.numChannels}")
@@ -171,31 +173,32 @@ class ConvolverSuite extends FunSuite with LocalSparkContext with Logging {
     assert(poolImage.equals(convolvedImg), "Convolved image should match theano convolution")
   }
 
+  /* How to generate theano csv
+   * >>> im = scipy.ndimage.imread("images/test.jpeg")
+   * >>> im = im.reshape(1,256,256,3)
+   * >>> im = im.transpose(0,3,1,2)
+   * >>> filterBank = np.ones((2,3,5,5))
+   * >>> out = nnet.conv2d(theano.shared(im), theano.shared(filterBank), subsample=(2,2)).eval()
+   * >>> np.savetxt("theano_conv2d_2stride.csv", out.reshape(-1))
+   */
+
   test("5x5 patches convolutions with stride = 2") {
-    val imgWidth = 256
-    val imgHeight = 256
-    val imgChannels = 3
+    val imageBGR  = TestUtils.loadTestImage("images/test.jpeg")
+    val image = TestUtils.BGRtoRGB(imageBGR)
+
+    val imgChannels = image.metadata.numChannels
+    val imgWidth = image.metadata.xDim
+    val imgHeight = image.metadata.yDim
     val numFilters = 2
     val convSize = 5
-
-    val imageBGR  = TestUtils.loadTestImage("images/test.jpeg")
-
-    val imArray = imageBGR.toArray
-
-    val imArrayRGB  = TestUtils.BGRtoRGB(new DenseMatrix(3, 256*256, imArray)).data
-
-    val image = new ChannelMajorArrayVectorizedImage(imArrayRGB, imageBGR.metadata)
+    val inDim = convSize*convSize*imgChannels
 
     val theanoFile = new File(TestUtils.getTestResourceFileName("images/theano_conv2d_2stride.csv"))
-
     val convolvedImgRaw:Array[Double] = csvread(theanoFile).data
-
     val convolvedImg = new ColumnMajorArrayVectorizedImage(convolvedImgRaw, ImageMetadata((imgWidth - convSize + 1)/2, (imgHeight - convSize + 1)/2, numFilters))
 
-    val convBank = convert(new DenseMatrix(2, 5*5*3, (0 until 2*5*5*3).toArray.map(x => 1)), Double)
-
+    val convBank = DenseMatrix.ones[Double](numFilters, inDim)
     val convolver = new Convolver(convBank, imgWidth, imgHeight, imgChannels, patchStride=2, normalizePatches=false)
-
     val poolImage = convolver(image)
 
     logInfo(s"Image Dimensions ${poolImage.metadata.xDim} ${poolImage.metadata.yDim} ${poolImage.metadata.numChannels}")

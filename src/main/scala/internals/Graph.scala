@@ -1,11 +1,5 @@
 package internals
 
-sealed trait GraphId { val id: Long }
-sealed trait NodeOrSourceId extends GraphId
-case class NodeId(id: Long) extends NodeOrSourceId
-case class SourceId(id: Long) extends NodeOrSourceId
-case class SinkId(id: Long) extends GraphId
-
 class Graph(
     val sources: Set[SourceId],
     val sinkDependencies: Map[SinkId, NodeOrSourceId],
@@ -242,61 +236,5 @@ class Graph(
     replacementSinkSplice.values.toSet.foldLeft(graphWithReplacementAndConnections) {
       case (graph, sink) => graph.removeSink(sink)
     }
-  }
-
-  def linearize(): Seq[GraphId] = {
-    def linearize(graphId: GraphId): Seq[GraphId] = {
-      val deps: Seq[GraphId] = graphId match {
-        case source: SourceId => Seq()
-        case node: NodeId => getDependencies(node)
-        case sink: SinkId => Seq(getSinkDependency(sink))
-      }
-      deps.foldLeft(Seq[GraphId]()) {
-        case (linearization, dep) => if (!linearization.contains(dep)) {
-          linearization ++ linearize(dep).filter(id => !linearization.contains(id))
-        } else {
-          linearization
-        }
-      } :+ graphId
-    }
-
-    sinks.foldLeft(Seq[GraphId]()) {
-      case (linearization, sink) => {
-        linearization ++ linearize(sink).filter(id => !linearization.contains(id))
-      }
-    }
-  }
-
-  def getChildren(node: GraphId): Set[GraphId] = {
-    node match {
-      case id: NodeOrSourceId => {
-        val childrenNodes = dependencies.filter(_._2.contains(id)).keySet
-        val childrenSinks = sinkDependencies.filter(_._2 == id).keySet
-        childrenNodes ++ childrenSinks
-      }
-      case sinkId: SinkId => Set()
-    }
-  }
-
-  def getDescendants(node: GraphId): Set[GraphId] = {
-    val children = getChildren(node)
-    children.map {
-      child => getDescendants(child) + child
-    }.fold(Set())(_ union _)
-  }
-
-  def getParents(node: GraphId): Set[NodeOrSourceId] = {
-    node match {
-      case source: SourceId => Set()
-      case node: NodeId => getDependencies(node).toSet
-      case sink: SinkId => Set(getSinkDependency(sink))
-    }
-  }
-
-  def getAncestors(node: GraphId): Set[NodeOrSourceId] = {
-    val parents = getParents(node)
-    parents.map {
-      parent => getAncestors(parent) + parent
-    }.fold(Set())(_ union _)
   }
 }

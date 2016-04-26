@@ -1,5 +1,7 @@
 package internals
 
+import java.util.concurrent.atomic.AtomicInteger
+
 import nodes.util.Identity
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
@@ -7,28 +9,267 @@ import org.scalatest.FunSuite
 import pipelines.{LocalSparkContext, Logging}
 
 class OperatorSuite extends FunSuite with LocalSparkContext with Logging {
-  test("Datum Operator") {
-    sc = new SparkContext("local", "test")
+  test("DatumOperator") {
+    val datum = 4
+    val op = new DatumOperator(datum)
 
+    assert(datum === op.execute(Seq()).get)
   }
 
-  // TODO
-  test("Dataset Operator") {
+  test("DatasetOperator") {
     sc = new SparkContext("local", "test")
 
+    val dataset = sc.parallelize(Seq(4, 5, 6))
+    val op = new DatasetOperator(dataset)
+
+    assert(dataset === op.execute(Seq()).get)
   }
 
-  // TODO: For transformer operator:
-  // test delegation & laziness of single transform
-  // test delegation & laziness of bulk transform
-  // ensure error if not ((all datum) or (all dataset))
+  test("TransformerOperator single datums") {
+    sc = new SparkContext("local", "test")
 
-  // TODO for estimator operator:
-  // Test laziness
+    val globalInt = new AtomicInteger(0)
+    val inputs = Seq(2, 7, 3)
+    val inputDatumOutputs = inputs.map(i => new DatumOutput(i))
 
-  // TODO for delegating operator:
-  // test delegation & laziness of single transform
-  // test delegation & laziness of bulk transform
-  // ensure error if not ((all datum) or (all dataset))
+    val transformer = new TransformerOperator {
+      override private[internals] def singleTransform(dataDependencies: Seq[DatumOutput]): Any = {
+        val sum = dataDependencies.map(_.get.asInstanceOf[Int]).sum
+        globalInt.addAndGet(sum)
+        sum
+      }
+      override private[internals] def batchTransform(dataDependencies: Seq[DatasetOutput]): RDD[_] = ???
+    }
+
+    // Test laziness of execution
+    val out = transformer.execute(inputDatumOutputs).asInstanceOf[DatumOutput]
+    assert(globalInt.get() === 0, "Transformer execution supposed to be lazy")
+
+    assert(out.get === inputs.sum)
+    assert(globalInt.get() === inputs.sum)
+
+    // Test memoization of execution
+    assert(out.get === inputs.sum)
+    assert(globalInt.get() === inputs.sum)
+
+    // Test laziness & memoization with other data
+    val in2 = 13
+    val out2 = transformer.execute(Seq(new DatumOutput(in2))).asInstanceOf[DatumOutput]
+    assert(globalInt.get() === inputs.sum, "Transformer execution supposed to be lazy")
+
+    assert(out2.get === in2)
+    assert(globalInt.get() === (inputs.sum + in2))
+    assert(out2.get === in2)
+    assert(globalInt.get() === (inputs.sum + in2))
+  }
+
+  test("TransformerOperator batch datasets") {
+    sc = new SparkContext("local", "test")
+
+    val globalInt = new AtomicInteger(0)
+    val dataset1 = sc.parallelize(Seq(2, 7, 3))
+    val dataset2 = sc.parallelize(Seq(1, -4, 17))
+    val dataset3 = sc.parallelize(Seq(1, 2))
+
+    val transformer = new TransformerOperator {
+      override private[internals] def singleTransform(dataDependencies: Seq[DatumOutput]): Any = ???
+      override private[internals] def batchTransform(dataDependencies: Seq[DatasetOutput]): RDD[_] = {
+        val rdds = dataDependencies.map(_.get.asInstanceOf[RDD[Int]])
+        globalInt.addAndGet(rdds.map(_.sum.toInt).sum)
+        rdds.head
+      }
+    }
+
+    // Test laziness of execution
+    val out = transformer.execute(Seq(new DatasetOutput(dataset1), new DatasetOutput(dataset2)))
+      .asInstanceOf[DatasetOutput]
+    assert(globalInt.get() === 0, "Transformer execution supposed to be lazy")
+
+    assert(out.get === dataset1)
+    assert(globalInt.get() === (dataset1.sum + dataset2.sum))
+
+    // Test memoization of execution
+    assert(out.get === dataset1)
+    assert(globalInt.get() === (dataset1.sum + dataset2.sum))
+
+    // Test laziness & memoization with other data
+    val out2 = transformer.execute(Seq(new DatasetOutput(dataset3)))
+      .asInstanceOf[DatasetOutput]
+    assert(globalInt.get() === (dataset1.sum + dataset2.sum), "Transformer execution supposed to be lazy")
+    assert(out2.get === dataset3)
+    assert(globalInt.get() === (dataset1.sum + dataset2.sum + dataset3.sum))
+    assert(out2.get === dataset3)
+    assert(globalInt.get() === (dataset1.sum + dataset2.sum + dataset3.sum()))
+  }
+
+  test("TransformerOperator test invalid inputs") {
+    sc = new SparkContext("local", "test")
+    val datum = 4
+    val dataset = sc.parallelize(Seq(datum))
+
+    val transformer = new TransformerOperator {
+      override private[internals] def singleTransform(dataDependencies: Seq[DatumOutput]): Any = datum
+      override private[internals] def batchTransform(dataDependencies: Seq[DatasetOutput]): RDD[_] = dataset
+    }
+
+    // Expects exception to be returned when deps are not (all DatasetOutput or all DatumOutput)
+    intercept[IllegalArgumentException] {
+      transformer.execute(Seq(new DatasetOutput(dataset), new DatumOutput(datum)))
+    }
+
+    // Expects exception to be returned when deps are empty
+    intercept[IllegalArgumentException] {
+      transformer.execute(Seq())
+    }
+  }
+
+  test("EstimatorOperator") {
+    sc = new SparkContext("local", "test")
+
+    val globalInt = new AtomicInteger(0)
+    val dataset1 = sc.parallelize(Seq(2, 7, 3))
+    val dataset2 = sc.parallelize(Seq(1, -4, 17))
+    val dataset3 = sc.parallelize(Seq(1, 2))
+
+    val dummyTransformer = new TransformerOperator {
+      override private[internals] def singleTransform(dataDependencies: Seq[DatumOutput]): Any = ???
+      override private[internals] def batchTransform(dataDependencies: Seq[DatasetOutput]): RDD[_] = ???
+    }
+
+    val estimator = new EstimatorOperator {
+      override private[internals] def fitRDDs(inputs: Seq[DatasetOutput]): TransformerOperator = {
+        val rdds = inputs.map(_.get.asInstanceOf[RDD[Int]])
+        globalInt.addAndGet(rdds.map(_.sum.toInt).sum)
+        dummyTransformer
+      }
+    }
+
+    // Test laziness of execution
+    val out = estimator.execute(Seq(new DatasetOutput(dataset1), new DatasetOutput(dataset2)))
+      .asInstanceOf[TransformerOutput]
+    assert(globalInt.get() === 0, "Estimator execution supposed to be lazy")
+
+    assert(out.get === dummyTransformer)
+    assert(globalInt.get() === (dataset1.sum + dataset2.sum))
+
+    // Test memoization of execution
+    assert(out.get === dummyTransformer)
+    assert(globalInt.get() === (dataset1.sum + dataset2.sum))
+
+    // Test laziness & memoization with other data
+    val out2 = estimator.execute(Seq(new DatasetOutput(dataset3)))
+      .asInstanceOf[TransformerOutput]
+    assert(globalInt.get() === (dataset1.sum + dataset2.sum), "Transformer execution supposed to be lazy")
+    assert(out2.get === dummyTransformer)
+    assert(globalInt.get() === (dataset1.sum + dataset2.sum + dataset3.sum))
+    assert(out2.get === dummyTransformer)
+    assert(globalInt.get() === (dataset1.sum + dataset2.sum + dataset3.sum()))
+  }
+
+  test("DelegatingOperator single datums") {
+    sc = new SparkContext("local", "test")
+
+    val globalInt = new AtomicInteger(0)
+    val inputs = Seq(2, 7, 3)
+    val inputDatumOutputs: Seq[Output] = inputs.map(i => new DatumOutput(i))
+
+    val op = new DelegatingOperator
+    val transformer = new TransformerOutput(new TransformerOperator {
+      override private[internals] def singleTransform(dataDependencies: Seq[DatumOutput]): Any = {
+        val sum = dataDependencies.map(_.get.asInstanceOf[Int]).sum
+        globalInt.addAndGet(sum)
+        sum
+      }
+      override private[internals] def batchTransform(dataDependencies: Seq[DatasetOutput]): RDD[_] = ???
+    })
+
+    // Test laziness of execution
+    val out = op.execute(Seq(transformer) ++ inputDatumOutputs).asInstanceOf[DatumOutput]
+    assert(globalInt.get() === 0, "Transformer execution supposed to be lazy")
+
+    assert(out.get === inputs.sum)
+    assert(globalInt.get() === inputs.sum)
+
+    // Test memoization of execution
+    assert(out.get === inputs.sum)
+    assert(globalInt.get() === inputs.sum)
+
+    // Test laziness & memoization with other data
+    val in2 = 13
+    val out2 = op.execute(Seq(transformer, new DatumOutput(in2))).asInstanceOf[DatumOutput]
+    assert(globalInt.get() === inputs.sum, "Transformer execution supposed to be lazy")
+
+    assert(out2.get === in2)
+    assert(globalInt.get() === (inputs.sum + in2))
+    assert(out2.get === in2)
+    assert(globalInt.get() === (inputs.sum + in2))
+  }
+
+  test("DelegatingOperator batch datasets") {
+    sc = new SparkContext("local", "test")
+
+    val globalInt = new AtomicInteger(0)
+    val dataset1 = sc.parallelize(Seq(2, 7, 3))
+    val dataset2 = sc.parallelize(Seq(1, -4, 17))
+    val dataset3 = sc.parallelize(Seq(1, 2))
+
+    val op = new DelegatingOperator
+    val transformer = new TransformerOutput(new TransformerOperator {
+      override private[internals] def singleTransform(dataDependencies: Seq[DatumOutput]): Any = ???
+      override private[internals] def batchTransform(dataDependencies: Seq[DatasetOutput]): RDD[_] = {
+        val rdds = dataDependencies.map(_.get.asInstanceOf[RDD[Int]])
+        globalInt.addAndGet(rdds.map(_.sum.toInt).sum)
+        rdds.head
+      }
+    })
+
+    // Test laziness of execution
+    val out = op.execute(Seq(transformer, new DatasetOutput(dataset1), new DatasetOutput(dataset2)))
+      .asInstanceOf[DatasetOutput]
+    assert(globalInt.get() === 0, "Transformer execution supposed to be lazy")
+
+    assert(out.get === dataset1)
+    assert(globalInt.get() === (dataset1.sum + dataset2.sum))
+
+    // Test memoization of execution
+    assert(out.get === dataset1)
+    assert(globalInt.get() === (dataset1.sum + dataset2.sum))
+
+    // Test laziness & memoization with other data
+    val out2 = op.execute(Seq(transformer, new DatasetOutput(dataset3)))
+      .asInstanceOf[DatasetOutput]
+    assert(globalInt.get() === (dataset1.sum + dataset2.sum), "Transformer execution supposed to be lazy")
+    assert(out2.get === dataset3)
+    assert(globalInt.get() === (dataset1.sum + dataset2.sum + dataset3.sum))
+    assert(out2.get === dataset3)
+    assert(globalInt.get() === (dataset1.sum + dataset2.sum + dataset3.sum()))
+  }
+
+  test("DelegatingOperator test invalid inputs") {
+    sc = new SparkContext("local", "test")
+    val datum = 4
+    val dataset = sc.parallelize(Seq(datum))
+
+    val op = new DelegatingOperator
+    val transformer = new TransformerOutput(new TransformerOperator {
+      override private[internals] def singleTransform(dataDependencies: Seq[DatumOutput]): Any = datum
+      override private[internals] def batchTransform(dataDependencies: Seq[DatasetOutput]): RDD[_] = dataset
+    })
+
+    // Expects exception to be returned when deps are not (all DatasetOutput or all DatumOutput)
+    intercept[IllegalArgumentException] {
+      op.execute(Seq(transformer, new DatasetOutput(dataset), new DatumOutput(datum)))
+    }
+
+    // Expects exception to be returned when deps are empty
+    intercept[IllegalArgumentException] {
+      op.execute(Seq())
+    }
+
+    // Expects exception to be returned when only passed a transformer
+    intercept[IllegalArgumentException] {
+      op.execute(Seq(transformer))
+    }
+  }
 
 }

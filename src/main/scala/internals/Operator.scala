@@ -17,8 +17,8 @@ private[internals] sealed trait Operator {
 }
 
 /**
- * An operator initialized with an [[RDD]], which always outputs a [[DatasetOutput]] containing
- * that RDD, regardless of the inputs.
+ * An operator initialized with an [[RDD]], which takes no inputs and always outputs a
+ * [[DatasetOutput]] containing that RDD, regardless of the inputs.
  *
  * @param rdd The RDD to always output
  */
@@ -27,13 +27,14 @@ private[internals] case class DatasetOperator(rdd: RDD[_]) extends Operator {
     Option(rdd.name).map(_ + " ").getOrElse(""), rdd.id)
 
   override def execute(deps: Seq[Output]): DatasetOutput = {
+    require(deps.isEmpty, "DatasetOperator does not take any inputs")
     new DatasetOutput(rdd)
   }
 }
 
 /**
- * An operator initialized with a single datum, which always outputs a [[DatumOutput]] containing
- * that datum, regardless of the inputs.
+ * An operator initialized with a single datum, which takes no inputs and always outputs a
+ * [[DatumOutput]] containing that datum.
  *
  * @param datum The datum to always output
  */
@@ -45,6 +46,7 @@ private[internals] case class DatumOperator(datum: Any) extends Operator {
   }
 
   override def execute(deps: Seq[Output]): DatumOutput = {
+    require(deps.isEmpty, "DatumOperator does not take any inputs")
     new DatumOutput(datum)
   }
 }
@@ -65,14 +67,15 @@ private[internals] abstract class TransformerOperator extends Operator with Seri
   /**
    * The single datum transformation, to go from a sequence of datums to a new single item.
    */
-  private[internals] def singleTransform(dataDependencies: Seq[DatumOutput]): Any
+  private[internals] def singleTransform(inputs: Seq[DatumOutput]): Any
 
   /**
    * The batch dataset transformation, to go from a sequence of datasets to a new dataset.
    */
-  private[internals] def batchTransform(dataDependencies: Seq[DatasetOutput]): RDD[_]
+  private[internals] def batchTransform(inputs: Seq[DatasetOutput]): RDD[_]
 
   override def execute(deps: Seq[Output]): Output = {
+    require(deps.nonEmpty, "Transformer dependencies may not be empty")
     require(deps.forall(_.isInstanceOf[DatasetOutput]) || deps.forall(_.isInstanceOf[DatumOutput]),
       "Transformer dependencies must be either all RDDs or all single data items")
 
@@ -107,7 +110,7 @@ private[internals] abstract class TransformerOperator extends Operator with Seri
  * value of the [[Output]] is accessed using `Output.get`.
  */
 private[internals] abstract class EstimatorOperator extends Operator with Serializable {
-  private[internals] def fitRDDs(in: Seq[DatasetOutput]): TransformerOperator
+  private[internals] def fitRDDs(inputs: Seq[DatasetOutput]): TransformerOperator
 
   override def execute(deps: Seq[Output]): TransformerOutput = {
     val rdds = deps.collect {
@@ -131,6 +134,11 @@ private[internals] abstract class EstimatorOperator extends Operator with Serial
  */
 private[internals] class DelegatingOperator extends Operator with Serializable {
   override def execute(deps: Seq[Output]): Output = {
+    require(deps.nonEmpty, "DelegatingOperator dependencies may not be empty")
+    require(deps.tail.nonEmpty, "Transformer dependencies may not be empty")
+    require(deps.tail.forall(_.isInstanceOf[DatasetOutput]) || deps.tail.forall(_.isInstanceOf[DatumOutput]),
+      "Transformer dependencies must be either all RDDs or all single data items")
+
     val transformer = deps.collectFirst {
       case t: TransformerOutput => t
     }.get

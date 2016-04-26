@@ -1,4 +1,4 @@
-package internals
+package internal
 
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -33,12 +33,12 @@ class OperatorSuite extends FunSuite with LocalSparkContext with Logging {
     val inputDatumOutputs = inputs.map(i => new DatumOutput(i))
 
     val transformer = new TransformerOperator {
-      override private[internals] def singleTransform(dataDependencies: Seq[DatumOutput]): Any = {
+      override private[internal] def singleTransform(dataDependencies: Seq[DatumOutput]): Any = {
         val sum = dataDependencies.map(_.get.asInstanceOf[Int]).sum
         globalInt.addAndGet(sum)
         sum
       }
-      override private[internals] def batchTransform(dataDependencies: Seq[DatasetOutput]): RDD[_] = ???
+      override private[internal] def batchTransform(dataDependencies: Seq[DatasetOutput]): RDD[_] = ???
     }
 
     // Test laziness of execution
@@ -72,8 +72,8 @@ class OperatorSuite extends FunSuite with LocalSparkContext with Logging {
     val dataset3 = sc.parallelize(Seq(1, 2))
 
     val transformer = new TransformerOperator {
-      override private[internals] def singleTransform(dataDependencies: Seq[DatumOutput]): Any = ???
-      override private[internals] def batchTransform(dataDependencies: Seq[DatasetOutput]): RDD[_] = {
+      override private[internal] def singleTransform(dataDependencies: Seq[DatumOutput]): Any = ???
+      override private[internal] def batchTransform(dataDependencies: Seq[DatasetOutput]): RDD[_] = {
         val rdds = dataDependencies.map(_.get.asInstanceOf[RDD[Int]])
         globalInt.addAndGet(rdds.map(_.sum.toInt).sum)
         rdds.head
@@ -108,8 +108,8 @@ class OperatorSuite extends FunSuite with LocalSparkContext with Logging {
     val dataset = sc.parallelize(Seq(datum))
 
     val transformer = new TransformerOperator {
-      override private[internals] def singleTransform(dataDependencies: Seq[DatumOutput]): Any = datum
-      override private[internals] def batchTransform(dataDependencies: Seq[DatasetOutput]): RDD[_] = dataset
+      override private[internal] def singleTransform(dataDependencies: Seq[DatumOutput]): Any = datum
+      override private[internal] def batchTransform(dataDependencies: Seq[DatasetOutput]): RDD[_] = dataset
     }
 
     // Expects exception to be returned when deps are not (all DatasetOutput or all DatumOutput)
@@ -132,12 +132,12 @@ class OperatorSuite extends FunSuite with LocalSparkContext with Logging {
     val dataset3 = sc.parallelize(Seq(1, 2))
 
     val dummyTransformer = new TransformerOperator {
-      override private[internals] def singleTransform(dataDependencies: Seq[DatumOutput]): Any = ???
-      override private[internals] def batchTransform(dataDependencies: Seq[DatasetOutput]): RDD[_] = ???
+      override private[internal] def singleTransform(dataDependencies: Seq[DatumOutput]): Any = ???
+      override private[internal] def batchTransform(dataDependencies: Seq[DatasetOutput]): RDD[_] = ???
     }
 
     val estimator = new EstimatorOperator {
-      override private[internals] def fitRDDs(inputs: Seq[DatasetOutput]): TransformerOperator = {
+      override private[internal] def fitRDDs(inputs: Seq[DatasetOutput]): TransformerOperator = {
         val rdds = inputs.map(_.get.asInstanceOf[RDD[Int]])
         globalInt.addAndGet(rdds.map(_.sum.toInt).sum)
         dummyTransformer
@@ -175,12 +175,12 @@ class OperatorSuite extends FunSuite with LocalSparkContext with Logging {
 
     val op = new DelegatingOperator
     val transformer = new TransformerOutput(new TransformerOperator {
-      override private[internals] def singleTransform(dataDependencies: Seq[DatumOutput]): Any = {
+      override private[internal] def singleTransform(dataDependencies: Seq[DatumOutput]): Any = {
         val sum = dataDependencies.map(_.get.asInstanceOf[Int]).sum
         globalInt.addAndGet(sum)
         sum
       }
-      override private[internals] def batchTransform(dataDependencies: Seq[DatasetOutput]): RDD[_] = ???
+      override private[internal] def batchTransform(dataDependencies: Seq[DatasetOutput]): RDD[_] = ???
     })
 
     // Test laziness of execution
@@ -215,8 +215,8 @@ class OperatorSuite extends FunSuite with LocalSparkContext with Logging {
 
     val op = new DelegatingOperator
     val transformer = new TransformerOutput(new TransformerOperator {
-      override private[internals] def singleTransform(dataDependencies: Seq[DatumOutput]): Any = ???
-      override private[internals] def batchTransform(dataDependencies: Seq[DatasetOutput]): RDD[_] = {
+      override private[internal] def singleTransform(dataDependencies: Seq[DatumOutput]): Any = ???
+      override private[internal] def batchTransform(dataDependencies: Seq[DatasetOutput]): RDD[_] = {
         val rdds = dataDependencies.map(_.get.asInstanceOf[RDD[Int]])
         globalInt.addAndGet(rdds.map(_.sum.toInt).sum)
         rdds.head
@@ -252,8 +252,8 @@ class OperatorSuite extends FunSuite with LocalSparkContext with Logging {
 
     val op = new DelegatingOperator
     val transformer = new TransformerOutput(new TransformerOperator {
-      override private[internals] def singleTransform(dataDependencies: Seq[DatumOutput]): Any = datum
-      override private[internals] def batchTransform(dataDependencies: Seq[DatasetOutput]): RDD[_] = dataset
+      override private[internal] def singleTransform(dataDependencies: Seq[DatumOutput]): Any = datum
+      override private[internal] def batchTransform(dataDependencies: Seq[DatasetOutput]): RDD[_] = dataset
     })
 
     // Expects exception to be returned when deps are not (all DatasetOutput or all DatumOutput)

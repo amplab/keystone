@@ -1,4 +1,4 @@
-package internals
+package internal
 
 class Graph(
     val sources: Set[SourceId],

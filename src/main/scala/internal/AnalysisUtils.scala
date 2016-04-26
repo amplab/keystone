@@ -1,4 +1,4 @@
-package internals
+package internal
 
 object AnalysisUtils {
   def linearize(graph: Graph): Seq[GraphId] = {

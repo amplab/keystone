@@ -1,4 +1,4 @@
-package internals
+package internal
 
 import org.apache.spark.rdd.RDD
 
@@ -7,7 +7,7 @@ import org.apache.spark.rdd.RDD
  * One is stored internally inside each node of a [[Graph]], which represents how data
  * is intended to flow through the operators.
  */
-private[internals] sealed trait Operator {
+private[internal] sealed trait Operator {
   def label: String = {
     val className = getClass.getSimpleName
     if (className endsWith "$") className.dropRight(1) else className
@@ -22,7 +22,7 @@ private[internals] sealed trait Operator {
  *
  * @param rdd The RDD to always output
  */
-private[internals] case class DatasetOperator(rdd: RDD[_]) extends Operator {
+private[internal] case class DatasetOperator(rdd: RDD[_]) extends Operator {
   override def label: String = "%s[%d]".format(
     Option(rdd.name).map(_ + " ").getOrElse(""), rdd.id)
 
@@ -38,7 +38,7 @@ private[internals] case class DatasetOperator(rdd: RDD[_]) extends Operator {
  *
  * @param datum The datum to always output
  */
-private[internals] case class DatumOperator(datum: Any) extends Operator {
+private[internal] case class DatumOperator(datum: Any) extends Operator {
   override def label: String = {
     val className = datum.getClass.getSimpleName
     val datumName = if (className endsWith "$") className.dropRight(1) else className
@@ -63,16 +63,16 @@ private[internals] case class DatumOperator(datum: Any) extends Operator {
  * The operator is lazy, meaning that nothing will be executed until the
  * value of the [[Output]] is accessed using `Output.get`.
  */
-private[internals] abstract class TransformerOperator extends Operator with Serializable {
+private[internal] abstract class TransformerOperator extends Operator with Serializable {
   /**
    * The single datum transformation, to go from a sequence of datums to a new single item.
    */
-  private[internals] def singleTransform(inputs: Seq[DatumOutput]): Any
+  private[internal] def singleTransform(inputs: Seq[DatumOutput]): Any
 
   /**
    * The batch dataset transformation, to go from a sequence of datasets to a new dataset.
    */
-  private[internals] def batchTransform(inputs: Seq[DatasetOutput]): RDD[_]
+  private[internal] def batchTransform(inputs: Seq[DatasetOutput]): RDD[_]
 
   override def execute(deps: Seq[Output]): Output = {
     require(deps.nonEmpty, "Transformer dependencies may not be empty")
@@ -109,8 +109,8 @@ private[internals] abstract class TransformerOperator extends Operator with Seri
  * The operator is lazy, meaning that nothing will be executed until the
  * value of the [[Output]] is accessed using `Output.get`.
  */
-private[internals] abstract class EstimatorOperator extends Operator with Serializable {
-  private[internals] def fitRDDs(inputs: Seq[DatasetOutput]): TransformerOperator
+private[internal] abstract class EstimatorOperator extends Operator with Serializable {
+  private[internal] def fitRDDs(inputs: Seq[DatasetOutput]): TransformerOperator
 
   override def execute(deps: Seq[Output]): TransformerOutput = {
     val rdds = deps.collect {
@@ -132,7 +132,7 @@ private[internals] abstract class EstimatorOperator extends Operator with Serial
  * The operator is lazy, meaning that nothing will be executed until the
  * value of the [[Output]] is accessed using `Output.get`.
  */
-private[internals] class DelegatingOperator extends Operator with Serializable {
+private[internal] class DelegatingOperator extends Operator with Serializable {
   override def execute(deps: Seq[Output]): Output = {
     require(deps.nonEmpty, "DelegatingOperator dependencies may not be empty")
     require(deps.tail.nonEmpty, "Transformer dependencies may not be empty")

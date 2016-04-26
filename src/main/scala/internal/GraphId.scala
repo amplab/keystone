@@ -1,4 +1,4 @@
-package internals
+package internal
 
 /**
  * This is a unifying type for Node, Source, and Sink ids in the

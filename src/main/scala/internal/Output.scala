@@ -1,4 +1,4 @@
-package internals
+package internal
 
 import org.apache.spark.rdd.RDD
 

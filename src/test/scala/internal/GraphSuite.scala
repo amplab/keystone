@@ -416,7 +416,7 @@ class GraphSuite extends FunSuite with LocalSparkContext with Logging {
     val nodeIdByDatum = addedGraph.operators.toSeq.map(x => (x._2.asInstanceOf[DatumOperator].datum, x._1)).toMap
     require((10 to 19).map(i => nodeIdByDatum(i)).forall(i => !graph.nodes.contains(i)))
 
-    val expectedGraph = Graph(
+    val newGraph = Graph(
       sources = Set(
         SourceId(1),
         SourceId(2),
@@ -478,7 +478,7 @@ class GraphSuite extends FunSuite with LocalSparkContext with Logging {
       )
     )
 
-    assert(expectedGraph === addedGraph)
+    assert(newGraph === addedGraph)
   }
 
   test("connectGraph") {
@@ -517,14 +517,14 @@ class GraphSuite extends FunSuite with LocalSparkContext with Logging {
 
     val spliceMap = Map[SourceId, SinkId](SourceId(0) -> SinkId(2), SourceId(1) -> SinkId(1))
 
-    val (connectedGraph, sourceIdMap, sinkIdMap) = graph.connectGraph(graph2, spliceMap)
+    val (newGraph, sourceIdMap, sinkIdMap) = graph.connectGraph(graph2, spliceMap)
 
     // Make sure the new sink & source ids don't clash with the old ones
     require(sinkIdMap.values.toSet.forall(i => !graph.sinks.contains(i)))
     require(sourceIdMap.values.toSet.forall(i => !graph.sources.contains(i)))
 
     // Make sure the new node ids don't clash with the old ones
-    val nodeIdByDatum = connectedGraph.operators.toSeq.map(x => (x._2.asInstanceOf[DatumOperator].datum, x._1)).toMap
+    val nodeIdByDatum = newGraph.operators.toSeq.map(x => (x._2.asInstanceOf[DatumOperator].datum, x._1)).toMap
     require((10 to 19).map(i => nodeIdByDatum(i)).forall(i => !graph.nodes.contains(i)))
 
     val expectedGraph = Graph(
@@ -585,13 +585,72 @@ class GraphSuite extends FunSuite with LocalSparkContext with Logging {
       )
     )
 
-    assert(expectedGraph === connectedGraph)
+    assert(expectedGraph === newGraph)
   }
 
   test("replaceNodes") {
-    sc = new SparkContext("local", "test")
+    val graph2 = Graph(
+      sources = Set(SourceId(0), SourceId(1), SourceId(2)),
+      operators = Map(
+        NodeId(0) -> DatumOperator(10),
+        NodeId(1) -> DatumOperator(11)
+      ),
+      dependencies = Map(
+        NodeId(0) -> Seq(SourceId(0), SourceId(1)),
+        NodeId(1) -> Seq(NodeId(0), SourceId(1), SourceId(2))
+      ),
+      sinkDependencies = Map(
+        SinkId(0) -> SourceId(2),
+        SinkId(1) -> NodeId(1)
+      )
+    )
 
-    require(false)
+    val nodesToRemove = Set(NodeId(3), NodeId(4), NodeId(6))
+    val replacementSourceSplice = Map(SourceId(0) -> SourceId(1), SourceId(1) -> NodeId(1), SourceId(2) -> NodeId(2))
+    val replacementSinkSplice = Map[NodeId, SinkId](
+      NodeId(3) -> SinkId(0),
+      NodeId(4) -> SinkId(0),
+      NodeId(6) -> SinkId(1))
+    val newGraph = graph.replaceNodes(nodesToRemove, graph2, replacementSourceSplice, replacementSinkSplice)
+
+    // Make sure the new node ids don't clash with the old ones
+    val nodeIdByDatum = newGraph.operators.toSeq.map(x => (x._2.asInstanceOf[DatumOperator].datum, x._1)).toMap
+
+    val expectedGraph = Graph(
+      sources = Set(
+        SourceId(1),
+        SourceId(2),
+        SourceId(3)
+      ),
+      operators = Map(
+        NodeId(0) -> DatumOperator(0),
+        NodeId(1) -> DatumOperator(1),
+        NodeId(2) -> DatumOperator(2),
+        NodeId(5) -> DatumOperator(5),
+        NodeId(7) -> DatumOperator(7),
+        NodeId(8) -> DatumOperator(8),
+        NodeId(9) -> DatumOperator(9),
+        nodeIdByDatum(10) -> DatumOperator(10),
+        nodeIdByDatum(11) -> DatumOperator(11)
+      ),
+      dependencies = Map(
+        NodeId(0) -> Seq(),
+        NodeId(1) -> Seq(SourceId(1), SourceId(2)),
+        NodeId(2) -> Seq(),
+        nodeIdByDatum(10) -> Seq(SourceId(1), NodeId(1)),
+        nodeIdByDatum(11) -> Seq(nodeIdByDatum(10), NodeId(1), NodeId(2)),
+        NodeId(5) -> Seq(NodeId(2), NodeId(2), NodeId(2)),
+        NodeId(7) -> Seq(SourceId(1), NodeId(1), nodeIdByDatum(11)),
+        NodeId(8) -> Seq(NodeId(2), NodeId(5)),
+        NodeId(9) -> Seq(NodeId(0), NodeId(2), NodeId(7), NodeId(8))
+      ),
+      sinkDependencies = Map(
+        SinkId(0) -> SourceId(2),
+        SinkId(1) -> NodeId(2),
+        SinkId(2) -> NodeId(9)
+      )
+    )
+
+    assert(expectedGraph === newGraph)
   }
-
 }

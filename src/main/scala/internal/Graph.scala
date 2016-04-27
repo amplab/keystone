@@ -407,7 +407,8 @@ case class Graph(
     val graphWithReplacementAndConnections = replacementSinkSplice.foldLeft(graphWithReplacementAndSourceConnections) {
       case (graph, (removedNode, oldSink)) =>
         val sink = replacementSinkIdMap(oldSink)
-        graph.replaceDependency(removedNode, getSinkDependency(sink))
+        val replacementDep = graph.getSinkDependency(sink)
+        graph.replaceDependency(removedNode, replacementDep)
     }
 
     // Final validity check
@@ -417,7 +418,7 @@ case class Graph(
     }, "May not have any remaining dangling edges on the removed nodes")
 
     // Remove the sinks of the replacement
-    replacementSinkSplice.values.toSet.foldLeft(graphWithReplacementAndConnections) {
+    replacementSinkIdMap.values.toSet.foldLeft(graphWithReplacementAndConnections) {
       case (graph, sink) => graph.removeSink(sink)
     }
   }

@@ -208,27 +208,168 @@ class GraphSuite extends FunSuite with LocalSparkContext with Logging {
   }
 
   test("removeSink") {
-    sc = new SparkContext("local", "test")
+    intercept[IllegalArgumentException] {
+      graph.removeSink(SinkId(13))
+    }
 
-    require(false)
+    val newGraph = graph.removeSink(SinkId(2))
+
+    val expectedGraph = graph.copy(
+      sinkDependencies = graph.sinkDependencies - SinkId(2)
+    )
+
+    assert(expectedGraph === newGraph)
   }
 
   test("removeSource") {
-    sc = new SparkContext("local", "test")
+    intercept[IllegalArgumentException] {
+      graph.removeSource(SourceId(13))
+    }
 
-    require(false)
+    val newGraph = graph.removeSource(SourceId(2))
+
+    val expectedGraph = graph.copy(
+      sources = graph.sources - SourceId(2)
+    )
+
+    assert(expectedGraph === newGraph)
   }
 
   test("removeNode") {
-    sc = new SparkContext("local", "test")
+    intercept[IllegalArgumentException] {
+      graph.removeNode(NodeId(13))
+    }
 
-    require(false)
+    val newGraph = graph.removeNode(NodeId(5))
+
+    val expectedGraph = graph.copy(
+      operators = graph.operators - NodeId(5),
+      dependencies = graph.dependencies - NodeId(5)
+    )
+
+    assert(expectedGraph === newGraph)
   }
 
   test("replaceDependency") {
-    sc = new SparkContext("local", "test")
+    // Intercept whenever trying to insert a non-existant id
+    {
+      intercept[IllegalArgumentException] {
+        graph.replaceDependency(NodeId(1), SourceId(-5))
+      }
 
-    require(false)
+      intercept[IllegalArgumentException] {
+        graph.replaceDependency(NodeId(1), NodeId(-5))
+      }
+    }
+
+    // Replace a source with a node
+    {
+      val newGraph = graph.replaceDependency(SourceId(2), NodeId(3))
+
+      val expectedGraph = graph.copy(
+
+        dependencies = Map(
+          NodeId(0) -> Seq(),
+          NodeId(1) -> Seq(SourceId(1), NodeId(3)),
+          NodeId(2) -> Seq(),
+          NodeId(3) -> Seq(SourceId(3)),
+          NodeId(4) -> Seq(NodeId(1), NodeId(2)),
+          NodeId(5) -> Seq(NodeId(2), NodeId(3), NodeId(4)),
+          NodeId(6) -> Seq(SourceId(3), NodeId(1)),
+          NodeId(7) -> Seq(SourceId(1), NodeId(1), NodeId(6)),
+          NodeId(8) -> Seq(NodeId(4), NodeId(5)),
+          NodeId(9) -> Seq(NodeId(0), NodeId(3), NodeId(7), NodeId(8))
+        ),
+        sinkDependencies = Map(
+          SinkId(0) -> NodeId(3),
+          SinkId(1) -> NodeId(4),
+          SinkId(2) -> NodeId(9)
+        )
+      )
+
+      assert(expectedGraph === newGraph)
+    }
+
+    // Replace a source with a source
+    {
+      val newGraph = graph.replaceDependency(SourceId(2), SourceId(1))
+
+      val expectedGraph = graph.copy(
+        dependencies = Map(
+          NodeId(0) -> Seq(),
+          NodeId(1) -> Seq(SourceId(1), SourceId(1)),
+          NodeId(2) -> Seq(),
+          NodeId(3) -> Seq(SourceId(3)),
+          NodeId(4) -> Seq(NodeId(1), NodeId(2)),
+          NodeId(5) -> Seq(NodeId(2), NodeId(3), NodeId(4)),
+          NodeId(6) -> Seq(SourceId(3), NodeId(1)),
+          NodeId(7) -> Seq(SourceId(1), NodeId(1), NodeId(6)),
+          NodeId(8) -> Seq(NodeId(4), NodeId(5)),
+          NodeId(9) -> Seq(NodeId(0), NodeId(3), NodeId(7), NodeId(8))
+        ),
+        sinkDependencies = Map(
+          SinkId(0) -> SourceId(1),
+          SinkId(1) -> NodeId(4),
+          SinkId(2) -> NodeId(9)
+        )
+      )
+
+      assert(expectedGraph === newGraph)
+    }
+
+    // Replace a node with a source
+    {
+      val newGraph = graph.replaceDependency(NodeId(3), SourceId(3))
+
+      val expectedGraph = graph.copy(
+        dependencies = Map(
+          NodeId(0) -> Seq(),
+          NodeId(1) -> Seq(SourceId(1), SourceId(2)),
+          NodeId(2) -> Seq(),
+          NodeId(3) -> Seq(SourceId(3)),
+          NodeId(4) -> Seq(NodeId(1), NodeId(2)),
+          NodeId(5) -> Seq(NodeId(2), SourceId(3), NodeId(4)),
+          NodeId(6) -> Seq(SourceId(3), NodeId(1)),
+          NodeId(7) -> Seq(SourceId(1), NodeId(1), NodeId(6)),
+          NodeId(8) -> Seq(NodeId(4), NodeId(5)),
+          NodeId(9) -> Seq(NodeId(0), SourceId(3), NodeId(7), NodeId(8))
+        ),
+        sinkDependencies = Map(
+          SinkId(0) -> SourceId(2),
+          SinkId(1) -> NodeId(4),
+          SinkId(2) -> NodeId(9)
+        )
+      )
+
+      assert(expectedGraph === newGraph)
+    }
+
+    // Replace a node with a node
+    {
+      val newGraph = graph.replaceDependency(NodeId(4), NodeId(2))
+
+      val expectedGraph = graph.copy(
+        dependencies = Map(
+          NodeId(0) -> Seq(),
+          NodeId(1) -> Seq(SourceId(1), SourceId(2)),
+          NodeId(2) -> Seq(),
+          NodeId(3) -> Seq(SourceId(3)),
+          NodeId(4) -> Seq(NodeId(1), NodeId(2)),
+          NodeId(5) -> Seq(NodeId(2), NodeId(3), NodeId(2)),
+          NodeId(6) -> Seq(SourceId(3), NodeId(1)),
+          NodeId(7) -> Seq(SourceId(1), NodeId(1), NodeId(6)),
+          NodeId(8) -> Seq(NodeId(2), NodeId(5)),
+          NodeId(9) -> Seq(NodeId(0), NodeId(3), NodeId(7), NodeId(8))
+        ),
+        sinkDependencies = Map(
+          SinkId(0) -> SourceId(2),
+          SinkId(1) -> NodeId(2),
+          SinkId(2) -> NodeId(9)
+        )
+      )
+
+      assert(expectedGraph === newGraph)
+    }
   }
 
   test("addGraph") {

@@ -61,23 +61,43 @@ case class Graph(
    */
   def getOperator(id: NodeId): Operator = operators(id)
 
+  /**
+   * Get {@param num} [[NodeId]]s that don't clash with those of existing nodes.
+   */
   private def nextNodeIds(num: Int): Seq[NodeId] = {
     val maxId = (nodes.map(_.id) + 0).max
     (1 to num).map(i => NodeId(maxId + i))
   }
 
+  /**
+   * Get {@param num} [[SourceId]]s that don't clash with those of existing sources.
+   */
   private def nextSourceIds(num: Int): Seq[SourceId] = {
     val maxId = (sources.map(_.id) + 0).max
     (1 to num).map(i => SourceId(maxId + i))
   }
 
+  /**
+   * Get {@param num} [[SinkId]]s that don't clash with those of existing sinks.
+   */
   private def nextSinkIds(num: Int): Seq[SinkId] = {
     val maxId = (sinks.map(_.id) + 0).max
     (1 to num).map(i => SinkId(maxId + i))
   }
 
+  /**
+   * Get a [[NodeId]] that doesn't clash with any existing node in this graph.
+   */
   private def nextNodeId(): NodeId = nextNodeIds(1).head
+
+  /**
+   * Get a [[SourceId]] that doesn't clash with any existing source in this graph.
+   */
   private def nextSourceId(): SourceId = nextSourceIds(1).head
+
+  /**
+   * Get a [[SinkId]] that doesn't clash with any existing sink in this graph.
+   */
   private def nextSinkId(): SinkId = nextSinkIds(1).head
 
   /**
@@ -249,9 +269,16 @@ case class Graph(
   }
 
   /**
-   * TODO
-   * @param graph
-   * @return
+   * Immutably attaches an entire other graph onto this one, without splicing together any Sinks or
+   * Sources. The Sink, Source, and Node ids of the other graph may be reassigned to prevent
+   * collisions with existing ids. So, this method makes sure to return mappings of old Sink and
+   * Source ids in the graph being added to their newly assigned Sink and Source ids.
+   *
+   * @param graph  The graph to add into this graph
+   * @return  A triple containing:
+   *          - The new graph
+   *          - A map of old id to new id for sources in the graph being added
+   *          - A map of old id to new id for sinks in the graph being added
    */
   def addGraph(graph: Graph): (Graph, Map[SourceId, SourceId], Map[SinkId, SinkId]) = {
     // Generate the new ids and mappings of old to new ids
@@ -286,19 +313,33 @@ case class Graph(
   }
 
   /**
-   * TODO
-   * @param graph
-   * @param spliceMap
-   * @return
+   * Immutably attaches an entire other graph onto this one, splicing Sinks of this graph to Sources of
+   * the graph being added. The unspliced Sink, Source, and Node ids of the other graph may be reassigned
+   * to prevent collisions with existing ids. So, this method makes sure to return mappings of old Sink and
+   * Source ids in the graph being added to their newly assigned Sink and Source ids.
+   *
+   * All Sources and Sinks being spliced are removed from the newly created graph.
+   *
+   * @param graph  The graph to connect to this graph
+   * @param spliceMap A map that specifies how to splice the Sources and Sinks.
+   *                  Keys are Sources in the graph being added, and
+   *                  Values are the Sinks in the existing graph to splice them to.
+   *
+   * @return  A triple containing:
+   *          - The new graph
+   *          - A map of old id to new id for sources in the graph being added
+   *          - A map of old id to new id for sinks in the graph being added
    */
-  // fixme add output source and sink mappings
-  def connectGraph(graph: Graph, spliceMap: Map[SourceId, SinkId]): Graph = {
+  def connectGraph(
+      graph: Graph,
+      spliceMap: Map[SourceId, SinkId]
+    ): (Graph, Map[SourceId, SourceId], Map[SinkId, SinkId]) = {
     require(spliceMap.keys.forall(source => graph.sources.contains(source)),
       "Must connect to sources that exist in the other graph")
     require(spliceMap.values.forall(sink => sinks.contains(sink)),
       "Must connect to sinks that exist in this graph")
 
-    val (addedGraph, otherSourceIdMap, _) = addGraph(graph)
+    val (addedGraph, otherSourceIdMap, otherSinkIdMap) = addGraph(graph)
 
     val connectedGraph = spliceMap.foldLeft(addedGraph) {
       case (curGraph, (oldOtherSource, sink)) =>
@@ -308,17 +349,24 @@ case class Graph(
           .removeSource(source)
     }
 
-    spliceMap.values.toSet.foldLeft(connectedGraph) {
+    val newGraph = spliceMap.values.toSet.foldLeft(connectedGraph) {
       case (curGraph, sink) => curGraph.removeSink(sink)
     }
+
+    (newGraph, otherSourceIdMap -- spliceMap.keySet, otherSinkIdMap)
   }
 
   /**
-   * TODO
-   * @param nodesToRemove
-   * @param replacement
-   * @param replacementSourceSplice
-   * @param replacementSinkSplice
+   * Replace a set of nodes and their connections by inserting a different graph in their
+   * place, and specifying how to connect it to the existing graph.
+   *
+   * @param nodesToRemove  The set of nodes to remove
+   * @param replacement  The graph to insert in their place
+   * @param replacementSourceSplice  A specification of how to connect the replacement graph to the existing graph.
+   *                                 Key is a source of the replacement,
+   *                                 Value is the node in the existing graph to connect the source to.
+   * @param replacementSinkSplice  A specification of how to replace dangling dependencies on the nodes being removed.
+   *                               Key is node being removed, Value is Sink of the replacement to depend on instead.
    * @return
    */
   def replaceNodes(

@@ -1,32 +1,6 @@
 package internal
 
 object AnalysisUtils {
-  // util to get ancestors as tree?
-  // util to topologically sort ancestors?
-  // FIXME: Linearize won't be deterministic currently
-  def linearize(graph: Graph): Seq[GraphId] = {
-    def linearize(graphId: GraphId): Seq[GraphId] = {
-      val deps: Seq[GraphId] = graphId match {
-        case source: SourceId => Seq()
-        case node: NodeId => graph.getDependencies(node)
-        case sink: SinkId => Seq(graph.getSinkDependency(sink))
-      }
-
-      deps.foldLeft(Seq[GraphId]()) {
-        case (linearization, dep) => if (!linearization.contains(dep)) {
-          linearization ++ linearize(dep).filter(id => !linearization.contains(id))
-        } else {
-          linearization
-        }
-      } :+ graphId
-    }
-
-    graph.sinks.foldLeft(Seq[GraphId]()) {
-      case (linearization, sink) => {
-        linearization ++ linearize(sink).filter(id => !linearization.contains(id))
-      }
-    }
-  }
 
   /**
    * Given a graph and a source/sink/node, output the set of all sources/sinks/nodes
@@ -99,5 +73,46 @@ object AnalysisUtils {
     parents.map {
       parent => getAncestors(graph, parent) + parent
     }.fold(Set())(_ union _)
+  }
+
+  /**
+   * Given a graph and a source/sink/node, output all ancestors of the source/sink/node
+   * in sorted topological order.
+   *
+   * @param graph The graph to use
+   * @param id A node/sink/source in the graph
+   * @return The ancestors of that id in sorted topological order
+   */
+  def linearize(graph: Graph, id: GraphId): Seq[GraphId] = {
+    val deps: Seq[GraphId] = id match {
+      case source: SourceId => Seq()
+      case node: NodeId => graph.getDependencies(node)
+      case sink: SinkId => Seq(graph.getSinkDependency(sink))
+    }
+
+    deps.foldLeft(Seq[GraphId]()) {
+      case (linearization, dep) => if (!linearization.contains(dep)) {
+        linearization ++ linearize(graph, dep).filter(id => !linearization.contains(id)) :+ dep
+      } else {
+        linearization
+      }
+    }
+  }
+
+  /**
+   * Deterministically return a topological sorting of all sources/sinks/nodes in a graph
+   *
+   * @param graph  The graph to use
+   * @return  A topologically sorted ordering of all sources/sinks/nodes in the graph
+   */
+  def linearize(graph: Graph): Seq[GraphId] = {
+    // Sort sinks by id to ensure a deterministic final ordering
+    val sortedSinks = graph.sinks.toSeq.sortBy(_.id)
+
+    sortedSinks.foldLeft(Seq[GraphId]()) {
+      case (linearization, sink) => {
+        linearization ++ linearize(graph, sink).filter(id => !linearization.contains(id)) :+ sink
+      }
+    }
   }
 }

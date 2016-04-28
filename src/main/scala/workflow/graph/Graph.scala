@@ -427,4 +427,29 @@ private[graph] case class Graph(
       case (graph, sink) => graph.removeSink(sink)
     }
   }
+
+  /**
+   * @return Generate a graphviz dot representation of this graph
+   */
+  def toDOTString: String = {
+    val idToString: GraphId => String = {
+      case SourceId(id) => s"Source_$id"
+      case NodeId(id) => s"Node_$id"
+      case SinkId(id) => s"Sink_$id"
+    }
+
+    val vertexLabels: Seq[String] = sources.toSeq.map(id => idToString(id) + " [label=\"" + id + "\" shape=\"Msquare\"]") ++
+      nodes.toSeq.map(id => idToString(id) + s"[label=${'"' + getOperator(id).label + '"'}]") ++
+      sinks.toSeq.map(id => idToString(id) + " [label=\"" + id + "\" shape=\"Msquare\"]")
+
+    val dataEdges: Seq[String] = dependencies.toSeq.flatMap {
+      case (id, deps) => deps.map(x => s"${idToString(x)} -> ${idToString(id)}")
+    } ++ sinkDependencies.toSeq.map {
+      case (id, dep) => s"${idToString(dep)} -> ${idToString(id)}"
+    }
+
+    val lines = vertexLabels ++ dataEdges
+    lines.mkString("digraph pipeline {\n  rankdir=LR;\n  ", "\n  ", "\n}")
+  }
+
 }

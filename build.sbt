@@ -22,9 +22,13 @@ libraryDependencies ++= Seq(
   "org.slf4j" % "slf4j-api" % "1.7.2",
   "org.slf4j" % "slf4j-log4j12" % "1.7.2",
   "org.scalatest" %% "scalatest" % "1.9.1" % "test",
+  "org.mockito" % "mockito-core" % "1.8.5",
   "org.apache.commons" % "commons-compress" % "1.7",
   "commons-io" % "commons-io" % "2.4",
   "org.scalanlp" % "breeze_2.10" % "0.11.2",
+  "org.scalanlp" %% "epic-parser-en-span" % "2015.2.19",
+  "org.scalanlp" %% "epic-pos-en" % "2015.2.19",
+  "org.scalanlp" %% "epic-ner-en-conll" % "2015.2.19",
   "com.google.guava" % "guava" % "14.0.1",
   "com.github.fommil.netlib" % "all" % "1.1.2" pomOnly(),
   "com.github.scopt" %% "scopt" % "3.3.0"

@@ -9,8 +9,8 @@ endif
 VLFEATDIR := $(TMPDIR)/vlfeat
 ENCEVALDIR := $(TMPDIR)/enceval
 
-VLFEATURL = "http://www.vlfeat.org/download/vlfeat-0.9.20-bin.tar.gz"
-ENCEVALURL = "http://www.robots.ox.ac.uk/~vgg/software/enceval_toolkit/downloads/enceval-toolkit-1.1.tar.gz"
+VLFEATURL = "http://keystoneml.libs.s3.amazonaws.com/vlfeat-0.9.20-bin.tar.gz"
+ENCEVALURL = "http://keystoneml.libs.s3.amazonaws.com/enceval-toolkit-1.1.tar.gz"
 
 SCALA_VERSION = 2.10
 PROJECT = keystoneml

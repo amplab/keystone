@@ -1,4 +1,4 @@
-package internal
+package workflow.graph
 
 import org.scalatest.FunSuite
 import pipelines.{LocalSparkContext, Logging}

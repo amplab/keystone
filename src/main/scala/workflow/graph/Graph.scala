@@ -1,4 +1,4 @@
-package internal
+package workflow.graph
 
 /**
  * To represent our Keystone workloads under the hood at the lowest level, we use a dataflow-esque DAG-like structure.
@@ -29,7 +29,7 @@ package internal
  * @param operators  A map of [[NodeId]] to the operator contained within that node
  * @param dependencies  A map of [[NodeId]] to the node's ordered dependencies
  */
-case class Graph(
+private[graph] case class Graph(
     sources: Set[SourceId],
     sinkDependencies: Map[SinkId, NodeOrSourceId],
     operators: Map[NodeId, Operator],
@@ -37,14 +37,14 @@ case class Graph(
   ) {
 
   /**
-   * Get the set of ids of all nodes in this graph.
+   * The set of ids of all nodes in this graph.
    */
-  def nodes: Set[NodeId] = operators.keySet
+  val nodes: Set[NodeId] = operators.keySet
 
   /**
-   * Get the set of ids of all sinks in this graph.
+   * The set of ids of all sinks in this graph.
    */
-  def sinks: Set[SinkId] = sinkDependencies.keySet
+  val sinks: Set[SinkId] = sinkDependencies.keySet
 
   /**
    * Get the dependencies of a given node in this graph.
@@ -65,7 +65,12 @@ case class Graph(
    * Get {@param num} [[NodeId]]s that don't clash with those of existing nodes.
    */
   private def nextNodeIds(num: Int): Seq[NodeId] = {
-    val maxId = (nodes.map(_.id) + 0).max
+    val maxId = if (nodes.isEmpty) {
+      0
+    } else {
+      nodes.map(_.id).max
+    }
+
     (1 to num).map(i => NodeId(maxId + i))
   }
 
@@ -101,7 +106,7 @@ case class Graph(
   private def nextSinkId(): SinkId = nextSinkIds(1).head
 
   /**
-   * Immutably add a node to this graph.
+   * Create a copy of this graph with an added node.
    *
    * @param op The operator to be stored at the new node
    * @param deps The dependencies of the new node
@@ -120,7 +125,7 @@ case class Graph(
   }
 
   /**
-   * Immutably add a new sink to this graph.
+   * Create a copy of this graph with an added sink.
    *
    * @param dep The dependency of the new sink
    * @return A pair containing the new graph and the id assigned to the new sink
@@ -137,7 +142,7 @@ case class Graph(
   }
 
   /**
-   * Immutably add a new source to this graph.
+   * Create a copy of this graph with an added source.
    *
    * @return A pair containing the new graph and the id assigned to the new source
    */
@@ -148,7 +153,7 @@ case class Graph(
   }
 
   /**
-   * Immutably update the dependencies of a node in this graph.
+   * Return a copy of this graph with the dependencies of a node updated.
    *
    * @param node The id of the node to be updated
    * @param deps The new dependencies to assign to the node
@@ -166,7 +171,7 @@ case class Graph(
   }
 
   /**
-   * Immutably update the operator of a node in this graph.
+   * Return a copy of this graph with the operator of a node updated.
    *
    * @param node The id of the node to be updated
    * @param op The new operator to assign to the node
@@ -180,7 +185,7 @@ case class Graph(
   }
 
   /**
-   * Immutably update the dependency of a sink in this graph.
+   * Return a copy of this graph with the dependency of a sink updated.
    *
    * @param sink The id of the sink to be updated
    * @param dep The new dependency to assign to the sink
@@ -243,7 +248,8 @@ case class Graph(
   }
 
   /**
-   * Immutably replace all dependencies on a given node or source with a new target.
+   * Create a copy of this graph with all dependencies on a given node or source
+   * replaced with a new target.
    *
    * @param oldDep The id of the old node or source that is the existing dependency target
    * @param newDep The id of the node or source intended to be the new target
@@ -324,7 +330,6 @@ case class Graph(
    * @param spliceMap A map that specifies how to splice the Sources and Sinks.
    *                  Keys are Sources in the graph being added, and
    *                  Values are the Sinks in the existing graph to splice them to.
-   *
    * @return  A triple containing:
    *          - The new graph
    *          - A map of old id to new id for sources in the graph being added
@@ -357,8 +362,8 @@ case class Graph(
   }
 
   /**
-   * Replace a set of nodes and their connections by inserting a different graph in their
-   * place, and specifying how to connect it to the existing graph.
+   * Create a copy of of this graph, with a set of nodes and their connections replaced by a different graph,
+   * specifying how to connect it to the existing graph.
    *
    * @param nodesToRemove  The set of nodes to remove
    * @param replacement  The graph to insert in their place

@@ -1,6 +1,6 @@
-package internal
+package workflow.graph
 
-object AnalysisUtils {
+private[graph] object AnalysisUtils {
 
   /**
    * Given a graph and a source/sink/node, output the set of all sources/sinks/nodes
@@ -15,6 +15,8 @@ object AnalysisUtils {
   def getChildren(graph: Graph, id: GraphId): Set[GraphId] = {
     id match {
       case id: NodeOrSourceId => {
+        // Note: this is O(VE) and could be done faster with explicit bookkeeping in
+        // the Graph class pointing in both directions if this becomes an issue.
         val childrenNodes = graph.dependencies.filter(_._2.contains(id)).keySet
         val childrenSinks = graph.sinkDependencies.filter(_._2 == id).keySet
         childrenNodes ++ childrenSinks
@@ -111,6 +113,8 @@ object AnalysisUtils {
 
     sortedSinks.foldLeft(Seq[GraphId]()) {
       case (linearization, sink) => {
+        // We add the linearization of this sink to the existing linearization, making sure to remove
+        // aready observed ids from previous sinks.
         linearization ++ linearize(graph, sink).filter(id => !linearization.contains(id)) :+ sink
       }
     }

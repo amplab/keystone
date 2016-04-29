@@ -1,4 +1,4 @@
-package internal
+package workflow.graph
 
 import org.apache.spark.rdd.RDD
 
@@ -6,7 +6,7 @@ import org.apache.spark.rdd.RDD
  * Output is a trait extended by everything that may be output by an [[Operator]].
  * It is intended to add some extra type checking to the internal operator execution.
  */
-sealed trait Output
+private[graph] sealed trait Expression
 
 /**
  * This is an output that wraps around an [[RDD]]. It wraps the RDD as call-by-name, so the RDD
@@ -15,7 +15,7 @@ sealed trait Output
  * The first time the contained value is accessed using `get`, it will be computed. Every time after
  * that it will already be stored, and will not be computed.
  */
-class DatasetOutput(compute: => RDD[_]) extends Output {
+private[graph] class DatasetExpression(compute: => RDD[_]) extends Expression {
   lazy val get: RDD[_] = compute
 }
 
@@ -26,7 +26,7 @@ class DatasetOutput(compute: => RDD[_]) extends Output {
  * The first time the contained value is accessed using `get`, it will be computed. Every time after
  * that it will already be stored, and will not be computed.
  */
-class DatumOutput(compute: => Any) extends Output {
+private[graph] class DatumExpression(compute: => Any) extends Expression {
   lazy val get: Any = compute
 }
 
@@ -37,6 +37,6 @@ class DatumOutput(compute: => Any) extends Output {
  * The first time the contained value is accessed using `get`, it will be computed. Every time after
  * that it will already be stored, and will not be computed.
  */
-class TransformerOutput(compute: => TransformerOperator) extends Output {
+private[graph] class TransformerExpression(compute: => TransformerOperator) extends Expression {
   lazy val get: TransformerOperator = compute
 }

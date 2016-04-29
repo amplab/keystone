@@ -1,4 +1,4 @@
-package internal
+package workflow.graph
 
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -30,19 +30,19 @@ class OperatorSuite extends FunSuite with LocalSparkContext with Logging {
 
     val globalInt = new AtomicInteger(0)
     val inputs = Seq(2, 7, 3)
-    val inputDatumOutputs = inputs.map(i => new DatumOutput(i))
+    val inputDatumOutputs = inputs.map(i => new DatumExpression(i))
 
     val transformer = new TransformerOperator {
-      override private[internal] def singleTransform(dataDependencies: Seq[DatumOutput]): Any = {
+      override private[graph] def singleTransform(dataDependencies: Seq[DatumExpression]): Any = {
         val sum = dataDependencies.map(_.get.asInstanceOf[Int]).sum
         globalInt.addAndGet(sum)
         sum
       }
-      override private[internal] def batchTransform(dataDependencies: Seq[DatasetOutput]): RDD[_] = ???
+      override private[graph] def batchTransform(dataDependencies: Seq[DatasetExpression]): RDD[_] = ???
     }
 
     // Test laziness of execution
-    val out = transformer.execute(inputDatumOutputs).asInstanceOf[DatumOutput]
+    val out = transformer.execute(inputDatumOutputs).asInstanceOf[DatumExpression]
     assert(globalInt.get() === 0, "Transformer execution supposed to be lazy")
 
     assert(out.get === inputs.sum)
@@ -54,7 +54,7 @@ class OperatorSuite extends FunSuite with LocalSparkContext with Logging {
 
     // Test laziness & memoization with other data
     val in2 = 13
-    val out2 = transformer.execute(Seq(new DatumOutput(in2))).asInstanceOf[DatumOutput]
+    val out2 = transformer.execute(Seq(new DatumExpression(in2))).asInstanceOf[DatumExpression]
     assert(globalInt.get() === inputs.sum, "Transformer execution supposed to be lazy")
 
     assert(out2.get === in2)
@@ -72,8 +72,8 @@ class OperatorSuite extends FunSuite with LocalSparkContext with Logging {
     val dataset3 = sc.parallelize(Seq(1, 2))
 
     val transformer = new TransformerOperator {
-      override private[internal] def singleTransform(dataDependencies: Seq[DatumOutput]): Any = ???
-      override private[internal] def batchTransform(dataDependencies: Seq[DatasetOutput]): RDD[_] = {
+      override private[graph] def singleTransform(dataDependencies: Seq[DatumExpression]): Any = ???
+      override private[graph] def batchTransform(dataDependencies: Seq[DatasetExpression]): RDD[_] = {
         val rdds = dataDependencies.map(_.get.asInstanceOf[RDD[Int]])
         globalInt.addAndGet(rdds.map(_.sum.toInt).sum)
         rdds.head
@@ -81,8 +81,8 @@ class OperatorSuite extends FunSuite with LocalSparkContext with Logging {
     }
 
     // Test laziness of execution
-    val out = transformer.execute(Seq(new DatasetOutput(dataset1), new DatasetOutput(dataset2)))
-      .asInstanceOf[DatasetOutput]
+    val out = transformer.execute(Seq(new DatasetExpression(dataset1), new DatasetExpression(dataset2)))
+      .asInstanceOf[DatasetExpression]
     assert(globalInt.get() === 0, "Transformer execution supposed to be lazy")
 
     assert(out.get === dataset1)
@@ -93,8 +93,8 @@ class OperatorSuite extends FunSuite with LocalSparkContext with Logging {
     assert(globalInt.get() === (dataset1.sum + dataset2.sum))
 
     // Test laziness & memoization with other data
-    val out2 = transformer.execute(Seq(new DatasetOutput(dataset3)))
-      .asInstanceOf[DatasetOutput]
+    val out2 = transformer.execute(Seq(new DatasetExpression(dataset3)))
+      .asInstanceOf[DatasetExpression]
     assert(globalInt.get() === (dataset1.sum + dataset2.sum), "Transformer execution supposed to be lazy")
     assert(out2.get === dataset3)
     assert(globalInt.get() === (dataset1.sum + dataset2.sum + dataset3.sum))
@@ -108,13 +108,13 @@ class OperatorSuite extends FunSuite with LocalSparkContext with Logging {
     val dataset = sc.parallelize(Seq(datum))
 
     val transformer = new TransformerOperator {
-      override private[internal] def singleTransform(dataDependencies: Seq[DatumOutput]): Any = datum
-      override private[internal] def batchTransform(dataDependencies: Seq[DatasetOutput]): RDD[_] = dataset
+      override private[graph] def singleTransform(dataDependencies: Seq[DatumExpression]): Any = datum
+      override private[graph] def batchTransform(dataDependencies: Seq[DatasetExpression]): RDD[_] = dataset
     }
 
     // Expects exception to be returned when deps are not (all DatasetOutput or all DatumOutput)
     intercept[IllegalArgumentException] {
-      transformer.execute(Seq(new DatasetOutput(dataset), new DatumOutput(datum)))
+      transformer.execute(Seq(new DatasetExpression(dataset), new DatumExpression(datum)))
     }
 
     // Expects exception to be returned when deps are empty
@@ -132,12 +132,12 @@ class OperatorSuite extends FunSuite with LocalSparkContext with Logging {
     val dataset3 = sc.parallelize(Seq(1, 2))
 
     val dummyTransformer = new TransformerOperator {
-      override private[internal] def singleTransform(dataDependencies: Seq[DatumOutput]): Any = ???
-      override private[internal] def batchTransform(dataDependencies: Seq[DatasetOutput]): RDD[_] = ???
+      override private[graph] def singleTransform(dataDependencies: Seq[DatumExpression]): Any = ???
+      override private[graph] def batchTransform(dataDependencies: Seq[DatasetExpression]): RDD[_] = ???
     }
 
     val estimator = new EstimatorOperator {
-      override private[internal] def fitRDDs(inputs: Seq[DatasetOutput]): TransformerOperator = {
+      override private[graph] def fitRDDs(inputs: Seq[DatasetExpression]): TransformerOperator = {
         val rdds = inputs.map(_.get.asInstanceOf[RDD[Int]])
         globalInt.addAndGet(rdds.map(_.sum.toInt).sum)
         dummyTransformer
@@ -145,8 +145,8 @@ class OperatorSuite extends FunSuite with LocalSparkContext with Logging {
     }
 
     // Test laziness of execution
-    val out = estimator.execute(Seq(new DatasetOutput(dataset1), new DatasetOutput(dataset2)))
-      .asInstanceOf[TransformerOutput]
+    val out = estimator.execute(Seq(new DatasetExpression(dataset1), new DatasetExpression(dataset2)))
+      .asInstanceOf[TransformerExpression]
     assert(globalInt.get() === 0, "Estimator execution supposed to be lazy")
 
     assert(out.get === dummyTransformer)
@@ -157,8 +157,8 @@ class OperatorSuite extends FunSuite with LocalSparkContext with Logging {
     assert(globalInt.get() === (dataset1.sum + dataset2.sum))
 
     // Test laziness & memoization with other data
-    val out2 = estimator.execute(Seq(new DatasetOutput(dataset3)))
-      .asInstanceOf[TransformerOutput]
+    val out2 = estimator.execute(Seq(new DatasetExpression(dataset3)))
+      .asInstanceOf[TransformerExpression]
     assert(globalInt.get() === (dataset1.sum + dataset2.sum), "Transformer execution supposed to be lazy")
     assert(out2.get === dummyTransformer)
     assert(globalInt.get() === (dataset1.sum + dataset2.sum + dataset3.sum))
@@ -171,20 +171,20 @@ class OperatorSuite extends FunSuite with LocalSparkContext with Logging {
 
     val globalInt = new AtomicInteger(0)
     val inputs = Seq(2, 7, 3)
-    val inputDatumOutputs: Seq[Output] = inputs.map(i => new DatumOutput(i))
+    val inputDatumOutputs: Seq[Expression] = inputs.map(i => new DatumExpression(i))
 
     val op = new DelegatingOperator
-    val transformer = new TransformerOutput(new TransformerOperator {
-      override private[internal] def singleTransform(dataDependencies: Seq[DatumOutput]): Any = {
+    val transformer = new TransformerExpression(new TransformerOperator {
+      override private[graph] def singleTransform(dataDependencies: Seq[DatumExpression]): Any = {
         val sum = dataDependencies.map(_.get.asInstanceOf[Int]).sum
         globalInt.addAndGet(sum)
         sum
       }
-      override private[internal] def batchTransform(dataDependencies: Seq[DatasetOutput]): RDD[_] = ???
+      override private[graph] def batchTransform(dataDependencies: Seq[DatasetExpression]): RDD[_] = ???
     })
 
     // Test laziness of execution
-    val out = op.execute(Seq(transformer) ++ inputDatumOutputs).asInstanceOf[DatumOutput]
+    val out = op.execute(Seq(transformer) ++ inputDatumOutputs).asInstanceOf[DatumExpression]
     assert(globalInt.get() === 0, "Transformer execution supposed to be lazy")
 
     assert(out.get === inputs.sum)
@@ -196,7 +196,7 @@ class OperatorSuite extends FunSuite with LocalSparkContext with Logging {
 
     // Test laziness & memoization with other data
     val in2 = 13
-    val out2 = op.execute(Seq(transformer, new DatumOutput(in2))).asInstanceOf[DatumOutput]
+    val out2 = op.execute(Seq(transformer, new DatumExpression(in2))).asInstanceOf[DatumExpression]
     assert(globalInt.get() === inputs.sum, "Transformer execution supposed to be lazy")
 
     assert(out2.get === in2)
@@ -214,9 +214,9 @@ class OperatorSuite extends FunSuite with LocalSparkContext with Logging {
     val dataset3 = sc.parallelize(Seq(1, 2))
 
     val op = new DelegatingOperator
-    val transformer = new TransformerOutput(new TransformerOperator {
-      override private[internal] def singleTransform(dataDependencies: Seq[DatumOutput]): Any = ???
-      override private[internal] def batchTransform(dataDependencies: Seq[DatasetOutput]): RDD[_] = {
+    val transformer = new TransformerExpression(new TransformerOperator {
+      override private[graph] def singleTransform(dataDependencies: Seq[DatumExpression]): Any = ???
+      override private[graph] def batchTransform(dataDependencies: Seq[DatasetExpression]): RDD[_] = {
         val rdds = dataDependencies.map(_.get.asInstanceOf[RDD[Int]])
         globalInt.addAndGet(rdds.map(_.sum.toInt).sum)
         rdds.head
@@ -224,8 +224,8 @@ class OperatorSuite extends FunSuite with LocalSparkContext with Logging {
     })
 
     // Test laziness of execution
-    val out = op.execute(Seq(transformer, new DatasetOutput(dataset1), new DatasetOutput(dataset2)))
-      .asInstanceOf[DatasetOutput]
+    val out = op.execute(Seq(transformer, new DatasetExpression(dataset1), new DatasetExpression(dataset2)))
+      .asInstanceOf[DatasetExpression]
     assert(globalInt.get() === 0, "Transformer execution supposed to be lazy")
 
     assert(out.get === dataset1)
@@ -236,8 +236,8 @@ class OperatorSuite extends FunSuite with LocalSparkContext with Logging {
     assert(globalInt.get() === (dataset1.sum + dataset2.sum))
 
     // Test laziness & memoization with other data
-    val out2 = op.execute(Seq(transformer, new DatasetOutput(dataset3)))
-      .asInstanceOf[DatasetOutput]
+    val out2 = op.execute(Seq(transformer, new DatasetExpression(dataset3)))
+      .asInstanceOf[DatasetExpression]
     assert(globalInt.get() === (dataset1.sum + dataset2.sum), "Transformer execution supposed to be lazy")
     assert(out2.get === dataset3)
     assert(globalInt.get() === (dataset1.sum + dataset2.sum + dataset3.sum))
@@ -251,14 +251,14 @@ class OperatorSuite extends FunSuite with LocalSparkContext with Logging {
     val dataset = sc.parallelize(Seq(datum))
 
     val op = new DelegatingOperator
-    val transformer = new TransformerOutput(new TransformerOperator {
-      override private[internal] def singleTransform(dataDependencies: Seq[DatumOutput]): Any = datum
-      override private[internal] def batchTransform(dataDependencies: Seq[DatasetOutput]): RDD[_] = dataset
+    val transformer = new TransformerExpression(new TransformerOperator {
+      override private[graph] def singleTransform(dataDependencies: Seq[DatumExpression]): Any = datum
+      override private[graph] def batchTransform(dataDependencies: Seq[DatasetExpression]): RDD[_] = dataset
     })
 
     // Expects exception to be returned when deps are not (all DatasetOutput or all DatumOutput)
     intercept[IllegalArgumentException] {
-      op.execute(Seq(transformer, new DatasetOutput(dataset), new DatumOutput(datum)))
+      op.execute(Seq(transformer, new DatasetExpression(dataset), new DatumExpression(datum)))
     }
 
     // Expects exception to be returned when deps are empty

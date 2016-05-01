@@ -28,6 +28,16 @@ case class POSTagger(model: CRF[AnnotatedLabel, String])
   }
 }
 
+/**
+  * Here's an example using it with a broadcast variable:
+  * {{{
+  *   val model = epic.models.PosTagSelector.loadTagger("en").get
+  *   val broadcastModel = sc.broadcast(model)
+  *   val POSTagger = BroadcastPOSTagger(broadcastModel).apply(data)
+  * }}}
+  *
+  * @param model The Broadcasted POS Tagger model loaded from the Epic library
+  */
 case class BroadcastPOSTagger(model: Broadcast[CRF[AnnotatedLabel, String]])
   extends Transformer[Array[String], TaggedSequence[AnnotatedLabel, String]] {
   override def apply(in: Array[String]): TaggedSequence[AnnotatedLabel, String] = {

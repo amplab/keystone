@@ -13,6 +13,7 @@ class POSTaggerSuite extends FunSuite
 
   val SENTENCE = "Hello my name is Nikolsky and I like bananas".split(" ")
   val EMPTY_ANNOTATED_SENTENCE = TaggedSequence(IndexedSeq(), IndexedSeq())
+  val model = epic.models.PosTagSelector.loadTagger("en").get
 
   test("Apply method should call CRF properly") {
     val taggerMock = mock[CRF[AnnotatedLabel, String]]
@@ -34,30 +35,19 @@ class POSTaggerSuite extends FunSuite
   }
 
   test("A tagged sequence should be properly tagged") {
-    val tagger: CRF[AnnotatedLabel, String] = epic.models.PosTagSelector.loadTagger("en").get
-
-    val taggedSequence = POSTagger(tagger).apply(SENTENCE)
-
+    val taggedSequence = POSTagger(model).apply(SENTENCE)
     verifyTaggedSequence(taggedSequence)
   }
 
   test("A tagged sequence on Spark should be properly tagged") {
     sc = new SparkContext("local", "test")
-    val tagger: CRF[AnnotatedLabel, String] = epic.models.PosTagSelector.loadTagger("en").get
-
-    val taggedSequence = POSTagger(tagger).apply(sc.parallelize(Seq(SENTENCE)).first())
-
+    val taggedSequence = POSTagger(model).apply(sc.parallelize(Seq(SENTENCE)).first())
     verifyTaggedSequence(taggedSequence)
-  }
 
-  test("A tagged sequence on Spark with broadcast variable should be properly tagged") {
-    sc = new SparkContext("local", "test")
-    val tagger: CRF[AnnotatedLabel, String] = epic.models.PosTagSelector.loadTagger("en").get
-    val broadcastTagger = sc.broadcast(tagger)
-
-    val taggedSequence = BroadcastPOSTagger(broadcastTagger).apply(sc.parallelize(Seq(SENTENCE)).first())
-
-    verifyTaggedSequence(taggedSequence)
+    // verify with broadcast variable
+    val broadcastTagger = sc.broadcast(model)
+    val broadcastTaggedSequence = BroadcastPOSTagger(broadcastTagger).apply(sc.parallelize(Seq(SENTENCE)).first())
+    verifyTaggedSequence(broadcastTaggedSequence)
   }
 
   def verifyTaggedSequence(taggedSequence: TaggedSequence[AnnotatedLabel, String]) = {
@@ -72,4 +62,3 @@ class POSTaggerSuite extends FunSuite
   }
 
 }
-

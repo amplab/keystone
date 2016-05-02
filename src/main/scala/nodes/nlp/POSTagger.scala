@@ -3,7 +3,7 @@ package nodes.nlp
 import epic.sequences.{CRF, TaggedSequence}
 import epic.trees.AnnotatedLabel
 import workflow.Transformer
-import org.apache.spark.broadcast.Broadcast
+import org.apache.spark.rdd.RDD
 
 /**
   * Transformer that uses Epic to part-of-speech tag a sequence of words.
@@ -23,24 +23,14 @@ import org.apache.spark.broadcast.Broadcast
   */
 case class POSTagger(model: CRF[AnnotatedLabel, String])
   extends Transformer[Array[String], TaggedSequence[AnnotatedLabel, String]] {
-  override def apply(in: Array[String]): TaggedSequence[AnnotatedLabel, String] = {
+
+  def apply(in: Array[String]): TaggedSequence[AnnotatedLabel, String] = {
     model.bestSequence(in.toIndexedSeq)
   }
-}
 
-/**
-  * Here's an example using it with a broadcast variable:
-  * {{{
-  *   val model = epic.models.PosTagSelector.loadTagger("en").get
-  *   val broadcastModel = sc.broadcast(model)
-  *   val POSTagger = BroadcastPOSTagger(broadcastModel).apply(data)
-  * }}}
-  *
-  * @param model The Broadcasted POS Tagger model loaded from the Epic library
-  */
-case class BroadcastPOSTagger(model: Broadcast[CRF[AnnotatedLabel, String]])
-  extends Transformer[Array[String], TaggedSequence[AnnotatedLabel, String]] {
-  override def apply(in: Array[String]): TaggedSequence[AnnotatedLabel, String] = {
-    model.value.bestSequence(in.toIndexedSeq)
+  override def apply(in: RDD[Array[String]]): RDD[TaggedSequence[AnnotatedLabel, String]] = {
+    val modelBroadcast = in.sparkContext.broadcast(model)
+    in.map(s => modelBroadcast.value.bestSequence(s.toIndexedSeq))
   }
+
 }

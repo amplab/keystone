@@ -43,11 +43,6 @@ class POSTaggerSuite extends FunSuite
     sc = new SparkContext("local", "test")
     val taggedSequence = POSTagger(model).apply(sc.parallelize(Seq(SENTENCE)).first())
     verifyTaggedSequence(taggedSequence)
-
-    // verify with broadcast variable
-    val broadcastTagger = sc.broadcast(model)
-    val broadcastTaggedSequence = BroadcastPOSTagger(broadcastTagger).apply(sc.parallelize(Seq(SENTENCE)).first())
-    verifyTaggedSequence(broadcastTaggedSequence)
   }
 
   def verifyTaggedSequence(taggedSequence: TaggedSequence[AnnotatedLabel, String]) = {

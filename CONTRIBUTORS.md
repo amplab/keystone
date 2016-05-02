@@ -5,6 +5,7 @@ KeystoneML has been developed by the following people (alphabetically):
 
 * Daniel Bruckner
 * Michael J. Franklin
+* Nicolas Garneau
 * Gylfi Gudmundsson
 * Eric Jonas
 * Tomer Kaftan

@@ -21,7 +21,7 @@ import org.apache.spark.rdd.RDD
   *
   * @param model The POS Tagger model loaded from the Epic library
   */
-case class POSTagger(model: CRF[AnnotatedLabel, String])
+case class POSTagger(@transient model: CRF[AnnotatedLabel, String])
   extends Transformer[Array[String], TaggedSequence[AnnotatedLabel, String]] {
 
   def apply(in: Array[String]): TaggedSequence[AnnotatedLabel, String] = {

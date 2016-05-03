@@ -1,4 +1,4 @@
-package internal
+package workflow.graph
 
 /**
  * Represents a pipeline transformation rule: A transformation from one pipeline

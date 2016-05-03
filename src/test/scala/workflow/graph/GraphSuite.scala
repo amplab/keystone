@@ -97,6 +97,42 @@ class GraphSuite extends FunSuite with LocalSparkContext with Logging {
     assert(expectedGraph === newGraph)
   }
 
+  test("addNode on empty graph") {
+    val emptyGraph = Graph(
+      sources = Set(),
+      operators = Map(),
+      dependencies = Map(),
+      sinkDependencies = Map())
+    val dummyOp = DatumOperator(6)
+
+    val (newGraph, nodeId) = emptyGraph.addNode(dummyOp, Seq())
+    val expectedGraph = Graph(
+      sources = Set(),
+      operators = Map(nodeId -> dummyOp),
+      dependencies = Map(nodeId -> Seq()),
+      sinkDependencies = Map())
+
+    assert(expectedGraph === newGraph)
+  }
+
+  test("addSource on empty graph") {
+    val emptyGraph = Graph(
+      sources = Set(),
+      operators = Map(),
+      dependencies = Map(),
+      sinkDependencies = Map())
+    val dummyOp = DatumOperator(6)
+
+    val (newGraph, newId) = emptyGraph.addSource()
+    val expectedGraph = Graph(
+      sources = Set(newId),
+      operators = Map(),
+      dependencies = Map(),
+      sinkDependencies = Map())
+
+    assert(expectedGraph === newGraph)
+  }
+
   test("addSink") {
     intercept[IllegalArgumentException] {
       graph.addSink(NodeId(11))
@@ -586,6 +622,26 @@ class GraphSuite extends FunSuite with LocalSparkContext with Logging {
     assert(expectedGraph === newGraph)
   }
 
+  test("connectGraph argument checks") {
+    val graph2 = Graph(
+      sources = Set(SourceId(6), SourceId(7), SourceId(8)),
+      operators = Map(),
+      dependencies = Map(),
+      sinkDependencies = Map()
+    )
+
+    val spliceMapInvalidSinks = Map[SourceId, SinkId](SourceId(6) -> SinkId(3), SourceId(7) -> SinkId(4))
+    val spliceMapInvalidSources = Map[SourceId, SinkId](SourceId(1) -> SinkId(1), SourceId(2) -> SinkId(1))
+
+    intercept[IllegalArgumentException] {
+      graph.connectGraph(graph2, spliceMapInvalidSinks)
+    }
+
+    intercept[IllegalArgumentException] {
+      graph.connectGraph(graph2, spliceMapInvalidSources)
+    }
+  }
+
   test("replaceNodes") {
     val graph2 = Graph(
       sources = Set(SourceId(0), SourceId(1), SourceId(2)),
@@ -650,5 +706,81 @@ class GraphSuite extends FunSuite with LocalSparkContext with Logging {
     )
 
     assert(expectedGraph === newGraph)
+  }
+
+  test("replaceNodes argument checks") {
+    val graph2 = Graph(
+      sources = Set(SourceId(0), SourceId(1), SourceId(2)),
+      operators = Map(
+        NodeId(0) -> DatumOperator(10),
+        NodeId(1) -> DatumOperator(11)
+      ),
+      dependencies = Map(
+        NodeId(0) -> Seq(SourceId(0), SourceId(1)),
+        NodeId(1) -> Seq(NodeId(0), SourceId(1), SourceId(2))
+      ),
+      sinkDependencies = Map(
+        SinkId(0) -> SourceId(2),
+        SinkId(1) -> NodeId(1)
+      )
+    )
+
+    // Must attach all of the replacement's sinks
+    intercept[IllegalArgumentException] {
+      val nodesToRemove = Set(NodeId(3), NodeId(4), NodeId(6))
+      val replacementSourceSplice = Map(SourceId(0) -> SourceId(1), SourceId(1) -> NodeId(1), SourceId(2) -> NodeId(2))
+      val replacementSinkSplice = Map[NodeId, SinkId](
+        NodeId(3) -> SinkId(0),
+        NodeId(4) -> SinkId(0),
+        NodeId(6) -> SinkId(0))
+      graph.replaceNodes(nodesToRemove, graph2, replacementSourceSplice, replacementSinkSplice)
+    }
+
+    // May only replace dependencies on removed nodes
+    intercept[IllegalArgumentException] {
+      val nodesToRemove = Set(NodeId(3), NodeId(4), NodeId(6))
+      val replacementSourceSplice = Map(SourceId(0) -> SourceId(1), SourceId(1) -> NodeId(1), SourceId(2) -> NodeId(2))
+      val replacementSinkSplice = Map[NodeId, SinkId](
+        NodeId(3) -> SinkId(0),
+        NodeId(5) -> SinkId(0),
+        NodeId(6) -> SinkId(1))
+      graph.replaceNodes(nodesToRemove, graph2, replacementSourceSplice, replacementSinkSplice)
+    }
+
+    // Must attach all of the replacement's sources
+    intercept[IllegalArgumentException] {
+      val nodesToRemove = Set(NodeId(3), NodeId(4), NodeId(6))
+      val replacementSourceSplice = Map(SourceId(0) -> SourceId(1), SourceId(1) -> NodeId(1))
+      val replacementSinkSplice = Map[NodeId, SinkId](
+        NodeId(3) -> SinkId(0),
+        NodeId(4) -> SinkId(0),
+        NodeId(6) -> SinkId(1))
+      graph.replaceNodes(nodesToRemove, graph2, replacementSourceSplice, replacementSinkSplice)
+    }
+
+    // May not connect replacement sources to nodes being removed
+    intercept[IllegalArgumentException] {
+      val nodesToRemove = Set(NodeId(3), NodeId(4), NodeId(6))
+      val replacementSourceSplice = Map(SourceId(0) -> SourceId(1), SourceId(1) -> NodeId(1), SourceId(2) -> NodeId(3))
+      val replacementSinkSplice = Map[NodeId, SinkId](
+        NodeId(3) -> SinkId(0),
+        NodeId(4) -> SinkId(0),
+        NodeId(6) -> SinkId(1))
+      graph.replaceNodes(nodesToRemove, graph2, replacementSourceSplice, replacementSinkSplice)
+    }
+
+    // May only connect replacement sources to existing nodes
+    intercept[IllegalArgumentException] {
+      val nodesToRemove = Set(NodeId(3), NodeId(4), NodeId(6))
+      val replacementSourceSplice = Map(
+        SourceId(0) -> SourceId(1),
+        SourceId(1) -> NodeId(1),
+        SourceId(2) -> SourceId(-42))
+      val replacementSinkSplice = Map[NodeId, SinkId](
+        NodeId(3) -> SinkId(0),
+        NodeId(4) -> SinkId(0),
+        NodeId(6) -> SinkId(1))
+      graph.replaceNodes(nodesToRemove, graph2, replacementSourceSplice, replacementSinkSplice)
+    }
   }
 }

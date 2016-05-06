@@ -12,19 +12,19 @@ import workflow.Transformer
   * Here's an example:
   * {{{
   *   val model = epic.models.NerSelector.loadNer("en").get
-  *   val NERmodel = NERModel(model).apply(data)
+  *   val NER = NER(model).apply(data)
   * }}}
   *
   * @param model The NER model loaded from the Epic library
   */
-case class NER(@transient model: SemiCRF[Any, String])
-  extends Transformer[Array[String], Segmentation[Any, String]] {
+case class NER[T](@transient model: SemiCRF[T, String])
+  extends Transformer[Array[String], Segmentation[T, String]] {
 
-  def apply(in: Array[String]): Segmentation[Any, String] = {
+  def apply(in: Array[String]): Segmentation[T, String] = {
     model.bestSequence(in.toIndexedSeq)
   }
 
-  override def apply(in: RDD[Array[String]]): RDD[Segmentation[Any, String]] = {
+  override def apply(in: RDD[Array[String]]): RDD[Segmentation[T, String]] = {
     val modelBroadcast = in.sparkContext.broadcast(model)
     in.map(s => modelBroadcast.value.bestSequence(s.toIndexedSeq))
   }

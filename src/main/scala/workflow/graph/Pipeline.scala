@@ -74,25 +74,25 @@ trait GraphBackedExecution {
 }
 
 // A lazy representation of a pipeline output
-class PipelineDatumOut[T](executor: GraphExecutor, sink: SinkId) extends GraphBackedExecution {
-  setExecutor(executor)
+class PipelineDatumOut[T](initExecutor: GraphExecutor, initSink: SinkId) extends GraphBackedExecution {
+  setExecutor(initExecutor)
   setSources(Seq())
-  setSinks(Seq(sink))
+  setSinks(Seq(initSink))
 
   def getSink: SinkId = getSinks.head
 
-  def get(): T = executor.execute(getSink, Map()).asInstanceOf[DatumExpression].get.asInstanceOf[T]
+  def get(): T = getExecutor.execute(getSink, Map()).asInstanceOf[DatumExpression].get.asInstanceOf[T]
 }
 
 // A lazy representation of a pipeline output
-class PipelineDatasetOut[T](executor: GraphExecutor, sink: SinkId) extends GraphBackedExecution {
-  setExecutor(executor)
+class PipelineDatasetOut[T](initExecutor: GraphExecutor, initSink: SinkId) extends GraphBackedExecution {
+  setExecutor(initExecutor)
   setSources(Seq())
-  setSinks(Seq(sink))
+  setSinks(Seq(initSink))
 
   def getSink: SinkId = getSinks.head
 
-  def get(): RDD[T] = executor.execute(getSink, Map()).asInstanceOf[DatasetExpression].get.asInstanceOf[RDD[T]]
+  def get(): RDD[T] = getExecutor.execute(getSink, Map()).asInstanceOf[DatasetExpression].get.asInstanceOf[RDD[T]]
 }
 
 object PipelineRDDUtils {
@@ -170,7 +170,7 @@ class ConcretePipeline[A, B](executor: GraphExecutor, source: SourceId, sink: Si
 }
 
 abstract class Transformer[A, B : ClassTag] extends TransformerOperator with Pipeline[A, B] {
-  setExecutor(new GraphExecutor(Graph(Set(SourceId(0)), Map(SinkId(0) -> SourceId(0)), Map(NodeId(0) -> this), Map(NodeId(0) -> Seq(SourceId(0)))), None))
+  setExecutor(new GraphExecutor(Graph(Set(SourceId(0)), Map(SinkId(0) -> NodeId(0)), Map(NodeId(0) -> this), Map(NodeId(0) -> Seq(SourceId(0)))), None))
   setSources(Seq(SourceId(0)))
   setSinks(Seq(SinkId(0)))
 
@@ -183,6 +183,20 @@ abstract class Transformer[A, B : ClassTag] extends TransformerOperator with Pip
 
   final override private[graph] def batchTransform(inputs: Seq[DatasetExpression]): RDD[_] = {
     batchTransform(inputs.head.get.asInstanceOf[RDD[A]])
+  }
+}
+
+object Transformer {
+  /**
+   * This constructor takes a function and returns a Transformer that maps it over the input RDD
+   * @param f The function to apply to every item in the RDD being transformed
+   * @tparam I input type of the transformer
+   * @tparam O output type of the transformer
+   * @return Transformer that applies the given function to all items in the RDD
+   */
+  def apply[I, O : ClassTag](f: I => O): Transformer[I, O] = new Transformer[I, O] {
+    override protected def batchTransform(in: RDD[I]): RDD[O] = in.map(f)
+    override protected def singleTransform(in: I): O = f(in)
   }
 }
 
@@ -248,9 +262,9 @@ object GraphBackedExecution {
     val newExecutor = new GraphExecutor(graph = newGraph, optimizer = optimizer)
     for (i <- graphBackedExecutions.indices) {
       val execution = graphBackedExecutions(i)
-      execution.executor = newExecutor
-      execution.sources = execution.sources.map(sourceMappings(i))
-      execution.sinks = execution.sinks.map(sinkMappings(i))
+      execution.setExecutor(newExecutor)
+      execution.setSources(execution.sources.map(sourceMappings(i)))
+      execution.setSinks(execution.sinks.map(sinkMappings(i)))
     }
   }
 }
@@ -280,5 +294,9 @@ object Pipeline {
     } else {
       Checkpointer[T](path).fit(data).apply(data)
     }
+  }
+
+  def tie(graphBackedExecutions: Seq[GraphBackedExecution], optimizer: Option[Optimizer]): Unit = {
+    GraphBackedExecution.tie(graphBackedExecutions, optimizer)
   }
 }

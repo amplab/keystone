@@ -38,8 +38,12 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     val data = sc.parallelize(Seq(32, 94, 12))
     val pipeline = intTransformer andThen (intEstimator, data)
 
-    val pipelineOut = pipeline(data).get().collect().toSeq
-    val pipelineOut2 = pipeline(data).get().collect().toSeq
+    val pipelineOut = pipeline(data)
+    val pipelineOut2 = pipeline(data)
+    Pipeline.tie(Seq(pipelineOut, pipelineOut2), Some(DefaultOptimizer))
+
+    pipelineOut.get().collect()
+    pipelineOut2.get().collect()
 
     assert(numFits === 1, "Estimator should have been fit exactly once")
   }

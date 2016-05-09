@@ -49,31 +49,50 @@ class GraphExecutor(val graph: Graph, val optimizer: Option[Optimizer]) {
 }
 
 trait GraphBackedExecution {
-  protected var executor: GraphExecutor
-  protected var sources: Seq[SourceId]
-  protected var sinks: Seq[SinkId]
+  private var executor: GraphExecutor = new GraphExecutor(Graph(Set(), Map(), Map(), Map()), None)
+  private var sources: Seq[SourceId] = Seq()
+  private var sinks: Seq[SinkId] = Seq()
 
-  def getExecutor: GraphExecutor = executor
-  def getGraph: Graph = executor.graph
-  def getOptimizer: Option[Optimizer] = executor.optimizer
+  private[graph] def getExecutor: GraphExecutor = executor
+  private[graph] def getGraph: Graph = executor.graph
+  private[graph] def getOptimizer: Option[Optimizer] = executor.optimizer
+
+  private[graph] def setExecutor(executor: GraphExecutor): Unit = {
+    this.executor = executor
+  }
+
+  private[graph] def setSources(sources: Seq[SourceId]): Unit = {
+    this.sources = sources
+  }
+
+  private[graph] def setSinks(sinks: Seq[SinkId]): Unit = {
+    this.sinks = sinks
+  }
+
+  private[graph] def getSources: Seq[SourceId] = sources
+  private[graph] def getSinks: Seq[SinkId] = sinks
 }
 
 // A lazy representation of a pipeline output
-class PipelineDatumOut[T](protected override var executor: GraphExecutor, sink: SinkId) extends GraphBackedExecution {
-  protected override var sources = Seq()
-  protected override var sinks = Seq(sink)
-  def getSink: SinkId = sinks.head
+class PipelineDatumOut[T](executor: GraphExecutor, sink: SinkId) extends GraphBackedExecution {
+  setExecutor(executor)
+  setSources(Seq())
+  setSinks(Seq(sink))
 
-  def get(): T = executor.execute(sinks.head, Map()).asInstanceOf[DatumExpression].get.asInstanceOf[T]
+  def getSink: SinkId = getSinks.head
+
+  def get(): T = executor.execute(getSink, Map()).asInstanceOf[DatumExpression].get.asInstanceOf[T]
 }
 
 // A lazy representation of a pipeline output
-class PipelineDatasetOut[T](protected override var executor: GraphExecutor, sink: SinkId) extends GraphBackedExecution {
-  protected override var sources = Seq()
-  protected override var sinks = Seq(sink)
-  def getSink: SinkId = sinks.head
+class PipelineDatasetOut[T](executor: GraphExecutor, sink: SinkId) extends GraphBackedExecution {
+  setExecutor(executor)
+  setSources(Seq())
+  setSinks(Seq(sink))
 
-  def get(): RDD[T] = executor.execute(sinks.head, Map()).asInstanceOf[DatasetExpression].get.asInstanceOf[RDD[T]]
+  def getSink: SinkId = getSinks.head
+
+  def get(): RDD[T] = executor.execute(getSink, Map()).asInstanceOf[DatasetExpression].get.asInstanceOf[RDD[T]]
 }
 
 object PipelineRDDUtils {
@@ -94,32 +113,28 @@ object PipelineRDDUtils {
   }
 }
 
-class Pipeline[A, B](protected var executor: GraphExecutor, source: SourceId, sink: SinkId) {
-  // These three vars point to the internal representation of this pipeline
-  protected var sources = Seq(source)
-  protected var sinks = Seq(sink)
-
-  def getSource: SourceId = sources.head
-  def getSink: SinkId = sinks.head
+trait Pipeline[A, B] extends GraphBackedExecution {
+  def getSource: SourceId = getSources.head
+  def getSink: SinkId = getSinks.head
 
   final def apply(datum: A): PipelineDatumOut[B] = apply(PipelineRDDUtils.datumToPipelineDatumOut(datum))
 
   final def apply(data: RDD[A]): PipelineDatasetOut[B] = apply(PipelineRDDUtils.rddToPipelineDatasetOut(data))
 
   final def apply(data: PipelineDatasetOut[A]): PipelineDatasetOut[B] = {
-    val (newGraph, _, newSinkMapping) = data.getExecutor.graph.connectGraph(executor.graph, Map(getSource -> data.getSink))
-    new PipelineDatasetOut[B](new GraphExecutor(newGraph, executor.optimizer), newSinkMapping(getSink))
+    val (newGraph, _, newSinkMapping) = data.getExecutor.graph.connectGraph(getGraph, Map(getSource -> data.getSink))
+    new PipelineDatasetOut[B](new GraphExecutor(newGraph, getOptimizer), newSinkMapping(getSink))
   }
 
   final def apply(datum: PipelineDatumOut[A]): PipelineDatumOut[B] = {
-    val (newGraph, _, newSinkMapping) = datum.getExecutor.graph.connectGraph(executor.graph, Map(getSource -> datum.getSink))
-    new PipelineDatumOut[B](new GraphExecutor(newGraph, executor.optimizer), newSinkMapping(getSink))
+    val (newGraph, _, newSinkMapping) = datum.getExecutor.graph.connectGraph(getGraph, Map(getSource -> datum.getSink))
+    new PipelineDatumOut[B](new GraphExecutor(newGraph, getOptimizer), newSinkMapping(getSink))
   }
 
   // TODO: Clean up this method
   final def andThen[C](next: Pipeline[B, C]): Pipeline[A, C] = {
-    val (newGraph, _, newSinkMappings) = executor.graph.connectGraph(next.executor.graph, Map(next.getSource -> getSink))
-    new Pipeline[A, C](new GraphExecutor(newGraph, executor.optimizer), getSource, newSinkMappings(next.getSink))
+    val (newGraph, _, newSinkMappings) = getGraph.connectGraph(next.getGraph, Map(next.getSource -> getSink))
+    new ConcretePipeline(new GraphExecutor(newGraph, getOptimizer), getSource, newSinkMappings(next.getSink))
   }
 
   final def andThen[C](est: Estimator[B, C], data: RDD[A]): Pipeline[A, C] = {
@@ -148,7 +163,17 @@ class Pipeline[A, B](protected var executor: GraphExecutor, source: SourceId, si
 
 }
 
-abstract class Transformer[A, B : ClassTag] extends TransformerOperator {
+class ConcretePipeline[A, B](executor: GraphExecutor, source: SourceId, sink: SinkId) extends Pipeline[A, B] {
+  setExecutor(executor)
+  setSources(Seq(source))
+  setSinks(Seq(sink))
+}
+
+abstract class Transformer[A, B : ClassTag] extends TransformerOperator with Pipeline[A, B] {
+  setExecutor(new GraphExecutor(Graph(Set(SourceId(0)), Map(SinkId(0) -> SourceId(0)), Map(NodeId(0) -> this), Map(NodeId(0) -> Seq(SourceId(0)))), None))
+  setSources(Seq(SourceId(0)))
+  setSinks(Seq(SinkId(0)))
+
   protected def singleTransform(in: A): B
   protected def batchTransform(in: RDD[A]): RDD[B] = in.map(singleTransform)
 
@@ -171,7 +196,7 @@ abstract class Estimator[A, B] extends EstimatorOperator {
     val (almostFinalGraph, delegatingId) = newGraphWithSource.addNode(new DelegatingOperator, Seq(nodeId, sourceId))
     val (finalGraph, sinkId) = almostFinalGraph.addSink(delegatingId)
 
-    new Pipeline(new GraphExecutor(finalGraph, data.getExecutor.optimizer), sourceId, sinkId)
+    new ConcretePipeline(new GraphExecutor(finalGraph, data.getExecutor.optimizer), sourceId, sinkId)
   }
 
   final override private[graph] def fitRDDs(inputs: Seq[DatasetExpression]): TransformerOperator = {
@@ -196,7 +221,7 @@ abstract class LabelEstimator[A, B, L] extends EstimatorOperator {
     val (almostFinalGraph, delegatingId) = newGraphWithSource.addNode(new DelegatingOperator, Seq(nodeId, sourceId))
     val (finalGraph, sinkId) = almostFinalGraph.addSink(delegatingId)
 
-    new Pipeline(new GraphExecutor(finalGraph, data.getExecutor.optimizer), sourceId, sinkId)
+    new ConcretePipeline(new GraphExecutor(finalGraph, data.getExecutor.optimizer), sourceId, sinkId)
   }
 
   final override private[graph] def fitRDDs(inputs: Seq[DatasetExpression]): TransformerOperator = {

@@ -102,7 +102,7 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     val pipelineOutTwo = pipelineChainTwo(data)
     val modelOut = model(data)
 
-    Pipeline.tie(Seq(pipelineOutOne, pipelineOutTwo, modelOut), None)
+    Pipeline.tie(Seq(pipelineOutOne, pipelineOutTwo, modelOut, features), None)
 
     assert(pipelineOutOne.get().collect().toSeq === Seq(32*2 + 32*2 + 10, 94*2 + 32*2 + 10, 12*2 + 32*2 + 10))
     assert(pipelineOutTwo.get().collect().toSeq === Seq(32*2 + 32*2 + 10, 94*2 + 32*2 + 10, 12*2 + 32*2 + 10))

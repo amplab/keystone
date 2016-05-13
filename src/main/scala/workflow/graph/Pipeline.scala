@@ -4,6 +4,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
+import pipelines.Logging
 
 import scala.reflect.ClassTag
 
@@ -202,8 +203,8 @@ object Transformer {
 
 
 abstract class Estimator[A, B] extends EstimatorOperator {
-  def fit(data: RDD[A]): Pipeline[A, B] = fit(PipelineRDDUtils.rddToPipelineDatasetOut(data))
-  def fit(data: PipelineDatasetOut[A]): Pipeline[A, B] = {
+  final def fit(data: RDD[A]): Pipeline[A, B] = fit(PipelineRDDUtils.rddToPipelineDatasetOut(data))
+  final def fit(data: PipelineDatasetOut[A]): Pipeline[A, B] = {
     val curSink = data.getExecutor.graph.getSinkDependency(data.getSink)
     val (newGraph, nodeId) = data.getExecutor.graph.removeSink(data.getSink).addNode(this, Seq(curSink))
     val (newGraphWithSource, sourceId) = newGraph.addSource()
@@ -220,10 +221,10 @@ abstract class Estimator[A, B] extends EstimatorOperator {
 }
 
 abstract class LabelEstimator[A, B, L] extends EstimatorOperator {
-  def fit(data: RDD[A], labels: PipelineDatasetOut[L]): Pipeline[A, B] = fit(PipelineRDDUtils.rddToPipelineDatasetOut(data), labels)
-  def fit(data: PipelineDatasetOut[A], labels: RDD[L]): Pipeline[A, B] = fit(data, PipelineRDDUtils.rddToPipelineDatasetOut(labels))
-  def fit(data: RDD[A], labels: RDD[L]): Pipeline[A, B] = fit(PipelineRDDUtils.rddToPipelineDatasetOut(data), PipelineRDDUtils.rddToPipelineDatasetOut(labels))
-  def fit(data: PipelineDatasetOut[A], labels: PipelineDatasetOut[L]): Pipeline[A, B] = {
+  final def fit(data: RDD[A], labels: PipelineDatasetOut[L]): Pipeline[A, B] = fit(PipelineRDDUtils.rddToPipelineDatasetOut(data), labels)
+  final def fit(data: PipelineDatasetOut[A], labels: RDD[L]): Pipeline[A, B] = fit(data, PipelineRDDUtils.rddToPipelineDatasetOut(labels))
+  final def fit(data: RDD[A], labels: RDD[L]): Pipeline[A, B] = fit(PipelineRDDUtils.rddToPipelineDatasetOut(data), PipelineRDDUtils.rddToPipelineDatasetOut(labels))
+  final def fit(data: PipelineDatasetOut[A], labels: PipelineDatasetOut[L]): Pipeline[A, B] = {
     val (depGraph, _, labelSinkMapping) = data.getGraph.addGraph(labels.getGraph)
     val dataSink = depGraph.getSinkDependency(data.getSink)
     val labelsSink = depGraph.getSinkDependency(labelSinkMapping(labels.getSink))
@@ -272,6 +273,23 @@ object GraphBackedExecution {
 case class Identity[T : ClassTag]() extends Transformer[T,T] {
   override protected def singleTransform(in: T): T = in
   override protected def batchTransform(in: RDD[T]): RDD[T] = in
+}
+
+/**
+ * Caches the intermediate state of a node. Follows Spark's lazy evaluation conventions.
+ * @param name An optional name to set on the cached output. Useful for debugging.
+ * @tparam T Type of the input to cache.
+ */
+case class Cacher[T: ClassTag](name: Option[String] = None) extends Transformer[T,T] with Logging {
+  override protected def batchTransform(in: RDD[T]): RDD[T] = {
+    logInfo(s"CACHING ${in.id}")
+    name match {
+      case Some(x) => in.cache().setName(x)
+      case None => in.cache()
+    }
+  }
+
+  override protected def singleTransform(in: T): T = in
 }
 
 case class Checkpointer[T : ClassTag](path: String) extends Estimator[T, T] {

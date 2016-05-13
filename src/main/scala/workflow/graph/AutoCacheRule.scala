@@ -6,6 +6,7 @@ import org.apache.spark.storage.StorageLevel
 import org.apache.spark.util.SparkUtilWrapper
 import pipelines.Logging
 import workflow.AutoCacheRule.{AggressiveCache, CachingStrategy, GreedyCache}
+import workflow.WorkflowUtils
 
 case class Profile(ns: Long, rddMem: Long, driverMem: Long) {
   def +(p: Profile) = Profile(this.ns + p.ns, this.rddMem + p.rddMem, this.driverMem + p.driverMem)
@@ -130,6 +131,11 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
       models("driverMem").apply(newScale).toLong)
   }
 
+  case class ProfilingState(
+    registers: Map[NodeId, Expression],
+    numPerPartitionPerNode: Map[NodeId, Map[Int, Int]],
+    profiles: Map[NodeId, Profile]
+  )
   /**
    * Get a profile of each node in the pipeline
    *
@@ -152,22 +158,241 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
 
     // We have the possibility of caching all uncached nodes accessed more than once,
     // That don't depend on the sources.
-    val instructionsToProfile = graph.nodes
-      .filter(i => !cached(i))
-      .filter(i => runs(i) > 1) -- descendantsOfSources
+    val nodesToProfile = graph.nodes
+      .filter(i => (!cached(i)) && (runs(i) > 1)) -- descendantsOfSources
 
     // We need to execute all instructions that the nodes we need to profile depend on.
-    val instructionsToExecute = instructionsToProfile
-      .map(i => WorkflowUtils.getParents(i, instructions) + i)
-      .fold(Set())(_ ++ _)
+    val nodesToExecute = nodesToProfile.foldLeft(Set[NodeOrSourceId]()) {
+      case (executeSet, node) => executeSet ++ AnalysisUtils.getAncestors(graph, node) + node
+    }.collect {
+      case node: NodeId => node
+    }
 
+    val sortedScales = partitionScales.sorted
+    val initProfiling = ProfilingState(Map(), Map(), Map())
+    linearization.collect {
+      case node: NodeId => node
+    }.foldLeft(initProfiling) {
+      case (state, node) => {
+        if (nodesToProfile.contains(node)) {
+          case SourceNode(rdd) => {
+            val npp = WorkflowUtils.numPerPartition(rdd)
+            numPerPartitionPerNode(i) = npp
+
+            val totalCount = npp.values.map(_.toLong).sum
+
+            val sampleProfiles = for (
+              (partitionScale, scaleIndex) <- sortedScales.zipWithIndex;
+              trial <- 1 to numTrials
+            ) yield {
+              // Calculate the necessary number of items per partition to maintain the same partition distribution,
+              // while only having scale items instead of totalCount items.
+              // Can't use mapValues because that isn't serializable
+              val scale = partitionScale * npp.size
+              val scaledNumPerPartition = npp.toSeq
+                .map(x => (x._1, math.round((scale.toDouble / totalCount) * x._2).toInt)).toMap
+
+              // Profile sample timing
+              val start = System.nanoTime()
+              // Construct a sample containing only scale items, but w/ the same relative partition distribution
+              val sample = rdd.mapPartitionsWithIndex {
+                case (pid, partition) => partition.take(scaledNumPerPartition(pid))
+              }.cache()
+              sample.count()
+              val duration = System.nanoTime() - start
+
+              // Profile sample memory
+              val rddSize = sample.context.getRDDStorageInfo.filter(_.id == sample.id).map(_.memSize).head
+
+              // If this sample was computed using the final and largest scale, add it to the registers
+              if ((scaleIndex == (sortedScales.length - 1)) && (trial == numTrials)) {
+                registers(i) = RDDOutput(sample)
+              } else {
+                sample.unpersist()
+              }
+
+              SampleProfile(scaledNumPerPartition.values.sum, Profile(duration, rddSize, 0))
+            }
+
+            profiles(i) = generalizeProfiles(totalCount, sampleProfiles)
+          }
+
+          case TransformerApplyNode(tIndex, inputIndices) => {
+            // We assume that all input rdds to this transformer have equal, zippable partitioning
+            val npp = numPerPartitionPerNode(inputIndices.head)
+            numPerPartitionPerNode(i) = npp
+            val totalCount = npp.values.map(_.toLong).sum
+
+            val transformer = registers(tIndex) match {
+              case TransformerOutput(t) => t
+              case _ => throw new ClassCastException("TransformerApplyNode dep wasn't pointing at a transformer")
+            }
+            val inputs = inputIndices.map(registers).collect {
+              case RDDOutput(rdd) => rdd.cache()
+            }
+            inputs.foreach(_.count())
+
+            val sampleProfiles = for (
+              (partitionScale, scaleIndex) <- sortedScales.zipWithIndex;
+              trial <- 1 to numTrials
+            ) yield {
+              // Calculate the necessary number of items per partition to maintain the same partition distribution,
+              // while only having scale items instead of totalCount items.
+              // Can't use mapValues because that isn't serializable
+              val scale = partitionScale * npp.size
+              val scaledNumPerPartition = npp
+                .toSeq.map(x => (x._1, math.round((scale.toDouble / totalCount) * x._2).toInt)).toMap
+
+              // Sample the inputs. Samples containing only scale items, but w/ the same relative partition distribution
+              // NOTE: Assumes all inputs have equal, zippable partition counts
+              val sampledInputs = inputs.map(_.mapPartitionsWithIndex {
+                case (pid, partition) => partition.take(scaledNumPerPartition(pid))
+              })
+
+              // Profile sample timing
+              val start = System.nanoTime()
+              // Construct and cache a sample
+              val sample = transformer.transformRDD(sampledInputs.toIterator).cache()
+              sample.count()
+              val duration = System.nanoTime() - start
+
+              // Profile sample memory
+              val rddSize = sample.context.getRDDStorageInfo.filter(_.id == sample.id).map(_.memSize).head
+
+              // If this sample was computed using the final and largest scale, add it to the registers
+              if ((scaleIndex == (sortedScales.length - 1)) && (trial == numTrials)) {
+                registers(i) = RDDOutput(sample)
+              } else {
+                sample.unpersist()
+              }
+
+              SampleProfile(scaledNumPerPartition.values.sum, Profile(duration, rddSize, 0))
+            }
+
+            profiles(i) = generalizeProfiles(totalCount, sampleProfiles)
+          }
+
+          case EstimatorFitNode(eIndex, inputIndices) => {
+            // We assume that all input rdds to this transformer have equal, zippable partitioning
+            val npp = numPerPartitionPerNode(inputIndices.head)
+            numPerPartitionPerNode(i) = npp
+            val totalCount = npp.values.map(_.toLong).sum
+
+            val estimator = registers(eIndex) match {
+              case EstimatorOutput(e) => e
+              case _ => throw new ClassCastException("Estimator fit dep wasn't pointing at an Estimator")
+            }
+            val inputs = inputIndices.map(registers).collect {
+              case RDDOutput(rdd) => rdd.cache()
+            }
+            inputs.foreach(_.count())
+
+            val sampleProfiles = for (
+              (partitionScale, scaleIndex) <- sortedScales.zipWithIndex;
+              trial <- 1 to numTrials
+            ) yield {
+              // Calculate the necessary number of items per partition to maintain the same partition distribution,
+              // while only having scale items instead of totalCount items.
+              // Can't use mapValues because that isn't serializable
+              val scale = partitionScale * npp.size
+              val scaledNumPerPartition = npp
+                .toSeq.map(x => (x._1, math.round((scale.toDouble / totalCount) * x._2).toInt)).toMap
+
+              // Sample the inputs. Samples containing only scale items, but w/ the same relative partition distribution
+              // NOTE: Assumes all inputs have equal, zippable partition counts
+              val sampledInputs = inputs.map(_.mapPartitionsWithIndex {
+                case (pid, partition) => partition.take(scaledNumPerPartition(pid))
+              })
+
+              // Profile sample timing
+              val start = System.nanoTime()
+              // fit the estimator
+              val sampleTransformer = estimator.fitRDDs(sampledInputs.toIterator)
+              val duration = System.nanoTime() - start
+
+              // Profile fit transformer memory
+              val transformerSize = SparkUtilWrapper.estimateSize(sampleTransformer)
+
+              // If this sample was computed using the final and largest scale, add it to the registers
+              if ((scaleIndex == (sortedScales.length - 1)) && (trial == numTrials)) {
+                registers(i) = TransformerOutput(sampleTransformer)
+              }
+
+              SampleProfile(scaledNumPerPartition.values.sum, Profile(duration, 0, transformerSize))
+            }
+
+            profiles(i) = generalizeProfiles(totalCount, sampleProfiles)
+          }
+
+        } else if (nodesToExecute.contains(node)) {
+          // Execute nodes that don't need to be profiled
+          graph.getOperator(node) match {
+            case DatasetOperator(rdd) => {
+              val npp = WorkflowUtils.numPerPartition(rdd)
+              val newNumPerPartitionPerNode = state.numPerPartitionPerNode + (node -> npp)
+
+              val totalCount = npp.values.map(_.toLong).sum
+
+              val partitionScale = sortedScales.max
+
+              // Calculate the necessary number of items per partition to maintain the same partition distribution,
+              // while only having scale items instead of totalCount items.
+              // Can't use mapValues because that isn't serializable
+              val scale = partitionScale * npp.size
+              val scaledNumPerPartition = npp.toSeq
+                .map(x => (x._1, math.round((scale.toDouble / totalCount) * x._2).toInt)).toMap
+
+              // Construct a sample containing only scale items, but w/ the same relative partition distribution
+              val sample = rdd.mapPartitionsWithIndex {
+                case (pid, partition) => partition.take(scaledNumPerPartition(pid))
+              }
+
+              val newRegisters = state.registers + (node -> new DatasetExpression(rdd))
+              state.copy(registers = newRegisters, numPerPartitionPerNode = newNumPerPartitionPerNode)
+            }
+            case DatumOperator(datum) => {
+              // A DatumOperator doesn't output an RDD
+              val newNumPerPartitionPerNode = state.numPerPartitionPerNode + (node -> Map[Int, Int]())
+              val newRegisters = state.registers + (node -> new DatumExpression(datum))
+
+              state.copy(registers = newRegisters, numPerPartitionPerNode = newNumPerPartitionPerNode)
+            }
+            case op: TransformerOperator => {
+              val deps = graph.getDependencies(node).map(_.asInstanceOf[NodeId])
+              val out = op.execute(deps.map(state.registers))
+              val npp = state.numPerPartitionPerNode(deps.head)
+              state.copy(
+                registers = state.registers + (node -> out),
+                numPerPartitionPerNode = state.numPerPartitionPerNode + (node -> npp))
+            }
+            case op: DelegatingOperator => {
+              val deps = graph.getDependencies(node).map(_.asInstanceOf[NodeId])
+              val out = op.execute(deps.map(state.registers))
+              val npp = state.numPerPartitionPerNode(deps(1)) // The first rdd for a delegating op is the second dep
+              state.copy(
+                registers = state.registers + (node -> out),
+                numPerPartitionPerNode = state.numPerPartitionPerNode + (node -> npp))
+            }
+            case op: EstimatorOperator => {
+              val deps = graph.getDependencies(node).map(_.asInstanceOf[NodeId])
+              val out = op.execute(deps.map(state.registers))
+              val npp = Map[Int, Int]() // An estimator doesn't output an rdd
+              state.copy(
+                registers = state.registers + (node -> out),
+                numPerPartitionPerNode = state.numPerPartitionPerNode + (node -> npp))
+            }
+          }
+        } else {
+          state
+        }
+      }
+    }
     val registers = new Array[InstructionOutput](instructions.length)
     val numPerPartitionPerNode = scala.collection.mutable.Map[Int, Map[Int, Int]]()
     val profiles = scala.collection.mutable.Map[Int, Profile]()
 
-    val sortedScales = partitionScales.sorted
-    for ((instruction, i) <- instructions.zipWithIndex if instructionsToExecute.contains(i)) {
-      if (instructionsToProfile.contains(i)) {
+    for ((instruction, i) <- instructions.zipWithIndex if nodesToExecute.contains(i)) {
+      if (nodesToProfile.contains(i)) {
         instruction match {
           case SourceNode(rdd) => {
             val npp = WorkflowUtils.numPerPartition(rdd)

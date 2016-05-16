@@ -199,9 +199,9 @@ object Convolver {
           x = 0
           while (x < resWidth) {
             chan = 0
+            py = x/patchStride + y*resWidth/(patchStride*patchStride)
             while (chan < imgChannels) {
               px = chan + pox*imgChannels + poy*imgChannels*convSize
-              py = math.ceil((x/patchStride + y*resWidth/(patchStride*patchStride))).toInt
               patchMat(py, px) = img.get(x+pox, y+poy, chan)
               chan+=1
             }

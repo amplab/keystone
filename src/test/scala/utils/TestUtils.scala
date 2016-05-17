@@ -84,14 +84,4 @@ object TestUtils {
     val randBasis: RandBasis = new RandBasis(new ThreadLocalRandomGenerator(new MersenneTwister(seed)))
     DenseMatrix.rand(numRows, numCols, Gaussian(0.0, 1.0)(randBasis))
   }
-
-  /* Convert a BGR image (channels x (rows x cols)) to RGB */
-  def BGRtoRGB(im: Image) = {
-    val imArray = im.toArray
-    val imMat = new DenseMatrix(im.metadata.numChannels, im.metadata.xDim*im.metadata.yDim, imArray)
-    val imMat2 = imMat.copy
-    imMat2(0,::) := imMat(2,::)
-    imMat2(2,::) := imMat(0,::)
-    new ChannelMajorArrayVectorizedImage(imMat2.toArray, im.metadata)
-  }
 }

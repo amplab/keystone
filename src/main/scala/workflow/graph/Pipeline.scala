@@ -8,8 +8,23 @@ import pipelines.Logging
 
 import scala.reflect.ClassTag
 
-class GraphExecutor(val graph: Graph, val optimizer: Option[Optimizer]) {
-  private lazy val optimizedGraph: Graph = optimizer.map(_.execute(graph)).getOrElse(graph)
+class GraphExecutor(val graph: Graph, val optimizer: Option[Optimizer], initExecutionState: Map[GraphId, Expression] = Map()) {
+  private var optimized: Boolean = false
+  private lazy val optimizedState: (Graph, scala.collection.mutable.Map[GraphId, Expression]) = {
+    optimized = true
+    val (newGraph, newExecutionState) = optimizer.map(_.execute(graph, initExecutionState))
+      .getOrElse((graph, initExecutionState))
+    (newGraph, scala.collection.mutable.Map() ++ newExecutionState)
+  }
+  private lazy val optimizedGraph: Graph = optimizedState._1
+  private lazy val executionState: scala.collection.mutable.Map[GraphId, Expression] = optimizedState._2
+
+  // TODO: FIXME: Maybe make separate methods for current graph state and current execution state?
+  def currentState: (Graph, Map[GraphId, Expression]) = if (optimized) {
+    (optimizedGraph, executionState.toMap)
+  } else {
+    (graph, initExecutionState)
+  }
 
   // Todo put comment: A result is unstorable if it implicitly depends on any source
   private lazy val unstorableResults: Set[GraphId] = {
@@ -18,7 +33,22 @@ class GraphExecutor(val graph: Graph, val optimizer: Option[Optimizer]) {
     }
   }
 
-  private val executionResults: scala.collection.mutable.Map[GraphId, Expression] = scala.collection.mutable.Map()
+  // TODO rename and comment. This method executes & stores all ancestors of a sink that don't depend on sources
+  def executeAndSaveWithoutSources(sink: SinkId): Unit = {
+    val linearizedAncestors = AnalysisUtils.linearize(optimizedGraph, sink)
+    val ancestorsToExecute = linearizedAncestors.filter(id => !unstorableResults.contains(id))
+    ancestorsToExecute.foreach {
+      case source: SourceId => throw new RuntimeException("Linearized ancestors to execute should not contain sources")
+      case node: NodeId => {
+        val dependencies = optimizedGraph.getDependencies(node)
+        val depExpressions = dependencies.map(dep => executionState(dep))
+        val operator = optimizedGraph.getOperator(node)
+        executionState(node) = operator.execute(depExpressions)
+      }
+    }
+
+    executionState(sink) = executionState(optimizedGraph.getSinkDependency(sink))
+  }
 
   private def getUncachedResult(graphId: GraphId, sources: Map[SourceId, Expression]): Expression = {
     graphId match {
@@ -40,7 +70,7 @@ class GraphExecutor(val graph: Graph, val optimizer: Option[Optimizer]) {
     if (unstorableResults.contains(graphId)) {
       getUncachedResult(graphId, sources)
     } else {
-      executionResults.getOrElseUpdate(graphId, getUncachedResult(graphId, sources))
+      executionState.getOrElseUpdate(graphId, getUncachedResult(graphId, sources))
     }
   }
 
@@ -114,9 +144,10 @@ object PipelineRDDUtils {
   }
 }
 
-trait Pipeline[A, B] extends GraphBackedExecution {
-  def getSource: SourceId = getSources.head
-  def getSink: SinkId = getSinks.head
+trait Pipeline[A, B] {
+  private[graph] val source: SourceId
+  private[graph] val sink: SinkId
+  private[graph] def executor: GraphExecutor
 
   final def apply(datum: A): PipelineDatumOut[B] = apply(PipelineRDDUtils.datumToPipelineDatumOut(datum))
 
@@ -135,8 +166,10 @@ trait Pipeline[A, B] extends GraphBackedExecution {
 
   // TODO: Clean up this method
   final def andThen[C](next: Pipeline[B, C]): Pipeline[A, C] = {
-    val (newGraph, _, _, newSinkMappings) = getGraph.connectGraph(next.getGraph, Map(next.getSource -> getSink))
-    new ConcretePipeline(new GraphExecutor(newGraph, getOptimizer), getSource, newSinkMappings(next.getSink))
+    val (newGraph, newSourceMappings, newNodeMappings, newSinkMappings) = executor.currentState._1.connectGraph(next.executor.currentState._1, Map(next.source -> sink))
+    val graphIdMappings: Map[GraphId, GraphId] = newSourceMappings ++ newNodeMappings ++ newSinkMappings
+    val newExecutionState = executor.currentState._2 ++ next.executor.currentState._2.map(x => (graphIdMappings(x._1), x._2))
+    new ConcretePipeline(new GraphExecutor(newGraph, executor.optimizer, newExecutionState), source, newSinkMappings(next.sink))
   }
 
   final def andThen[C](est: Estimator[B, C], data: RDD[A]): Pipeline[A, C] = {
@@ -165,16 +198,16 @@ trait Pipeline[A, B] extends GraphBackedExecution {
 
 }
 
-class ConcretePipeline[A, B](executor: GraphExecutor, source: SourceId, sink: SinkId) extends Pipeline[A, B] {
-  setExecutor(executor)
-  setSources(Seq(source))
-  setSinks(Seq(sink))
-}
+class ConcretePipeline[A, B](
+  @Override private[Graph] val executor: GraphExecutor,
+  @Override private[Graph] val source: SourceId,
+  @Override private[Graph] val sink: SinkId
+) extends Pipeline[A, B]
 
 abstract class Transformer[A, B : ClassTag] extends TransformerOperator with Pipeline[A, B] {
-  setExecutor(new GraphExecutor(Graph(Set(SourceId(0)), Map(SinkId(0) -> NodeId(0)), Map(NodeId(0) -> this), Map(NodeId(0) -> Seq(SourceId(0)))), None))
-  setSources(Seq(SourceId(0)))
-  setSinks(Seq(SinkId(0)))
+  @Override @transient private[Graph] lazy val executor = new GraphExecutor(Graph(Set(SourceId(0)), Map(SinkId(0) -> NodeId(0)), Map(NodeId(0) -> this), Map(NodeId(0) -> Seq(SourceId(0)))), None)
+  @Override private[Graph] val source = SourceId(0)
+  @Override private[Graph] val sink = SinkId(0)
 
   protected def singleTransform(in: A): B
   protected def batchTransform(in: RDD[A]): RDD[B] = in.map(singleTransform)
@@ -212,6 +245,7 @@ abstract class Estimator[A, B] extends EstimatorOperator {
     val (almostFinalGraph, delegatingId) = newGraphWithSource.addNode(new DelegatingOperator, Seq(nodeId, sourceId))
     val (finalGraph, sinkId) = almostFinalGraph.addSink(delegatingId)
 
+    // FIXME TODO: MAINTAIN STATE!
     new ConcretePipeline(new GraphExecutor(finalGraph, data.getExecutor.optimizer), sourceId, sinkId)
   }
 
@@ -237,6 +271,7 @@ abstract class LabelEstimator[A, B, L] extends EstimatorOperator {
     val (almostFinalGraph, delegatingId) = newGraphWithSource.addNode(new DelegatingOperator, Seq(nodeId, sourceId))
     val (finalGraph, sinkId) = almostFinalGraph.addSink(delegatingId)
 
+    // FIXME TODO: MAINTAIN STATE!
     new ConcretePipeline(new GraphExecutor(finalGraph, data.getExecutor.optimizer), sourceId, sinkId)
   }
 
@@ -315,7 +350,7 @@ object Pipeline {
     }
   }
 
-  def tie(graphBackedExecutions: Seq[GraphBackedExecution], optimizer: Option[Optimizer]): Unit = {
+  def submit(graphBackedExecutions: Seq[GraphBackedExecution], optimizer: Option[Optimizer]): Unit = {
     GraphBackedExecution.tie(graphBackedExecutions, optimizer)
   }
 }

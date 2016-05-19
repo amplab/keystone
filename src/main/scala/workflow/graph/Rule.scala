@@ -11,5 +11,5 @@ abstract class Rule {
     if (className endsWith "$") className.dropRight(1) else className
   }
 
-  def apply(plan: Graph): Graph
+  def apply(plan: Graph, executionState: Map[GraphId, Expression]): (Graph, Map[GraphId, Expression])
 }

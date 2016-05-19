@@ -40,7 +40,7 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
 
     val pipelineOut = pipeline(data)
     val pipelineOut2 = pipeline(data)
-    Pipeline.tie(Seq(pipelineOut, pipelineOut2), Some(DefaultOptimizer))
+    Pipeline.submit(Seq(pipelineOut, pipelineOut2), Some(DefaultOptimizer))
 
     pipelineOut.get().collect()
     pipelineOut2.get().collect()
@@ -73,7 +73,7 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     val pipelineOutTwo = pipelineChainTwo(data)
     val modelOut = model(data)
 
-    Pipeline.tie(Seq(pipelineOutOne, pipelineOutTwo, modelOut), None)
+    Pipeline.submit(Seq(pipelineOutOne, pipelineOutTwo, modelOut), None)
 
     assert(pipelineOutOne.get().collect().toSeq === Seq(32*2 + 32*2, 94*2 + 32*2, 12*2 + 32*2))
     assert(pipelineOutTwo.get().collect().toSeq === Seq(32*2 + 32*2, 94*2 + 32*2, 12*2 + 32*2))
@@ -106,7 +106,7 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     val pipelineOutTwo = pipelineChainTwo(data)
     val modelOut = model(data)
 
-    Pipeline.tie(Seq(pipelineOutOne, pipelineOutTwo, modelOut, features), None)
+    Pipeline.submit(Seq(pipelineOutOne, pipelineOutTwo, modelOut, features), None)
 
     assert(pipelineOutOne.get().collect().toSeq === Seq(32*2 + 32*2 + 10, 94*2 + 32*2 + 10, 12*2 + 32*2 + 10))
     assert(pipelineOutTwo.get().collect().toSeq === Seq(32*2 + 32*2 + 10, 94*2 + 32*2 + 10, 12*2 + 32*2 + 10))

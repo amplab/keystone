@@ -440,15 +440,15 @@ class GraphSuite extends FunSuite with LocalSparkContext with Logging {
       )
     )
 
-    val (addedGraph, sourceIdMap, sinkIdMap) = graph.addGraph(graph2)
+    val (addedGraph, sourceIdMap, nodeIdMap, sinkIdMap) = graph.addGraph(graph2)
 
-    // Make sure the new sink & source ids don't clash with the old ones
+    // Make sure the new sink & node & source ids don't clash with the old ones
     require(sinkIdMap.values.toSet.forall(i => !graph.sinks.contains(i)))
+    require(nodeIdMap.values.toSet.forall(i => !graph.nodes.contains(i)))
     require(sourceIdMap.values.toSet.forall(i => !graph.sources.contains(i)))
 
     // Make sure the new node ids don't clash with the old ones
-    val nodeIdByDatum = addedGraph.operators.toSeq.map(x => (x._2.asInstanceOf[DatumOperator].datum, x._1)).toMap
-    require((10 to 19).map(i => nodeIdByDatum(i)).forall(i => !graph.nodes.contains(i)))
+    val nodeIdByLongId = nodeIdMap.map(x => (x._1.id, x._2))
 
     val newGraph = Graph(
       sources = Set(
@@ -469,16 +469,16 @@ class GraphSuite extends FunSuite with LocalSparkContext with Logging {
         NodeId(7) -> DatumOperator(7),
         NodeId(8) -> DatumOperator(8),
         NodeId(9) -> DatumOperator(9),
-        nodeIdByDatum(10) -> DatumOperator(10),
-        nodeIdByDatum(11) -> DatumOperator(11),
-        nodeIdByDatum(12) -> DatumOperator(12),
-        nodeIdByDatum(13) -> DatumOperator(13),
-        nodeIdByDatum(14) -> DatumOperator(14),
-        nodeIdByDatum(15) -> DatumOperator(15),
-        nodeIdByDatum(16) -> DatumOperator(16),
-        nodeIdByDatum(17) -> DatumOperator(17),
-        nodeIdByDatum(18) -> DatumOperator(18),
-        nodeIdByDatum(19) -> DatumOperator(19)
+        nodeIdByLongId(0) -> DatumOperator(10),
+        nodeIdByLongId(1) -> DatumOperator(11),
+        nodeIdByLongId(2) -> DatumOperator(12),
+        nodeIdByLongId(3) -> DatumOperator(13),
+        nodeIdByLongId(4) -> DatumOperator(14),
+        nodeIdByLongId(5) -> DatumOperator(15),
+        nodeIdByLongId(6) -> DatumOperator(16),
+        nodeIdByLongId(7) -> DatumOperator(17),
+        nodeIdByLongId(8) -> DatumOperator(18),
+        nodeIdByLongId(9) -> DatumOperator(19)
       ),
       dependencies = Map(
         NodeId(0) -> Seq(),
@@ -491,24 +491,24 @@ class GraphSuite extends FunSuite with LocalSparkContext with Logging {
         NodeId(7) -> Seq(SourceId(1), NodeId(1), NodeId(6)),
         NodeId(8) -> Seq(NodeId(4), NodeId(5)),
         NodeId(9) -> Seq(NodeId(0), NodeId(3), NodeId(7), NodeId(8)),
-        nodeIdByDatum(10) -> Seq(),
-        nodeIdByDatum(11) -> Seq(sourceIdMap(SourceId(1)), sourceIdMap(SourceId(2))),
-        nodeIdByDatum(12) -> Seq(),
-        nodeIdByDatum(13) -> Seq(sourceIdMap(SourceId(0))),
-        nodeIdByDatum(14) -> Seq(nodeIdByDatum(11), nodeIdByDatum(12)),
-        nodeIdByDatum(15) -> Seq(nodeIdByDatum(12), nodeIdByDatum(13), nodeIdByDatum(14)),
-        nodeIdByDatum(16) -> Seq(sourceIdMap(SourceId(0)), nodeIdByDatum(11)),
-        nodeIdByDatum(17) -> Seq(sourceIdMap(SourceId(1)), nodeIdByDatum(11), nodeIdByDatum(16)),
-        nodeIdByDatum(18) -> Seq(nodeIdByDatum(14), nodeIdByDatum(15)),
-        nodeIdByDatum(19) -> Seq(nodeIdByDatum(10), nodeIdByDatum(13), nodeIdByDatum(17), nodeIdByDatum(18))
+        nodeIdByLongId(0) -> Seq(),
+        nodeIdByLongId(1) -> Seq(sourceIdMap(SourceId(1)), sourceIdMap(SourceId(2))),
+        nodeIdByLongId(2) -> Seq(),
+        nodeIdByLongId(3) -> Seq(sourceIdMap(SourceId(0))),
+        nodeIdByLongId(4) -> Seq(nodeIdByLongId(1), nodeIdByLongId(2)),
+        nodeIdByLongId(5) -> Seq(nodeIdByLongId(2), nodeIdByLongId(3), nodeIdByLongId(4)),
+        nodeIdByLongId(6) -> Seq(sourceIdMap(SourceId(0)), nodeIdByLongId(1)),
+        nodeIdByLongId(7) -> Seq(sourceIdMap(SourceId(1)), nodeIdByLongId(1), nodeIdByLongId(6)),
+        nodeIdByLongId(8) -> Seq(nodeIdByLongId(4), nodeIdByLongId(5)),
+        nodeIdByLongId(9) -> Seq(nodeIdByLongId(0), nodeIdByLongId(3), nodeIdByLongId(7), nodeIdByLongId(8))
       ),
       sinkDependencies = Map(
         SinkId(0) -> SourceId(2),
         SinkId(1) -> NodeId(4),
         SinkId(2) -> NodeId(9),
         sinkIdMap(SinkId(0)) -> sourceIdMap(SourceId(2)),
-        sinkIdMap(SinkId(1)) -> nodeIdByDatum(14),
-        sinkIdMap(SinkId(2)) -> nodeIdByDatum(19)
+        sinkIdMap(SinkId(1)) -> nodeIdByLongId(4),
+        sinkIdMap(SinkId(2)) -> nodeIdByLongId(9)
       )
     )
 
@@ -551,15 +551,15 @@ class GraphSuite extends FunSuite with LocalSparkContext with Logging {
 
     val spliceMap = Map[SourceId, SinkId](SourceId(0) -> SinkId(2), SourceId(1) -> SinkId(1))
 
-    val (newGraph, sourceIdMap, sinkIdMap) = graph.connectGraph(graph2, spliceMap)
+    val (newGraph, sourceIdMap, nodeIdMap, sinkIdMap) = graph.connectGraph(graph2, spliceMap)
 
-    // Make sure the new sink & source ids don't clash with the old ones
+    // Make sure the new sink & node & source ids don't clash with the old ones
     require(sinkIdMap.values.toSet.forall(i => !graph.sinks.contains(i)))
+    require(nodeIdMap.values.toSet.forall(i => !graph.nodes.contains(i)))
     require(sourceIdMap.values.toSet.forall(i => !graph.sources.contains(i)))
 
     // Make sure the new node ids don't clash with the old ones
-    val nodeIdByDatum = newGraph.operators.toSeq.map(x => (x._2.asInstanceOf[DatumOperator].datum, x._1)).toMap
-    require((10 to 19).map(i => nodeIdByDatum(i)).forall(i => !graph.nodes.contains(i)))
+    val nodeIdByLong = nodeIdMap.map(x => (x._1.id, x._2))
 
     val expectedGraph = Graph(
       sources = Set(
@@ -578,16 +578,16 @@ class GraphSuite extends FunSuite with LocalSparkContext with Logging {
         NodeId(7) -> DatumOperator(7),
         NodeId(8) -> DatumOperator(8),
         NodeId(9) -> DatumOperator(9),
-        nodeIdByDatum(10) -> DatumOperator(10),
-        nodeIdByDatum(11) -> DatumOperator(11),
-        nodeIdByDatum(12) -> DatumOperator(12),
-        nodeIdByDatum(13) -> DatumOperator(13),
-        nodeIdByDatum(14) -> DatumOperator(14),
-        nodeIdByDatum(15) -> DatumOperator(15),
-        nodeIdByDatum(16) -> DatumOperator(16),
-        nodeIdByDatum(17) -> DatumOperator(17),
-        nodeIdByDatum(18) -> DatumOperator(18),
-        nodeIdByDatum(19) -> DatumOperator(19)
+        nodeIdByLong(0) -> DatumOperator(10),
+        nodeIdByLong(1) -> DatumOperator(11),
+        nodeIdByLong(2) -> DatumOperator(12),
+        nodeIdByLong(3) -> DatumOperator(13),
+        nodeIdByLong(4) -> DatumOperator(14),
+        nodeIdByLong(5) -> DatumOperator(15),
+        nodeIdByLong(6) -> DatumOperator(16),
+        nodeIdByLong(7) -> DatumOperator(17),
+        nodeIdByLong(8) -> DatumOperator(18),
+        nodeIdByLong(9) -> DatumOperator(19)
       ),
       dependencies = Map(
         NodeId(0) -> Seq(),
@@ -600,22 +600,22 @@ class GraphSuite extends FunSuite with LocalSparkContext with Logging {
         NodeId(7) -> Seq(SourceId(1), NodeId(1), NodeId(6)),
         NodeId(8) -> Seq(NodeId(4), NodeId(5)),
         NodeId(9) -> Seq(NodeId(0), NodeId(3), NodeId(7), NodeId(8)),
-        nodeIdByDatum(10) -> Seq(),
-        nodeIdByDatum(11) -> Seq(NodeId(4), sourceIdMap(SourceId(2))),
-        nodeIdByDatum(12) -> Seq(),
-        nodeIdByDatum(13) -> Seq(NodeId(9)),
-        nodeIdByDatum(14) -> Seq(nodeIdByDatum(11), nodeIdByDatum(12)),
-        nodeIdByDatum(15) -> Seq(nodeIdByDatum(12), nodeIdByDatum(13), nodeIdByDatum(14)),
-        nodeIdByDatum(16) -> Seq(NodeId(9), nodeIdByDatum(11)),
-        nodeIdByDatum(17) -> Seq(NodeId(4), nodeIdByDatum(11), nodeIdByDatum(16)),
-        nodeIdByDatum(18) -> Seq(nodeIdByDatum(14), nodeIdByDatum(15)),
-        nodeIdByDatum(19) -> Seq(nodeIdByDatum(10), nodeIdByDatum(13), nodeIdByDatum(17), nodeIdByDatum(18))
+        nodeIdByLong(0) -> Seq(),
+        nodeIdByLong(1) -> Seq(NodeId(4), sourceIdMap(SourceId(2))),
+        nodeIdByLong(2) -> Seq(),
+        nodeIdByLong(3) -> Seq(NodeId(9)),
+        nodeIdByLong(4) -> Seq(nodeIdByLong(1), nodeIdByLong(2)),
+        nodeIdByLong(5) -> Seq(nodeIdByLong(2), nodeIdByLong(3), nodeIdByLong(4)),
+        nodeIdByLong(6) -> Seq(NodeId(9), nodeIdByLong(1)),
+        nodeIdByLong(7) -> Seq(NodeId(4), nodeIdByLong(1), nodeIdByLong(6)),
+        nodeIdByLong(8) -> Seq(nodeIdByLong(4), nodeIdByLong(5)),
+        nodeIdByLong(9) -> Seq(nodeIdByLong(0), nodeIdByLong(3), nodeIdByLong(7), nodeIdByLong(8))
       ),
       sinkDependencies = Map(
         SinkId(0) -> SourceId(2),
         sinkIdMap(SinkId(0)) -> sourceIdMap(SourceId(2)),
-        sinkIdMap(SinkId(1)) -> nodeIdByDatum(14),
-        sinkIdMap(SinkId(2)) -> nodeIdByDatum(19)
+        sinkIdMap(SinkId(1)) -> nodeIdByLong(4),
+        sinkIdMap(SinkId(2)) -> nodeIdByLong(9)
       )
     )
 

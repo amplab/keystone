@@ -123,18 +123,19 @@ trait Pipeline[A, B] extends GraphBackedExecution {
   final def apply(data: RDD[A]): PipelineDatasetOut[B] = apply(PipelineRDDUtils.rddToPipelineDatasetOut(data))
 
   final def apply(data: PipelineDatasetOut[A]): PipelineDatasetOut[B] = {
-    val (newGraph, _, newSinkMapping) = data.getExecutor.graph.connectGraph(getGraph, Map(getSource -> data.getSink))
+    val (newGraph, _, _, newSinkMapping) = data.getExecutor.graph.connectGraph(getGraph, Map(getSource -> data.getSink))
     new PipelineDatasetOut[B](new GraphExecutor(newGraph, getOptimizer), newSinkMapping(getSink))
   }
 
   final def apply(datum: PipelineDatumOut[A]): PipelineDatumOut[B] = {
-    val (newGraph, _, newSinkMapping) = datum.getExecutor.graph.connectGraph(getGraph, Map(getSource -> datum.getSink))
+    val (newGraph, _, _, newSinkMapping) =
+      datum.getExecutor.graph.connectGraph(getGraph, Map(getSource -> datum.getSink))
     new PipelineDatumOut[B](new GraphExecutor(newGraph, getOptimizer), newSinkMapping(getSink))
   }
 
   // TODO: Clean up this method
   final def andThen[C](next: Pipeline[B, C]): Pipeline[A, C] = {
-    val (newGraph, _, newSinkMappings) = getGraph.connectGraph(next.getGraph, Map(next.getSource -> getSink))
+    val (newGraph, _, _, newSinkMappings) = getGraph.connectGraph(next.getGraph, Map(next.getSource -> getSink))
     new ConcretePipeline(new GraphExecutor(newGraph, getOptimizer), getSource, newSinkMappings(next.getSink))
   }
 
@@ -225,7 +226,7 @@ abstract class LabelEstimator[A, B, L] extends EstimatorOperator {
   final def fit(data: PipelineDatasetOut[A], labels: RDD[L]): Pipeline[A, B] = fit(data, PipelineRDDUtils.rddToPipelineDatasetOut(labels))
   final def fit(data: RDD[A], labels: RDD[L]): Pipeline[A, B] = fit(PipelineRDDUtils.rddToPipelineDatasetOut(data), PipelineRDDUtils.rddToPipelineDatasetOut(labels))
   final def fit(data: PipelineDatasetOut[A], labels: PipelineDatasetOut[L]): Pipeline[A, B] = {
-    val (depGraph, _, labelSinkMapping) = data.getGraph.addGraph(labels.getGraph)
+    val (depGraph, _, _, labelSinkMapping) = data.getGraph.addGraph(labels.getGraph)
     val dataSink = depGraph.getSinkDependency(data.getSink)
     val labelsSink = depGraph.getSinkDependency(labelSinkMapping(labels.getSink))
     val (newGraph, nodeId) = depGraph
@@ -256,7 +257,7 @@ object GraphBackedExecution {
       Seq[Map[SinkId, SinkId]]()
     ) {
       case ((curGraph, curSourceMappings, curSinkMappings), graphExecution) =>
-        val (nextGraph, nextSourceMapping, nextSinkMapping) = curGraph.addGraph(graphExecution.executor.graph)
+        val (nextGraph, nextSourceMapping, _, nextSinkMapping) = curGraph.addGraph(graphExecution.executor.graph)
         (nextGraph, curSourceMappings :+ nextSourceMapping, curSinkMappings :+ nextSinkMapping)
     }
 

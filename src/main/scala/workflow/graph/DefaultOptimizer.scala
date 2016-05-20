@@ -22,23 +22,36 @@ object EquivalentNodeMergeOptimizer extends Optimizer {
  * - They share the same dependencies
  */
 object EquivalentNodeMergeRule extends Rule {
-  override def apply(plan: Graph): Graph = {
+  override def apply(plan: Graph, executionState: Map[GraphId, Expression]): (Graph, Map[GraphId, Expression]) = {
     val nodeSetsToMerge = plan.nodes.groupBy(id => (plan.getOperator(id), plan.getDependencies(id))).values
 
     if (nodeSetsToMerge.size == plan.nodes.size) {
       // no nodes are mergable
-      plan
+      (plan, executionState)
     } else {
-      nodeSetsToMerge.filter(_.size > 1).foldLeft(plan) {
-        case (curPlan, setToMerge) => {
+      nodeSetsToMerge.filter(_.size > 1).foldLeft((plan, executionState)) {
+        case ((curPlan, curExecutionState), setToMerge) => {
+          // Construct a graph that merges all of the nodes
           val nodeToKeep = setToMerge.minBy(_.id)
-          (setToMerge - nodeToKeep).foldLeft(curPlan) {
+          val nextGraph = (setToMerge - nodeToKeep).foldLeft(curPlan) {
             case (partialMergedPlan, nodeToMerge) => {
               partialMergedPlan
                 .replaceDependency(nodeToMerge, nodeToKeep)
                 .removeNode(nodeToMerge)
             }
           }
+
+          // If any of the nodes being merged have been executed, update the execution state
+          val executionValue = setToMerge.collectFirst {
+            case node if curExecutionState.contains(node) => curExecutionState(node)
+          }
+          val nextExecutionState = if (executionValue.nonEmpty) {
+            (curExecutionState -- setToMerge) + (nodeToKeep -> executionValue.get)
+          } else {
+            curExecutionState
+          }
+
+          (nextGraph, nextExecutionState)
         }
       }
     }

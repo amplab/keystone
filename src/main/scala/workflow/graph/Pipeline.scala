@@ -8,12 +8,12 @@ import pipelines.Logging
 
 import scala.reflect.ClassTag
 
-class GraphExecutor(val graph: Graph, val optimizer: Option[Optimizer], initExecutionState: Map[GraphId, Expression] = Map()) {
+class GraphExecutor(graph: Graph, val optimizer: Option[Optimizer], initExecutionState: Map[GraphId, Expression]) {
   private var optimized: Boolean = false
   private lazy val optimizedState: (Graph, scala.collection.mutable.Map[GraphId, Expression]) = {
-    optimized = true
     val (newGraph, newExecutionState) = optimizer.map(_.execute(graph, initExecutionState))
       .getOrElse((graph, initExecutionState))
+    optimized = true
     (newGraph, scala.collection.mutable.Map() ++ newExecutionState)
   }
   private lazy val optimizedGraph: Graph = optimizedState._1
@@ -80,14 +80,15 @@ class GraphExecutor(val graph: Graph, val optimizer: Option[Optimizer], initExec
 }
 
 trait GraphBackedExecution {
-  private var executor: GraphExecutor = new GraphExecutor(Graph(Set(), Map(), Map(), Map()), None)
+  private var executor: GraphExecutor = new GraphExecutor(Graph(Set(), Map(), Map(), Map()), None, Map())
   private var sources: Seq[SourceId] = Seq()
   private var sinks: Seq[SinkId] = Seq()
 
-  private[graph] def getExecutor: GraphExecutor = executor
-  private[graph] def getGraph: Graph = executor.graph
+  protected def getExecutor: GraphExecutor = executor
+  protected def getGraph: Graph = executor.currentState._1
   private[graph] def getOptimizer: Option[Optimizer] = executor.optimizer
 
+  private[graph] def currentState: (Graph, Map[GraphId, Expression])
   private[graph] def setExecutor(executor: GraphExecutor): Unit = {
     this.executor = executor
   }
@@ -105,21 +106,77 @@ trait GraphBackedExecution {
 }
 
 // A lazy representation of a pipeline output
-class PipelineDatumOut[T](initExecutor: GraphExecutor, initSink: SinkId) extends GraphBackedExecution {
+class PipelineDatumOut[T](initExecutor: GraphExecutor, initSink: SinkId, source: Option[(SourceId, Any)]) extends GraphBackedExecution {
   setExecutor(initExecutor)
-  setSources(Seq())
+  setSources(source.map(sourceAndVal => Seq(sourceAndVal._1)).getOrElse(Seq()))
   setSinks(Seq(initSink))
+
+  private var ranExecution: Boolean = false
+  private lazy val finalExecutor: GraphExecutor = if (source.nonEmpty) {
+    getExecutor.executeAndSaveWithoutSources(getSink)
+
+    val (graphWithDataset, nodeId) = getExecutor.currentState._1.addNode(new DatumOperator(source.get._2), Seq())
+    val newGraph = graphWithDataset.replaceDependency(source.get._1, nodeId).removeSource(source.get._1)
+
+    ranExecution = true
+
+    // Note: The existing executor state should not have any value stored at the source, hence we don't need to update it
+    new GraphExecutor(newGraph, Some(EquivalentNodeMergeOptimizer), getExecutor.currentState._2)
+  } else {
+    getExecutor
+  }
+
+  // TODO: FIXME: Maybe make separate methods for current graph state and current execution state?
+  def currentState: (Graph, Map[GraphId, Expression]) = if (ranExecution) {
+    finalExecutor.currentState
+  } else if (source.nonEmpty) {
+    val (graphWithDataset, nodeId) = getExecutor.currentState._1.addNode(new DatumOperator(source.get._2), Seq())
+    val newGraph = graphWithDataset.replaceDependency(source.get._1, nodeId).removeSource(source.get._1)
+
+    // Note: The existing executor state should not have any value stored at the source, hence we don't need to update it
+    (newGraph, getExecutor.currentState._2)
+  } else {
+    getExecutor.currentState
+  }
 
   def getSink: SinkId = getSinks.head
 
-  def get(): T = getExecutor.execute(getSink, Map()).asInstanceOf[DatumExpression].get.asInstanceOf[T]
+  def get(): T = finalExecutor.execute(getSink, Map()).asInstanceOf[DatumExpression].get.asInstanceOf[T]
 }
 
 // A lazy representation of a pipeline output
-class PipelineDatasetOut[T](initExecutor: GraphExecutor, initSink: SinkId) extends GraphBackedExecution {
+class PipelineDatasetOut[T](initExecutor: GraphExecutor, initSink: SinkId, source: Option[(SourceId, RDD[_])]) extends GraphBackedExecution {
   setExecutor(initExecutor)
   setSources(Seq())
   setSinks(Seq(initSink))
+
+  private var ranExecution: Boolean = false
+  private lazy val finalExecutor: GraphExecutor = if (source.nonEmpty) {
+    getExecutor.executeAndSaveWithoutSources(getSink)
+
+    val (graphWithDataset, nodeId) = getExecutor.currentState._1.addNode(new DatasetOperator(source.get._2), Seq())
+    val newGraph = graphWithDataset.replaceDependency(source.get._1, nodeId).removeSource(source.get._1)
+
+    ranExecution = true
+
+    // Note: The existing executor state should not have any value stored at the source, hence we don't need to update it
+    new GraphExecutor(newGraph, Some(EquivalentNodeMergeOptimizer), getExecutor.currentState._2)
+  } else {
+    getExecutor
+  }
+
+  // TODO: FIXME: Maybe make separate methods for current graph state and current execution state?
+  def currentState: (Graph, Map[GraphId, Expression]) = if (ranExecution) {
+    finalExecutor.currentState
+  } else if (source.nonEmpty) {
+    val (graphWithDataset, nodeId) = getExecutor.currentState._1.addNode(new DatasetOperator(source.get._2), Seq())
+    val newGraph = graphWithDataset.replaceDependency(source.get._1, nodeId).removeSource(source.get._1)
+
+    // Note: The existing executor state should not have any value stored at the source, hence we don't need to update it
+    (newGraph, getExecutor.currentState._2)
+  } else {
+    getExecutor.currentState
+  }
 
   def getSink: SinkId = getSinks.head
 
@@ -132,7 +189,8 @@ object PipelineRDDUtils {
     val (graphWithDataset, nodeId) = emptyGraph.addNode(new DatasetOperator(rdd), Seq())
     val (graph, sinkId) = graphWithDataset.addSink(nodeId)
 
-    new PipelineDatasetOut[T](new GraphExecutor(graph, None), sinkId)
+    // TODO FIXME: NOT PASSING IN ANY OPTIMIZER COULD BE A PROBLEM
+    new PipelineDatasetOut[T](new GraphExecutor(graph, None, Map()), sinkId, None)
   }
 
   def datumToPipelineDatumOut[T](datum: T): PipelineDatumOut[T] = {
@@ -140,7 +198,8 @@ object PipelineRDDUtils {
     val (graphWithDataset, nodeId) = emptyGraph.addNode(new DatumOperator(datum), Seq())
     val (graph, sinkId) = graphWithDataset.addSink(nodeId)
 
-    new PipelineDatumOut[T](new GraphExecutor(graph, None), sinkId)
+    // TODO FIXME: NOT PASSING IN ANY OPTIMIZER COULD BE A PROBLEM
+    new PipelineDatumOut[T](new GraphExecutor(graph, None, Map()), sinkId, None)
   }
 }
 
@@ -154,14 +213,20 @@ trait Pipeline[A, B] {
   final def apply(data: RDD[A]): PipelineDatasetOut[B] = apply(PipelineRDDUtils.rddToPipelineDatasetOut(data))
 
   final def apply(data: PipelineDatasetOut[A]): PipelineDatasetOut[B] = {
-    val (newGraph, _, _, newSinkMapping) = data.getExecutor.graph.connectGraph(getGraph, Map(getSource -> data.getSink))
-    new PipelineDatasetOut[B](new GraphExecutor(newGraph, getOptimizer), newSinkMapping(getSink))
+    val (newGraph, newSourceMapping, newNodeMapping, newSinkMapping) = data.currentState._1.connectGraph(executor.currentState._1, Map(source -> data.getSink))
+    val graphIdMappings: Map[GraphId, GraphId] = newSourceMapping ++ newNodeMapping ++ newSinkMapping
+    val newExecutionState = data.currentState._2 ++ executor.currentState._2.map(x => (graphIdMappings(x._1), x._2))
+
+    new PipelineDatasetOut[B](new GraphExecutor(newGraph, executor.optimizer, newExecutionState), newSinkMapping(sink), None)
   }
 
   final def apply(datum: PipelineDatumOut[A]): PipelineDatumOut[B] = {
-    val (newGraph, _, _, newSinkMapping) =
-      datum.getExecutor.graph.connectGraph(getGraph, Map(getSource -> datum.getSink))
-    new PipelineDatumOut[B](new GraphExecutor(newGraph, getOptimizer), newSinkMapping(getSink))
+    val (newGraph, newSourceMapping, newNodeMapping, newSinkMapping) =
+      datum.currentState._1.connectGraph(executor.currentState._1, Map(source -> datum.getSink))
+    val graphIdMappings: Map[GraphId, GraphId] = newSourceMapping ++ newNodeMapping ++ newSinkMapping
+    val newExecutionState = datum.currentState._2 ++ executor.currentState._2.map(x => (graphIdMappings(x._1), x._2))
+
+    new PipelineDatumOut[B](new GraphExecutor(newGraph, executor.optimizer, newExecutionState), newSinkMapping(sink), None)
   }
 
   // TODO: Clean up this method
@@ -199,15 +264,16 @@ trait Pipeline[A, B] {
 }
 
 class ConcretePipeline[A, B](
-  @Override private[Graph] val executor: GraphExecutor,
-  @Override private[Graph] val source: SourceId,
-  @Override private[Graph] val sink: SinkId
+  @Override private[graph] val executor: GraphExecutor,
+  @Override private[graph] val source: SourceId,
+  @Override private[graph] val sink: SinkId
 ) extends Pipeline[A, B]
 
 abstract class Transformer[A, B : ClassTag] extends TransformerOperator with Pipeline[A, B] {
-  @Override @transient private[Graph] lazy val executor = new GraphExecutor(Graph(Set(SourceId(0)), Map(SinkId(0) -> NodeId(0)), Map(NodeId(0) -> this), Map(NodeId(0) -> Seq(SourceId(0)))), None)
-  @Override private[Graph] val source = SourceId(0)
-  @Override private[Graph] val sink = SinkId(0)
+  // TODO FIXME: NOT PASSING IN ANY OPTIMIZER COULD BE A PROBLEM
+  @Override @transient private[graph] lazy val executor = new GraphExecutor(Graph(Set(SourceId(0)), Map(SinkId(0) -> NodeId(0)), Map(NodeId(0) -> this), Map(NodeId(0) -> Seq(SourceId(0)))), None, Map())
+  @Override private[graph] val source = SourceId(0)
+  @Override private[graph] val sink = SinkId(0)
 
   protected def singleTransform(in: A): B
   protected def batchTransform(in: RDD[A]): RDD[B] = in.map(singleTransform)
@@ -239,14 +305,13 @@ object Transformer {
 abstract class Estimator[A, B] extends EstimatorOperator {
   final def fit(data: RDD[A]): Pipeline[A, B] = fit(PipelineRDDUtils.rddToPipelineDatasetOut(data))
   final def fit(data: PipelineDatasetOut[A]): Pipeline[A, B] = {
-    val curSink = data.getExecutor.graph.getSinkDependency(data.getSink)
-    val (newGraph, nodeId) = data.getExecutor.graph.removeSink(data.getSink).addNode(this, Seq(curSink))
+    val curSink = data.currentState._1.getSinkDependency(data.getSink)
+    val (newGraph, nodeId) = data.currentState._1.removeSink(data.getSink).addNode(this, Seq(curSink))
     val (newGraphWithSource, sourceId) = newGraph.addSource()
     val (almostFinalGraph, delegatingId) = newGraphWithSource.addNode(new DelegatingOperator, Seq(nodeId, sourceId))
     val (finalGraph, sinkId) = almostFinalGraph.addSink(delegatingId)
 
-    // FIXME TODO: MAINTAIN STATE!
-    new ConcretePipeline(new GraphExecutor(finalGraph, data.getExecutor.optimizer), sourceId, sinkId)
+    new ConcretePipeline(new GraphExecutor(finalGraph, data.getOptimizer, data.currentState._2 - data.getSink), sourceId, sinkId)
   }
 
   final override private[graph] def fitRDDs(inputs: Seq[DatasetExpression]): TransformerOperator = {
@@ -260,7 +325,7 @@ abstract class LabelEstimator[A, B, L] extends EstimatorOperator {
   final def fit(data: PipelineDatasetOut[A], labels: RDD[L]): Pipeline[A, B] = fit(data, PipelineRDDUtils.rddToPipelineDatasetOut(labels))
   final def fit(data: RDD[A], labels: RDD[L]): Pipeline[A, B] = fit(PipelineRDDUtils.rddToPipelineDatasetOut(data), PipelineRDDUtils.rddToPipelineDatasetOut(labels))
   final def fit(data: PipelineDatasetOut[A], labels: PipelineDatasetOut[L]): Pipeline[A, B] = {
-    val (depGraph, _, _, labelSinkMapping) = data.getGraph.addGraph(labels.getGraph)
+    val (depGraph, labelSourceMapping, labelNodeMapping, labelSinkMapping) = data.currentState._1.addGraph(labels.currentState._1)
     val dataSink = depGraph.getSinkDependency(data.getSink)
     val labelsSink = depGraph.getSinkDependency(labelSinkMapping(labels.getSink))
     val (newGraph, nodeId) = depGraph
@@ -271,8 +336,10 @@ abstract class LabelEstimator[A, B, L] extends EstimatorOperator {
     val (almostFinalGraph, delegatingId) = newGraphWithSource.addNode(new DelegatingOperator, Seq(nodeId, sourceId))
     val (finalGraph, sinkId) = almostFinalGraph.addSink(delegatingId)
 
-    // FIXME TODO: MAINTAIN STATE!
-    new ConcretePipeline(new GraphExecutor(finalGraph, data.getExecutor.optimizer), sourceId, sinkId)
+    val graphIdMappings: Map[GraphId, GraphId] = labelSourceMapping ++ labelNodeMapping ++ labelSinkMapping
+    val newExecutionState = data.currentState._2 ++ labels.currentState._2.map(x => (graphIdMappings(x._1), x._2)) - data.getSink - labelSinkMapping(labels.getSink)
+
+    new ConcretePipeline(new GraphExecutor(finalGraph, data.getOptimizer, newExecutionState), sourceId, sinkId)
   }
 
   final override private[graph] def fitRDDs(inputs: Seq[DatasetExpression]): TransformerOperator = {
@@ -286,17 +353,21 @@ object GraphBackedExecution {
   // Combine all the internal graph representations to use the same, merged representation
   def tie(graphBackedExecutions: Seq[GraphBackedExecution], optimizer: Option[Optimizer]): Unit = {
     val emptyGraph = new Graph(Set(), Map(), Map(), Map())
-    val (newGraph, sourceMappings, sinkMappings) = graphBackedExecutions.foldLeft(
+    val (newGraph, newExecutionState, sourceMappings, sinkMappings) = graphBackedExecutions.foldLeft(
       emptyGraph,
+      Map[GraphId, Expression](),
       Seq[Map[SourceId, SourceId]](),
       Seq[Map[SinkId, SinkId]]()
     ) {
-      case ((curGraph, curSourceMappings, curSinkMappings), graphExecution) =>
-        val (nextGraph, nextSourceMapping, _, nextSinkMapping) = curGraph.addGraph(graphExecution.executor.graph)
-        (nextGraph, curSourceMappings :+ nextSourceMapping, curSinkMappings :+ nextSinkMapping)
+      case ((curGraph, curExecutionState, curSourceMappings, curSinkMappings), graphExecution) =>
+        val (nextGraph, nextSourceMapping, nextNodeMapping, nextSinkMapping) = curGraph.addGraph(graphExecution.currentState._1)
+        val graphIdMappings: Map[GraphId, GraphId] = nextSourceMapping ++ nextNodeMapping ++ nextSinkMapping
+        val nextExecutionState = curExecutionState ++ graphExecution.currentState._2.map(x => (graphIdMappings(x._1), x._2))
+
+        (nextGraph, nextExecutionState, curSourceMappings :+ nextSourceMapping, curSinkMappings :+ nextSinkMapping)
     }
 
-    val newExecutor = new GraphExecutor(graph = newGraph, optimizer = optimizer)
+    val newExecutor = new GraphExecutor(graph = newGraph, optimizer = optimizer, initExecutionState = newExecutionState)
     for (i <- graphBackedExecutions.indices) {
       val execution = graphBackedExecutions(i)
       execution.setExecutor(newExecutor)

@@ -9,6 +9,12 @@ object DefaultOptimizer extends Optimizer {
       Nil
 }
 
+object EquivalentNodeMergeOptimizer extends Optimizer {
+  protected val batches: Seq[Batch] =
+    Batch("Common Sub-expression Elimination", FixedPoint(Int.MaxValue), EquivalentNodeMergeRule) ::
+      Nil
+}
+
 /**
  * Merges equivalent nodes in the DAG.
  * Nodes are considered equivalent if:

@@ -1,5 +1,7 @@
 package workflow.graph
 
+import java.util.concurrent.atomic.AtomicInteger
+
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.scalatest.FunSuite
@@ -112,4 +114,81 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     assert(pipelineOutTwo.get().collect().toSeq === Seq(32*2 + 32*2 + 10, 94*2 + 32*2 + 10, 12*2 + 32*2 + 10))
     assert(modelOut.get().collect().toSeq === Seq(32 + 32*2 + 10, 94 + 32*2 + 10, 12 + 32*2 + 10))
   }
+
+  test("Incrementally update execution state variation 1") {
+    sc = new SparkContext("local", "test")
+
+    val accum = sc.accumulator(0, "My Accumulator")
+    val intTransformer = Transformer[Int, String](x => {
+      accum += 1
+      (x * 3).toString
+    })
+    val intEstimator = new Estimator[String, String] {
+      protected def fitRDD(data: RDD[String]): Transformer[String, String] = {
+        Transformer(x => x + "qub")
+      }
+    }
+
+    val data = sc.parallelize(Seq(32, 94, 12))
+
+    val featurizer = intTransformer andThen Cacher()
+    val features = featurizer(data)
+    assert(features.get().collect() === Array("96", "282", "36"))
+    assert(accum.value === 3, "Incremental code should not have reprocessed cached values")
+
+    val pipe = featurizer andThen intEstimator.fit(features)
+    val out = pipe(data)
+    assert(out.get().collect() === Array("96qub", "282qub", "36qub"))
+    assert(out.get().collect() === Array("96qub", "282qub", "36qub"))
+    assert(pipe(data).get().collect() === Array("96qub", "282qub", "36qub"))
+    assert(accum.value === 3, "Incremental code should not have reprocessed cached values")
+
+    val testData = sc.parallelize(Seq(32, 94))
+    val testOut = pipe(testData)
+    assert(testOut.get().collect() === Array("96qub", "282qub"))
+    assert(testOut.get().collect() === Array("96qub", "282qub"))
+    assert(accum.value === 5, "Incremental code should not have reprocessed cached values")
+  }
+
+  test("Incrementally update execution state variation 2") {
+    sc = new SparkContext("local", "test")
+
+    val accum = sc.accumulator(0, "My Accumulator")
+    val intTransformer = Transformer[Int, String](x => {
+      accum += 1
+      (x * 3).toString
+    })
+    val intEstimator = new Estimator[String, String] {
+      protected def fitRDD(data: RDD[String]): Transformer[String, String] = {
+        Transformer(x => x + "qub")
+      }
+    }
+
+    val data = sc.parallelize(Seq(32, 94, 12))
+
+    val featurizer = intTransformer andThen Cacher()
+    val features = featurizer(data)
+    assert(features.get().collect() === Array("96", "282", "36"))
+    assert(accum.value === 3, "Incremental code should not have reprocessed cached values")
+
+    val testData = sc.parallelize(Seq(32, 94))
+    val testFeatures = featurizer(testData)
+    assert(testFeatures.get().collect() === Array("96", "282"))
+    assert(accum.value === 5, "Incremental code should not have reprocessed cached values")
+
+    val model = intEstimator.fit(features)
+
+    val out = model(features)
+    assert(out.get().collect() === Array("96qub", "282qub", "36qub"))
+    assert(out.get().collect() === Array("96qub", "282qub", "36qub"))
+    assert(accum.value === 5, "Incremental code should not have reprocessed cached values")
+
+    val testOut = model(testFeatures)
+    assert(testOut.get().collect() === Array("96qub", "282qub"))
+    assert(testOut.get().collect() === Array("96qub", "282qub"))
+    assert(accum.value === 5, "Incremental code should not have reprocessed cached values")
+  }
 }
+
+//Todo: test pipeline w/ andThen (make it be two fit estimators in a row and ensure they aren't executed again
+// Todo: A test to ensure optimization doesn't happen multiple times?

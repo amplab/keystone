@@ -33,10 +33,10 @@ class GraphExecutor(graph: Graph, val optimizer: Option[Optimizer], initExecutio
     }
   }
 
-  // TODO rename and comment. This method executes & stores all ancestors of a sink that don't depend on sources
+  // TODO rename and comment. This method executes & stores all ancestors of a sink that don't depend on sources, and haven't already been executed
   def executeAndSaveWithoutSources(sink: SinkId): Unit = {
     val linearizedAncestors = AnalysisUtils.linearize(optimizedGraph, sink)
-    val ancestorsToExecute = linearizedAncestors.filter(id => !unstorableResults.contains(id))
+    val ancestorsToExecute = linearizedAncestors.filter(id => (!unstorableResults.contains(id)) && (!executionState.contains(id)))
     ancestorsToExecute.foreach {
       case source: SourceId => throw new RuntimeException("Linearized ancestors to execute should not contain sources")
       case node: NodeId => {
@@ -47,7 +47,10 @@ class GraphExecutor(graph: Graph, val optimizer: Option[Optimizer], initExecutio
       }
     }
 
-    executionState(sink) = executionState(optimizedGraph.getSinkDependency(sink))
+    val sinkDep = optimizedGraph.getSinkDependency(sink)
+    if (ancestorsToExecute.contains(sinkDep) && (!executionState.contains(sink))) {
+      executionState(sink) = executionState(sinkDep)
+    }
   }
 
   private def getUncachedResult(graphId: GraphId, sources: Map[SourceId, Expression]): Expression = {
@@ -180,7 +183,7 @@ class PipelineDatasetOut[T](initExecutor: GraphExecutor, initSink: SinkId, sourc
 
   def getSink: SinkId = getSinks.head
 
-  def get(): RDD[T] = getExecutor.execute(getSink, Map()).asInstanceOf[DatasetExpression].get.asInstanceOf[RDD[T]]
+  def get(): RDD[T] = finalExecutor.execute(getSink, Map()).asInstanceOf[DatasetExpression].get.asInstanceOf[RDD[T]]
 }
 
 object PipelineRDDUtils {
@@ -208,14 +211,18 @@ trait Pipeline[A, B] {
   private[graph] val sink: SinkId
   private[graph] def executor: GraphExecutor
 
-  final def apply(datum: A): PipelineDatumOut[B] = apply(PipelineRDDUtils.datumToPipelineDatumOut(datum))
+  final def apply(datum: A): PipelineDatumOut[B] = {
+    new PipelineDatumOut[B](executor, sink, Some(source, datum))
+  }
 
-  final def apply(data: RDD[A]): PipelineDatasetOut[B] = apply(PipelineRDDUtils.rddToPipelineDatasetOut(data))
+  final def apply(data: RDD[A]): PipelineDatasetOut[B] = {
+    new PipelineDatasetOut[B](executor, sink, Some(source, data))
+  }
 
   final def apply(data: PipelineDatasetOut[A]): PipelineDatasetOut[B] = {
     val (newGraph, newSourceMapping, newNodeMapping, newSinkMapping) = data.currentState._1.connectGraph(executor.currentState._1, Map(source -> data.getSink))
     val graphIdMappings: Map[GraphId, GraphId] = newSourceMapping ++ newNodeMapping ++ newSinkMapping
-    val newExecutionState = data.currentState._2 ++ executor.currentState._2.map(x => (graphIdMappings(x._1), x._2))
+    val newExecutionState = data.currentState._2 - data.getSink ++ executor.currentState._2.map(x => (graphIdMappings(x._1), x._2))
 
     new PipelineDatasetOut[B](new GraphExecutor(newGraph, executor.optimizer, newExecutionState), newSinkMapping(sink), None)
   }
@@ -224,7 +231,7 @@ trait Pipeline[A, B] {
     val (newGraph, newSourceMapping, newNodeMapping, newSinkMapping) =
       datum.currentState._1.connectGraph(executor.currentState._1, Map(source -> datum.getSink))
     val graphIdMappings: Map[GraphId, GraphId] = newSourceMapping ++ newNodeMapping ++ newSinkMapping
-    val newExecutionState = datum.currentState._2 ++ executor.currentState._2.map(x => (graphIdMappings(x._1), x._2))
+    val newExecutionState = datum.currentState._2 - datum.getSink ++ executor.currentState._2.map(x => (graphIdMappings(x._1), x._2))
 
     new PipelineDatumOut[B](new GraphExecutor(newGraph, executor.optimizer, newExecutionState), newSinkMapping(sink), None)
   }
@@ -233,7 +240,7 @@ trait Pipeline[A, B] {
   final def andThen[C](next: Pipeline[B, C]): Pipeline[A, C] = {
     val (newGraph, newSourceMappings, newNodeMappings, newSinkMappings) = executor.currentState._1.connectGraph(next.executor.currentState._1, Map(next.source -> sink))
     val graphIdMappings: Map[GraphId, GraphId] = newSourceMappings ++ newNodeMappings ++ newSinkMappings
-    val newExecutionState = executor.currentState._2 ++ next.executor.currentState._2.map(x => (graphIdMappings(x._1), x._2))
+    val newExecutionState = executor.currentState._2 - sink ++ next.executor.currentState._2.map(x => (graphIdMappings(x._1), x._2))
     new ConcretePipeline(new GraphExecutor(newGraph, executor.optimizer, newExecutionState), source, newSinkMappings(next.sink))
   }
 
@@ -290,6 +297,7 @@ abstract class Transformer[A, B : ClassTag] extends TransformerOperator with Pip
 object Transformer {
   /**
    * This constructor takes a function and returns a Transformer that maps it over the input RDD
+   *
    * @param f The function to apply to every item in the RDD being transformed
    * @tparam I input type of the transformer
    * @tparam O output type of the transformer
@@ -384,6 +392,7 @@ case class Identity[T : ClassTag]() extends Transformer[T,T] {
 
 /**
  * Caches the intermediate state of a node. Follows Spark's lazy evaluation conventions.
+ *
  * @param name An optional name to set on the cached output. Useful for debugging.
  * @tparam T Type of the input to cache.
  */

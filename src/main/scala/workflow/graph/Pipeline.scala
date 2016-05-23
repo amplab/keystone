@@ -91,123 +91,87 @@ private[graph] class GraphExecutor(graph: Graph, initExecutionState: Map[GraphId
   }
 }
 
-trait GraphBackedExecution {
-  private var executor: GraphExecutor = new GraphExecutor(Graph(Set(), Map(), Map(), Map()), Map())
-  private var sources: Seq[SourceId] = Seq()
-  //   private var sources: Map[SourceId, Operator] = Map()
-  private var sinks: Seq[SinkId] = Seq()
+abstract class GraphBackedExecution[T](initExecutor: GraphExecutor, initSources: Map[SourceId, Operator], initSink: SinkId, expressionToOut: Expression => T) {
+  private var executor: GraphExecutor = initExecutor
+  private var sources: Map[SourceId, Operator] = initSources
+  private var sink: SinkId = initSink
+
 
   protected def getExecutor: GraphExecutor = executor
 
-  private[graph] def currentState: Map[GraphId, Expression]
-  private[graph] def currentGraph: Graph
   private[graph] def setExecutor(executor: GraphExecutor): Unit = {
     this.executor = executor
   }
 
-  private[graph] def setSources(sources: Seq[SourceId]): Unit = {
+  private[graph] def setSources(sources: Map[SourceId, Operator]): Unit = {
     this.sources = sources
   }
 
-  private[graph] def setSinks(sinks: Seq[SinkId]): Unit = {
-    this.sinks = sinks
+  private[graph] def setSink(sink: SinkId): Unit = {
+    this.sink = sink
   }
 
-  private[graph] def getSources: Seq[SourceId] = sources
-  private[graph] def getSinks: Seq[SinkId] = sinks
-}
-
-// A lazy representation of a pipeline output
-class PipelineDatumOut[T](initExecutor: GraphExecutor, initSink: SinkId, source: Option[(SourceId, Any)]) extends GraphBackedExecution {
-  setExecutor(initExecutor)
-  setSources(source.map(sourceAndVal => Seq(sourceAndVal._1)).getOrElse(Seq()))
-  setSinks(Seq(initSink))
+  private[graph] def getSources: Map[SourceId, Operator] = sources
+  private[graph] def getSink: SinkId = sink
 
   private var ranExecution: Boolean = false
-  private lazy val finalExecutor: GraphExecutor = if (source.nonEmpty) {
-    getExecutor.executeAndSaveWithoutSources(getSink)
+  private lazy val finalExecutor: GraphExecutor = {
+    if (getSources.nonEmpty) {
+      getExecutor.executeAndSaveWithoutSources(getSink)
 
-    val (graphWithDataset, nodeId) = getExecutor.currentGraph.addNode(new DatumOperator(source.get._2), Seq())
-    val unmergedGraph = graphWithDataset.replaceDependency(source.get._1, nodeId).removeSource(source.get._1)
-    // Note: The existing executor state should not have any value stored at the source, hence we don't need to update it
-    val (newGraph, newState) = EquivalentNodeMergeOptimizer.execute(unmergedGraph, getExecutor.currentState)
+      val unmergedGraph = sources.foldLeft(getExecutor.currentGraph) {
+        case (curGraph, (sourceId, sourceOp)) => {
+          val (graphWithDataset, nodeId) = getExecutor.currentGraph.addNode(sourceOp, Seq())
+          graphWithDataset.replaceDependency(sourceId, nodeId).removeSource(sourceId)
+        }
+      }
 
-    ranExecution = true
+      // Note: The existing executor state should not have any value stored at the source, hence we don't need to update it
+      val (newGraph, newState) = EquivalentNodeMergeOptimizer.execute(unmergedGraph, getExecutor.currentState)
 
-    new GraphExecutor(newGraph, newState, optimize = false)
-  } else {
-    getExecutor
+      ranExecution = true
+
+      new GraphExecutor(newGraph, newState, optimize = false)
+    } else {
+      getExecutor
+    }
   }
 
-  // TODO: FIXME: Maybe make separate methods for current graph state and current execution state?
-  def currentGraph: Graph = if (ranExecution) {
+  private[graph] def currentGraph: Graph = if (ranExecution) {
     finalExecutor.currentGraph
-  } else if (source.nonEmpty) {
-    val (graphWithDataset, nodeId) = getExecutor.currentGraph.addNode(new DatumOperator(source.get._2), Seq())
-    val newGraph = graphWithDataset.replaceDependency(source.get._1, nodeId).removeSource(source.get._1)
-
-    // Note: The existing executor state should not have any value stored at the source, hence we don't need to update it
-    newGraph
   } else {
-    getExecutor.currentGraph
+    sources.foldLeft(getExecutor.currentGraph) {
+      case (curGraph, (sourceId, sourceOp)) => {
+        val (graphWithDataset, nodeId) = getExecutor.currentGraph.addNode(sourceOp, Seq())
+        graphWithDataset.replaceDependency(sourceId, nodeId).removeSource(sourceId)
+      }
+    }
   }
 
-  def currentState: Map[GraphId, Expression] = if (ranExecution) {
+  private[graph] def currentState: Map[GraphId, Expression] = if (ranExecution) {
     finalExecutor.currentState
   } else {
     getExecutor.currentState
   }
 
-  def getSink: SinkId = getSinks.head
-
-  def get(): T = finalExecutor.execute(getSink, Map()).asInstanceOf[DatumExpression].get.asInstanceOf[T]
+  final def get(): T = expressionToOut(finalExecutor.execute(getSink, Map()))
 }
 
 // A lazy representation of a pipeline output
-class PipelineDatasetOut[T](initExecutor: GraphExecutor, initSink: SinkId, source: Option[(SourceId, RDD[_])]) extends GraphBackedExecution {
-  setExecutor(initExecutor)
-  setSources(Seq())
-  setSinks(Seq(initSink))
+class PipelineDatumOut[T](initExecutor: GraphExecutor, initSink: SinkId, source: Option[(SourceId, Any)])
+  extends GraphBackedExecution(
+    initExecutor,
+    source.map(sourceAndVal => Map(sourceAndVal._1 -> DatumOperator(sourceAndVal._2))).getOrElse(Map()),
+    initSink,
+    _.asInstanceOf[DatumExpression].get.asInstanceOf[T])
 
-  private var ranExecution: Boolean = false
-  private lazy val finalExecutor: GraphExecutor = if (source.nonEmpty) {
-    getExecutor.executeAndSaveWithoutSources(getSink)
-
-    val (graphWithDataset, nodeId) = getExecutor.currentGraph.addNode(new DatasetOperator(source.get._2), Seq())
-    val unmergedGraph = graphWithDataset.replaceDependency(source.get._1, nodeId).removeSource(source.get._1)
-    // Note: The existing executor state should not have any value stored at the source, hence we don't need to update it
-    val (newGraph, newState) = EquivalentNodeMergeOptimizer.execute(unmergedGraph, getExecutor.currentState)
-
-    ranExecution = true
-
-    new GraphExecutor(newGraph, newState, optimize = false)
-  } else {
-    getExecutor
-  }
-
-  // TODO: FIXME: Maybe make separate methods for current graph state and current execution state?
-  def currentGraph: Graph = if (ranExecution) {
-    finalExecutor.currentGraph
-  } else if (source.nonEmpty) {
-    val (graphWithDataset, nodeId) = getExecutor.currentGraph.addNode(new DatasetOperator(source.get._2), Seq())
-    val newGraph = graphWithDataset.replaceDependency(source.get._1, nodeId).removeSource(source.get._1)
-
-    // Note: The existing executor state should not have any value stored at the source, hence we don't need to update it
-    newGraph
-  } else {
-    getExecutor.currentGraph
-  }
-
-  def currentState: Map[GraphId, Expression] = if (ranExecution) {
-    finalExecutor.currentState
-  } else {
-    getExecutor.currentState
-  }
-
-  def getSink: SinkId = getSinks.head
-
-  def get(): RDD[T] = finalExecutor.execute(getSink, Map()).asInstanceOf[DatasetExpression].get.asInstanceOf[RDD[T]]
-}
+// A lazy representation of a pipeline output
+class PipelineDatasetOut[T](initExecutor: GraphExecutor, initSink: SinkId, source: Option[(SourceId, RDD[_])])
+  extends GraphBackedExecution(
+    initExecutor,
+    source.map(sourceAndVal => Map(sourceAndVal._1 -> DatasetOperator(sourceAndVal._2))).getOrElse(Map()),
+    initSink,
+    _.asInstanceOf[DatasetExpression].get.asInstanceOf[RDD[T]])
 
 object PipelineRDDUtils {
   def rddToPipelineDatasetOut[T](rdd: RDD[T]): PipelineDatasetOut[T] = {
@@ -429,7 +393,7 @@ object Pipeline {
 
   // Combine all the internal graph representations to use the same, merged representation
 
-  def submit(graphBackedExecutions: Seq[GraphBackedExecution], optimizer: Option[Optimizer]): Unit = {
+  def submit(graphBackedExecutions: Seq[GraphBackedExecution[_]], optimizer: Option[Optimizer]): Unit = {
     val emptyGraph = new Graph(Set(), Map(), Map(), Map())
     val (newGraph, newExecutionState, sourceMappings, sinkMappings) = graphBackedExecutions.foldLeft(
       emptyGraph,
@@ -449,8 +413,8 @@ object Pipeline {
     for (i <- graphBackedExecutions.indices) {
       val execution = graphBackedExecutions(i)
       execution.setExecutor(newExecutor)
-      execution.setSources(execution.getSources.map(sourceMappings(i)))
-      execution.setSinks(execution.getSinks.map(sinkMappings(i)))
+      execution.setSources(Map())
+      execution.setSink(sinkMappings(i).apply(execution.getSink))
     }
   }
 }

@@ -12,7 +12,7 @@ case class Profile(ns: Long, rddMem: Long, driverMem: Long) {
 }
 
 case class SampleProfile(scale: Long, profile: Profile)
-
+/*
 class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
 
   /**
@@ -692,3 +692,4 @@ object AutoCacheRule {
     numProfileTrials: Int = 1
   ) extends CachingStrategy
 }
+*/

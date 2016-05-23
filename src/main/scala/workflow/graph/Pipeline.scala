@@ -90,6 +90,7 @@ private[graph] class GraphExecutor(graph: Graph, val optimizer: Option[Optimizer
 trait GraphBackedExecution {
   private var executor: GraphExecutor = new GraphExecutor(Graph(Set(), Map(), Map(), Map()), None, Map())
   private var sources: Seq[SourceId] = Seq()
+  //   private var sources: Map[SourceId, Operator] = Map()
   private var sinks: Seq[SinkId] = Seq()
 
   protected def getExecutor: GraphExecutor = executor
@@ -374,34 +375,6 @@ abstract class LabelEstimator[A, B, L] extends EstimatorOperator {
 
 }
 
-object GraphBackedExecution {
-  // Combine all the internal graph representations to use the same, merged representation
-  def tie(graphBackedExecutions: Seq[GraphBackedExecution], optimizer: Option[Optimizer]): Unit = {
-    val emptyGraph = new Graph(Set(), Map(), Map(), Map())
-    val (newGraph, newExecutionState, sourceMappings, sinkMappings) = graphBackedExecutions.foldLeft(
-      emptyGraph,
-      Map[GraphId, Expression](),
-      Seq[Map[SourceId, SourceId]](),
-      Seq[Map[SinkId, SinkId]]()
-    ) {
-      case ((curGraph, curExecutionState, curSourceMappings, curSinkMappings), graphExecution) =>
-        val (nextGraph, nextSourceMapping, nextNodeMapping, nextSinkMapping) = curGraph.addGraph(graphExecution.currentGraph)
-        val graphIdMappings: Map[GraphId, GraphId] = nextSourceMapping ++ nextNodeMapping ++ nextSinkMapping
-        val nextExecutionState = curExecutionState ++ graphExecution.currentState.map(x => (graphIdMappings(x._1), x._2))
-
-        (nextGraph, nextExecutionState, curSourceMappings :+ nextSourceMapping, curSinkMappings :+ nextSinkMapping)
-    }
-
-    val newExecutor = new GraphExecutor(graph = newGraph, optimizer = optimizer, initExecutionState = newExecutionState)
-    for (i <- graphBackedExecutions.indices) {
-      val execution = graphBackedExecutions(i)
-      execution.setExecutor(newExecutor)
-      execution.setSources(execution.sources.map(sourceMappings(i)))
-      execution.setSinks(execution.sinks.map(sinkMappings(i)))
-    }
-  }
-}
-
 case class Identity[T : ClassTag]() extends Transformer[T,T] {
   override protected def singleTransform(in: T): T = in
   override protected def batchTransform(in: RDD[T]): RDD[T] = in
@@ -447,7 +420,30 @@ object Pipeline {
     }
   }
 
+  // Combine all the internal graph representations to use the same, merged representation
+
   def submit(graphBackedExecutions: Seq[GraphBackedExecution], optimizer: Option[Optimizer]): Unit = {
-    GraphBackedExecution.tie(graphBackedExecutions, optimizer)
+    val emptyGraph = new Graph(Set(), Map(), Map(), Map())
+    val (newGraph, newExecutionState, sourceMappings, sinkMappings) = graphBackedExecutions.foldLeft(
+      emptyGraph,
+      Map[GraphId, Expression](),
+      Seq[Map[SourceId, SourceId]](),
+      Seq[Map[SinkId, SinkId]]()
+    ) {
+      case ((curGraph, curExecutionState, curSourceMappings, curSinkMappings), graphExecution) =>
+        val (nextGraph, nextSourceMapping, nextNodeMapping, nextSinkMapping) = curGraph.addGraph(graphExecution.currentGraph)
+        val graphIdMappings: Map[GraphId, GraphId] = nextSourceMapping ++ nextNodeMapping ++ nextSinkMapping
+        val nextExecutionState = curExecutionState ++ graphExecution.currentState.map(x => (graphIdMappings(x._1), x._2))
+
+        (nextGraph, nextExecutionState, curSourceMappings :+ nextSourceMapping, curSinkMappings :+ nextSinkMapping)
+    }
+
+    val newExecutor = new GraphExecutor(graph = newGraph, optimizer = optimizer, initExecutionState = newExecutionState)
+    for (i <- graphBackedExecutions.indices) {
+      val execution = graphBackedExecutions(i)
+      execution.setExecutor(newExecutor)
+      execution.setSources(execution.getSources.map(sourceMappings(i)))
+      execution.setSinks(execution.getSinks.map(sinkMappings(i)))
+    }
   }
 }

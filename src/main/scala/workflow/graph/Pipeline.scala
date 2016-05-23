@@ -93,10 +93,10 @@ trait GraphBackedExecution {
   private var sinks: Seq[SinkId] = Seq()
 
   protected def getExecutor: GraphExecutor = executor
-  protected def getGraph: Graph = executor.currentGraph
   private[graph] def getOptimizer: Option[Optimizer] = executor.optimizer
 
-  private[graph] def currentState: (Graph, Map[GraphId, Expression])
+  private[graph] def currentState: Map[GraphId, Expression]
+  private[graph] def currentGraph: Graph
   private[graph] def setExecutor(executor: GraphExecutor): Unit = {
     this.executor = executor
   }
@@ -135,16 +135,22 @@ class PipelineDatumOut[T](initExecutor: GraphExecutor, initSink: SinkId, source:
   }
 
   // TODO: FIXME: Maybe make separate methods for current graph state and current execution state?
-  def currentState: (Graph, Map[GraphId, Expression]) = if (ranExecution) {
-    (finalExecutor.currentGraph, finalExecutor.currentState)
+  def currentGraph: Graph = if (ranExecution) {
+    finalExecutor.currentGraph
   } else if (source.nonEmpty) {
     val (graphWithDataset, nodeId) = getExecutor.currentGraph.addNode(new DatumOperator(source.get._2), Seq())
     val newGraph = graphWithDataset.replaceDependency(source.get._1, nodeId).removeSource(source.get._1)
 
     // Note: The existing executor state should not have any value stored at the source, hence we don't need to update it
-    (newGraph, getExecutor.currentState)
+    newGraph
   } else {
-    (getExecutor.currentGraph, getExecutor.currentState)
+    getExecutor.currentGraph
+  }
+
+  def currentState: Map[GraphId, Expression] = if (ranExecution) {
+    finalExecutor.currentState
+  } else {
+    getExecutor.currentState
   }
 
   def getSink: SinkId = getSinks.head
@@ -174,16 +180,22 @@ class PipelineDatasetOut[T](initExecutor: GraphExecutor, initSink: SinkId, sourc
   }
 
   // TODO: FIXME: Maybe make separate methods for current graph state and current execution state?
-  def currentState: (Graph, Map[GraphId, Expression]) = if (ranExecution) {
-    (finalExecutor.currentGraph, finalExecutor.currentState)
+  def currentGraph: Graph = if (ranExecution) {
+    finalExecutor.currentGraph
   } else if (source.nonEmpty) {
     val (graphWithDataset, nodeId) = getExecutor.currentGraph.addNode(new DatasetOperator(source.get._2), Seq())
     val newGraph = graphWithDataset.replaceDependency(source.get._1, nodeId).removeSource(source.get._1)
 
     // Note: The existing executor state should not have any value stored at the source, hence we don't need to update it
-    (newGraph, getExecutor.currentState)
+    newGraph
   } else {
-    (getExecutor.currentGraph, getExecutor.currentState)
+    getExecutor.currentGraph
+  }
+
+  def currentState: Map[GraphId, Expression] = if (ranExecution) {
+    finalExecutor.currentState
+  } else {
+    getExecutor.currentState
   }
 
   def getSink: SinkId = getSinks.head
@@ -225,18 +237,18 @@ trait Pipeline[A, B] {
   }
 
   final def apply(data: PipelineDatasetOut[A]): PipelineDatasetOut[B] = {
-    val (newGraph, newSourceMapping, newNodeMapping, newSinkMapping) = data.currentState._1.connectGraph(executor.currentGraph, Map(source -> data.getSink))
+    val (newGraph, newSourceMapping, newNodeMapping, newSinkMapping) = data.currentGraph.connectGraph(executor.currentGraph, Map(source -> data.getSink))
     val graphIdMappings: Map[GraphId, GraphId] = newSourceMapping ++ newNodeMapping ++ newSinkMapping
-    val newExecutionState = data.currentState._2 - data.getSink ++ executor.currentState.map(x => (graphIdMappings(x._1), x._2))
+    val newExecutionState = data.currentState - data.getSink ++ executor.currentState.map(x => (graphIdMappings(x._1), x._2))
 
     new PipelineDatasetOut[B](new GraphExecutor(newGraph, executor.optimizer, newExecutionState), newSinkMapping(sink), None)
   }
 
   final def apply(datum: PipelineDatumOut[A]): PipelineDatumOut[B] = {
     val (newGraph, newSourceMapping, newNodeMapping, newSinkMapping) =
-      datum.currentState._1.connectGraph(executor.currentGraph, Map(source -> datum.getSink))
+      datum.currentGraph.connectGraph(executor.currentGraph, Map(source -> datum.getSink))
     val graphIdMappings: Map[GraphId, GraphId] = newSourceMapping ++ newNodeMapping ++ newSinkMapping
-    val newExecutionState = datum.currentState._2 - datum.getSink ++ executor.currentState.map(x => (graphIdMappings(x._1), x._2))
+    val newExecutionState = datum.currentState - datum.getSink ++ executor.currentState.map(x => (graphIdMappings(x._1), x._2))
 
     new PipelineDatumOut[B](new GraphExecutor(newGraph, executor.optimizer, newExecutionState), newSinkMapping(sink), None)
   }
@@ -318,13 +330,13 @@ object Transformer {
 abstract class Estimator[A, B] extends EstimatorOperator {
   final def fit(data: RDD[A]): Pipeline[A, B] = fit(PipelineRDDUtils.rddToPipelineDatasetOut(data))
   final def fit(data: PipelineDatasetOut[A]): Pipeline[A, B] = {
-    val curSink = data.currentState._1.getSinkDependency(data.getSink)
-    val (newGraph, nodeId) = data.currentState._1.removeSink(data.getSink).addNode(this, Seq(curSink))
+    val curSink = data.currentGraph.getSinkDependency(data.getSink)
+    val (newGraph, nodeId) = data.currentGraph.removeSink(data.getSink).addNode(this, Seq(curSink))
     val (newGraphWithSource, sourceId) = newGraph.addSource()
     val (almostFinalGraph, delegatingId) = newGraphWithSource.addNode(new DelegatingOperator, Seq(nodeId, sourceId))
     val (finalGraph, sinkId) = almostFinalGraph.addSink(delegatingId)
 
-    new ConcretePipeline(new GraphExecutor(finalGraph, data.getOptimizer, data.currentState._2 - data.getSink), sourceId, sinkId)
+    new ConcretePipeline(new GraphExecutor(finalGraph, data.getOptimizer, data.currentState - data.getSink), sourceId, sinkId)
   }
 
   final override private[graph] def fitRDDs(inputs: Seq[DatasetExpression]): TransformerOperator = {
@@ -338,7 +350,7 @@ abstract class LabelEstimator[A, B, L] extends EstimatorOperator {
   final def fit(data: PipelineDatasetOut[A], labels: RDD[L]): Pipeline[A, B] = fit(data, PipelineRDDUtils.rddToPipelineDatasetOut(labels))
   final def fit(data: RDD[A], labels: RDD[L]): Pipeline[A, B] = fit(PipelineRDDUtils.rddToPipelineDatasetOut(data), PipelineRDDUtils.rddToPipelineDatasetOut(labels))
   final def fit(data: PipelineDatasetOut[A], labels: PipelineDatasetOut[L]): Pipeline[A, B] = {
-    val (depGraph, labelSourceMapping, labelNodeMapping, labelSinkMapping) = data.currentState._1.addGraph(labels.currentState._1)
+    val (depGraph, labelSourceMapping, labelNodeMapping, labelSinkMapping) = data.currentGraph.addGraph(labels.currentGraph)
     val dataSink = depGraph.getSinkDependency(data.getSink)
     val labelsSink = depGraph.getSinkDependency(labelSinkMapping(labels.getSink))
     val (newGraph, nodeId) = depGraph
@@ -350,7 +362,7 @@ abstract class LabelEstimator[A, B, L] extends EstimatorOperator {
     val (finalGraph, sinkId) = almostFinalGraph.addSink(delegatingId)
 
     val graphIdMappings: Map[GraphId, GraphId] = labelSourceMapping ++ labelNodeMapping ++ labelSinkMapping
-    val newExecutionState = data.currentState._2 ++ labels.currentState._2.map(x => (graphIdMappings(x._1), x._2)) - data.getSink - labelSinkMapping(labels.getSink)
+    val newExecutionState = data.currentState ++ labels.currentState.map(x => (graphIdMappings(x._1), x._2)) - data.getSink - labelSinkMapping(labels.getSink)
 
     new ConcretePipeline(new GraphExecutor(finalGraph, data.getOptimizer, newExecutionState), sourceId, sinkId)
   }
@@ -373,9 +385,9 @@ object GraphBackedExecution {
       Seq[Map[SinkId, SinkId]]()
     ) {
       case ((curGraph, curExecutionState, curSourceMappings, curSinkMappings), graphExecution) =>
-        val (nextGraph, nextSourceMapping, nextNodeMapping, nextSinkMapping) = curGraph.addGraph(graphExecution.currentState._1)
+        val (nextGraph, nextSourceMapping, nextNodeMapping, nextSinkMapping) = curGraph.addGraph(graphExecution.currentGraph)
         val graphIdMappings: Map[GraphId, GraphId] = nextSourceMapping ++ nextNodeMapping ++ nextSinkMapping
-        val nextExecutionState = curExecutionState ++ graphExecution.currentState._2.map(x => (graphIdMappings(x._1), x._2))
+        val nextExecutionState = curExecutionState ++ graphExecution.currentState.map(x => (graphIdMappings(x._1), x._2))
 
         (nextGraph, nextExecutionState, curSourceMappings :+ nextSourceMapping, curSinkMappings :+ nextSinkMapping)
     }

@@ -153,7 +153,7 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
   test("Incrementally update execution state variation 2") {
     sc = new SparkContext("local", "test")
 
-    val accum = sc.accumulator(0, "My Accumulator")
+    val accum = sc.accumulator(0)
     val intTransformer = Transformer[Int, String](x => {
       accum += 1
       (x * 3).toString
@@ -187,8 +187,101 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     assert(testOut.get().collect() === Array("96qub", "282qub"))
     assert(testOut.get().collect() === Array("96qub", "282qub"))
     assert(accum.value === 5, "Incremental code should not have reprocessed cached values")
+
+    val datumOut = model(featurizer(2))
+    assert(datumOut.get() === "6qub")
+    assert(datumOut.get() === "6qub")
+    assert(accum.value === 6, "single uncached value run")
+  }
+
+  test("Incrementally update execution state when andThen is used") {
+    sc = new SparkContext("local", "test")
+
+    // Construct transformers & accumulators to track how much they have processed
+    val transformerAccum1 = sc.accumulator(0)
+    val transformerAccum2 = sc.accumulator(0)
+    val transformer1 = Transformer[String, String](x => {
+      transformerAccum1 += 1
+      x + "d"
+    })
+    val transformer2 = Transformer[String, String](x => {
+      transformerAccum2 += 1
+      x + "e"
+    })
+
+    // Construct estimators & accumulators to track how much they have processed
+    val estAccum1 = sc.accumulator(0)
+    val estAccum2 = sc.accumulator(0)
+    val estimator1 = new Estimator[String, String] {
+      protected def fitRDD(data: RDD[String]): Transformer[String, String] = {
+        data.foreach { _ =>
+          estAccum1 += 1
+        }
+        Transformer(x => x + "abc")
+      }
+    }
+    val estimator2 = new Estimator[String, String] {
+      protected def fitRDD(data: RDD[String]): Transformer[String, String] = {
+        data.foreach { _ =>
+          estAccum2 += 1
+        }
+        Transformer(x => x + "xyz")
+      }
+    }
+
+    val data1 = sc.parallelize(Seq("h", "i", "j"))
+    val data2 = sc.parallelize(Seq("f", "g"))
+
+    // We construct the two halves of the pipeline
+    val pipeLeft = transformer1 andThen Cacher() andThen (estimator1, data1)
+    val pipeRight = transformer2 andThen Cacher() andThen (estimator2, data2)
+
+    // Nothing should have been executed yet
+    assert(transformerAccum1.value == 0)
+    assert(transformerAccum2.value == 0)
+    assert(estAccum1.value == 0)
+    assert(estAccum2.value == 0)
+
+    // Should fit estimator1, then reuse the cached transformer1 result
+    assert(pipeLeft(data1).get().collect() === Array("hdabc", "idabc", "jdabc"))
+    assert(transformerAccum1.value == 3)
+    assert(transformerAccum2.value == 0)
+    assert(estAccum1.value == 3)
+    assert(estAccum2.value == 0)
+
+    // Should fit estimator2, then reuse the cached transformer2 result
+    assert(pipeRight(data2).get().collect() === Array("fexyz", "gexyz"))
+    assert(transformerAccum1.value == 3)
+    assert(transformerAccum2.value == 2)
+    assert(estAccum1.value == 3)
+    assert(estAccum2.value == 2)
+
+    // Chain the two pipeline halves
+    val pipe = pipeLeft andThen pipeRight
+
+    // Should reuse all fit estimators, and the cached data at transformer1. Must compute at transformer2
+    assert(pipe(data1).get().collect() === Array("hdabcexyz", "idabcexyz", "jdabcexyz"))
+    assert(transformerAccum1.value == 3)
+    assert(transformerAccum2.value == 5)
+    assert(estAccum1.value == 3)
+    assert(estAccum2.value == 2)
+
+    // Should reuse all fit estimators. Must compute at transformer1 and transformer2
+    assert(pipe(data2).get().collect() === Array("fdabcexyz", "gdabcexyz"))
+    assert(transformerAccum1.value == 5)
+    assert(transformerAccum2.value == 7)
+    assert(estAccum1.value == 3)
+    assert(estAccum2.value == 2)
+
+    // Now use a datum. Should reuse all fit estimators. Must compute at transformer1 and transformer2
+    assert(pipe("l").get() === "ldabcexyz")
+    assert(transformerAccum1.value == 6)
+    assert(transformerAccum2.value == 8)
+    assert(estAccum1.value == 3)
+    assert(estAccum2.value == 2)
   }
 }
 
-//Todo: test pipeline w/ andThen (make it be two fit estimators in a row and ensure they aren't executed again
 // Todo: A test to ensure optimization doesn't happen multiple times?
+// Todo: Proper pipeline.submit tests
+// Todo: Make current tests that use pipeline.submit not use pipeline.submit

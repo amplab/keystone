@@ -392,7 +392,6 @@ object Pipeline {
   }
 
   // Combine all the internal graph representations to use the same, merged representation
-
   def submit(graphBackedExecutions: GraphBackedExecution[_]*): Unit = {
     val emptyGraph = new Graph(Set(), Map(), Map(), Map())
     val (newGraph, newExecutionState, _, sinkMappings) = graphBackedExecutions.foldLeft(
@@ -417,4 +416,35 @@ object Pipeline {
       execution.setSink(sinkMappings(i).apply(execution.getSink))
     }
   }
+
+  /**
+   * Produces a pipeline that when given an input,
+   * combines the outputs of all its branches when executed on that input into a single Seq (in order)
+   * @param branches The pipelines whose outputs should be combined into a Seq
+   */
+  def gather[A, B : ClassTag](branches: Seq[Pipeline[A, B]]): Pipeline[A, Seq[B]] = {
+    val source = SourceId(0)
+    val emptyGraph = Graph(Set(source), Map(), Map(), Map())
+    val (graphWithAllBranches, newState, branchSinks) = branches.foldLeft(
+      emptyGraph,
+      Map[GraphId, Expression](),
+      Seq[NodeOrSourceId]()) {
+      case ((graph, state, sinks), branch) =>
+        val (graphWithBranch, sourceMapping, nodeMapping, sinkMapping) = graph.addGraph(branch.executor.currentGraph)
+        val branchSource = sourceMapping(branch.source)
+        val branchSink = sinkMapping(branch.sink)
+        val branchSinkDep = graphWithBranch.getSinkDependency(branchSink)
+        val nextGraph = graphWithBranch.replaceDependency(branchSource, source).removeSource(branchSource).removeSink(branchSink)
+        val graphIdMappings: Map[GraphId, GraphId] = sourceMapping ++ nodeMapping ++ sinkMapping
+        val nextState = state ++ branch.executor.currentState.map(x => (graphIdMappings(x._1), x._2)) - branchSink - branchSource
+
+        (nextGraph, nextState, sinks :+ branchSinkDep)
+    }
+
+    val (graphWithGather, gatherNode) = graphWithAllBranches.addNode(new GatherTransformer[B], branchSinks)
+    val (newGraph, sink) = graphWithGather.addSink(gatherNode)
+    val executor = new GraphExecutor(newGraph, newState)
+    new ConcretePipeline[A, Seq[B]](executor, source, sink)
+  }
+
 }

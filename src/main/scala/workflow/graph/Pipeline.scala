@@ -91,35 +91,39 @@ private[graph] class GraphExecutor(graph: Graph, state: Map[GraphId, Expression]
   }
 }
 
-abstract class GraphBackedExecution[T](initExecutor: GraphExecutor, initSources: Map[SourceId, Operator], initSink: SinkId, expressionToOut: Expression => T) {
-  private var executor: GraphExecutor = initExecutor
-  private var sources: Map[SourceId, Operator] = initSources
-  private var sink: SinkId = initSink
+abstract class GraphBackedExecution[T](
+  executor: GraphExecutor,
+  sources: Map[SourceId, Operator],
+  sink: SinkId,
+  expressionToOutput: Expression => T
+) {
+  private var _executor: GraphExecutor = executor
+  private var _sources: Map[SourceId, Operator] = sources
+  private var _sink: SinkId = sink
 
-
-  protected def getExecutor: GraphExecutor = executor
+  protected def getExecutor: GraphExecutor = _executor
 
   private[graph] def setExecutor(executor: GraphExecutor): Unit = {
-    this.executor = executor
+    this._executor = executor
   }
 
   private[graph] def setSources(sources: Map[SourceId, Operator]): Unit = {
-    this.sources = sources
+    this._sources = sources
   }
 
   private[graph] def setSink(sink: SinkId): Unit = {
-    this.sink = sink
+    this._sink = sink
   }
 
-  private[graph] def getSources: Map[SourceId, Operator] = sources
-  private[graph] def getSink: SinkId = sink
+  private[graph] def getSources: Map[SourceId, Operator] = _sources
+  private[graph] def getSink: SinkId = _sink
 
   private var ranExecution: Boolean = false
   private lazy val finalExecutor: GraphExecutor = {
     if (getSources.nonEmpty) {
       getExecutor.executeAndSaveWithoutSources(getSink)
 
-      val unmergedGraph = sources.foldLeft(getExecutor.getGraph) {
+      val unmergedGraph = _sources.foldLeft(getExecutor.getGraph) {
         case (curGraph, (sourceId, sourceOp)) => {
           val (graphWithDataset, nodeId) = getExecutor.getGraph.addNode(sourceOp, Seq())
           graphWithDataset.replaceDependency(sourceId, nodeId).removeSource(sourceId)
@@ -140,7 +144,7 @@ abstract class GraphBackedExecution[T](initExecutor: GraphExecutor, initSources:
   private[graph] def getGraph: Graph = if (ranExecution) {
     finalExecutor.getGraph
   } else {
-    sources.foldLeft(getExecutor.getGraph) {
+    _sources.foldLeft(getExecutor.getGraph) {
       case (curGraph, (sourceId, sourceOp)) => {
         val (graphWithDataset, nodeId) = getExecutor.getGraph.addNode(sourceOp, Seq())
         graphWithDataset.replaceDependency(sourceId, nodeId).removeSource(sourceId)
@@ -154,7 +158,7 @@ abstract class GraphBackedExecution[T](initExecutor: GraphExecutor, initSources:
     getExecutor.getState
   }
 
-  final def get(): T = expressionToOut(finalExecutor.execute(getSink, Map()))
+  final def get(): T = expressionToOutput(finalExecutor.execute(getSink, Map()))
 }
 
 // A lazy representation of a pipeline output
@@ -174,7 +178,7 @@ class PipelineDatasetOut[T](initExecutor: GraphExecutor, initSink: SinkId, sourc
     _.asInstanceOf[DatasetExpression].get.asInstanceOf[RDD[T]])
 
 object PipelineRDDUtils {
-  def rddToPipelineDatasetOut[T](rdd: RDD[T]): PipelineDatasetOut[T] = {
+  private[graph] def rddToPipelineDatasetOut[T](rdd: RDD[T]): PipelineDatasetOut[T] = {
     val emptyGraph = Graph(Set(), Map(), Map(), Map())
     val (graphWithDataset, nodeId) = emptyGraph.addNode(new DatasetOperator(rdd), Seq())
     val (graph, sinkId) = graphWithDataset.addSink(nodeId)
@@ -182,7 +186,7 @@ object PipelineRDDUtils {
     new PipelineDatasetOut[T](new GraphExecutor(graph, Map()), sinkId, None)
   }
 
-  def datumToPipelineDatumOut[T](datum: T): PipelineDatumOut[T] = {
+  private[graph] def datumToPipelineDatumOut[T](datum: T): PipelineDatumOut[T] = {
     val emptyGraph = Graph(Set(), Map(), Map(), Map())
     val (graphWithDataset, nodeId) = emptyGraph.addNode(new DatumOperator(datum), Seq())
     val (graph, sinkId) = graphWithDataset.addSink(nodeId)
@@ -460,32 +464,51 @@ object Pipeline {
   /**
    * Produces a pipeline that when given an input,
    * combines the outputs of all its branches when executed on that input into a single Seq (in order)
- *
+   *
    * @param branches The pipelines whose outputs should be combined into a Seq
    */
   def gather[A, B : ClassTag](branches: Seq[Pipeline[A, B]]): Pipeline[A, Seq[B]] = {
+    // We initialize to an empty graph with one source
     val source = SourceId(0)
     val emptyGraph = Graph(Set(source), Map(), Map(), Map())
+
+    // We fold the branches together one by one, updating the graph and the overall execution state
+    // to include all of the branches.
     val (graphWithAllBranches, newState, branchSinks) = branches.foldLeft(
       emptyGraph,
       Map[GraphId, Expression](),
       Seq[NodeOrSourceId]()) {
       case ((graph, state, sinks), branch) =>
+        // We add the new branch to the graph containing already-processed branches
         val (graphWithBranch, sourceMapping, nodeMapping, sinkMapping) = graph.addGraph(branch.executor.getGraph)
+
+        // We then remove the new branch's individual source and make the branch
+        // depend on the new joint source for all branches.
+        // We also remove the branch's sink.
         val branchSource = sourceMapping(branch.source)
         val branchSink = sinkMapping(branch.sink)
         val branchSinkDep = graphWithBranch.getSinkDependency(branchSink)
-        val nextGraph = graphWithBranch.replaceDependency(branchSource, source).removeSource(branchSource).removeSink(branchSink)
+        val nextGraph = graphWithBranch.replaceDependency(branchSource, source)
+          .removeSource(branchSource)
+          .removeSink(branchSink)
+
+        // Because pipeline construction is incremental, we make sure to add the state of the branch to our
+        // accumulated state. We update the graph ids for the new branch's state, and remove all graph ids
+        // that no longer exist.
         val graphIdMappings: Map[GraphId, GraphId] = sourceMapping ++ nodeMapping ++ sinkMapping
-        val nextState = state ++ branch.executor.getState.map(x => (graphIdMappings(x._1), x._2)) - branchSink - branchSource
+        val branchState = branch.executor.getState.map(x => (graphIdMappings(x._1), x._2)) - branchSink - branchSource
+        val nextState = state ++ branchState
 
         (nextGraph, nextState, sinks :+ branchSinkDep)
     }
 
+    // Finally, we add a gather transformer with all of the branches' endpoints as dependencies,
+    // and add a new sink on the gather transformer.
     val (graphWithGather, gatherNode) = graphWithAllBranches.addNode(new GatherTransformer[B], branchSinks)
     val (newGraph, sink) = graphWithGather.addSink(gatherNode)
+
+    // We construct & return the new gathered pipeline
     val executor = new GraphExecutor(newGraph, newState)
     new ConcretePipeline[A, Seq[B]](executor, source, sink)
   }
-
 }

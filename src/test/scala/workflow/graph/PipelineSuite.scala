@@ -450,4 +450,55 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     assert(pipeline(sc.parallelize(data)).get().collect().toSeq === correctOut)
   }
 
+  test("Pipeline gather incremental construction") {
+    sc = new SparkContext("local", "test")
+
+    val numEstimations = new AtomicInteger(0)
+
+    val firstPipeline = Transformer[Int, Int](_ * 2) andThen Transformer[Int, Int](_ - 3)
+
+    val secondPipeline = Transformer[Int, Int](_ * 2) andThen (new Estimator[Int, Int] {
+      protected def fitRDD(data: RDD[Int]): Transformer[Int, Int] = {
+        numEstimations.addAndGet(1)
+        val first = data.first()
+        Transformer(x => x + first)
+      }
+    }, sc.parallelize(Seq(32, 94, 12)))
+
+    val thirdPipeline = Transformer[Int, Int](_ * 4) andThen (new LabelEstimator[Int, Int, String] {
+      protected def fitRDDs(data: RDD[Int], labels: RDD[String]): Transformer[Int, Int] = {
+        numEstimations.addAndGet(1)
+        val first = data.first() + labels.first().toInt
+        Transformer(x => x + first)
+      }
+    }, sc.parallelize(Seq(32, 94, 12)), sc.parallelize(Seq("10", "7", "14")))
+
+    // Execute pipelines 1 to 3
+    assert(numEstimations.get() === 0, "Nothing may have been fit yet")
+    firstPipeline(4).get()
+    secondPipeline(4).get()
+    thirdPipeline(4).get()
+    assert(numEstimations.get() === 2, "Estimators must have been fit by now")
+
+    val pipeline = Pipeline.gather {
+      firstPipeline :: secondPipeline :: thirdPipeline :: Nil
+    }
+
+    val single = 7
+    assert {
+      pipeline(single).get() === Seq(
+        firstPipeline.apply(single).get(),
+        secondPipeline.apply(single).get(),
+        thirdPipeline.apply(single).get())
+    }
+
+    val data = Seq(13, 2, 83)
+    val correctOut = data.map { x => Seq(
+      firstPipeline.apply(x).get(),
+      secondPipeline.apply(x).get(),
+      thirdPipeline.apply(x).get())
+    }
+    assert(pipeline(sc.parallelize(data)).get().collect().toSeq === correctOut)
+    assert(numEstimations.get() === 2, "Estimators should not have been fit again")
+  }
 }

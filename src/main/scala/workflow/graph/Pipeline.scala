@@ -265,38 +265,6 @@ class ConcretePipeline[A, B](
   @Override private[graph] val sink: SinkId
 ) extends Pipeline[A, B]
 
-abstract class Transformer[A, B : ClassTag] extends TransformerOperator with Pipeline[A, B] {
-  @Override @transient private[graph] lazy val executor = new GraphExecutor(Graph(Set(SourceId(0)), Map(SinkId(0) -> NodeId(0)), Map(NodeId(0) -> this), Map(NodeId(0) -> Seq(SourceId(0)))), Map())
-  @Override private[graph] val source = SourceId(0)
-  @Override private[graph] val sink = SinkId(0)
-
-  protected def singleTransform(in: A): B
-  protected def batchTransform(in: RDD[A]): RDD[B] = in.map(singleTransform)
-
-  final override private[graph] def singleTransform(inputs: Seq[DatumExpression]): Any = {
-    singleTransform(inputs.head.get.asInstanceOf[A])
-  }
-
-  final override private[graph] def batchTransform(inputs: Seq[DatasetExpression]): RDD[_] = {
-    batchTransform(inputs.head.get.asInstanceOf[RDD[A]])
-  }
-}
-
-object Transformer {
-  /**
-   * This constructor takes a function and returns a Transformer that maps it over the input RDD
-   *
-   * @param f The function to apply to every item in the RDD being transformed
-   * @tparam I input type of the transformer
-   * @tparam O output type of the transformer
-   * @return Transformer that applies the given function to all items in the RDD
-   */
-  def apply[I, O : ClassTag](f: I => O): Transformer[I, O] = new Transformer[I, O] {
-    override protected def batchTransform(in: RDD[I]): RDD[O] = in.map(f)
-    override protected def singleTransform(in: I): O = f(in)
-  }
-}
-
 case class Checkpointer[T : ClassTag](path: String) extends Estimator[T, T] {
   override protected def fitRDD(data: RDD[T]): Transformer[T, T] = {
     data.saveAsObjectFile(path)
@@ -305,10 +273,10 @@ case class Checkpointer[T : ClassTag](path: String) extends Estimator[T, T] {
 }
 
 object Pipeline {
-  private var globalOptimizer: Optimizer = DefaultOptimizer
-  def getOptimizer: Optimizer = globalOptimizer
+  private var _optimizer: Optimizer = DefaultOptimizer
+  def getOptimizer: Optimizer = _optimizer
   def setOptimizer(optimizer: Optimizer): Unit = {
-    globalOptimizer = optimizer
+    _optimizer = optimizer
   }
 
   // If the checkpoint is found, return an output that just reads it from disk.

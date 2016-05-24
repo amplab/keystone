@@ -42,7 +42,6 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
 
     val pipelineOut = pipeline(data)
     val pipelineOut2 = pipeline(data)
-    Pipeline.submit(Seq(pipelineOut, pipelineOut2), Some(DefaultOptimizer))
 
     pipelineOut.get().collect()
     pipelineOut2.get().collect()
@@ -75,8 +74,6 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     val pipelineOutTwo = pipelineChainTwo(data)
     val modelOut = model(data)
 
-    Pipeline.submit(Seq(pipelineOutOne, pipelineOutTwo, modelOut), None)
-
     assert(pipelineOutOne.get().collect().toSeq === Seq(32*2 + 32*2, 94*2 + 32*2, 12*2 + 32*2))
     assert(pipelineOutTwo.get().collect().toSeq === Seq(32*2 + 32*2, 94*2 + 32*2, 12*2 + 32*2))
     assert(modelOut.get().collect().toSeq === Seq(32 + 32*2, 94 + 32*2, 12 + 32*2))
@@ -107,8 +104,6 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     val pipelineOutOne = pipelineChainOne(data)
     val pipelineOutTwo = pipelineChainTwo(data)
     val modelOut = model(data)
-
-    Pipeline.submit(Seq(pipelineOutOne, pipelineOutTwo, modelOut, features), None)
 
     assert(pipelineOutOne.get().collect().toSeq === Seq(32*2 + 32*2 + 10, 94*2 + 32*2 + 10, 12*2 + 32*2 + 10))
     assert(pipelineOutTwo.get().collect().toSeq === Seq(32*2 + 32*2 + 10, 94*2 + 32*2 + 10, 12*2 + 32*2 + 10))
@@ -194,7 +189,20 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     assert(accum.value === 6, "single uncached value run")
   }
 
-  test("Incrementally update execution state when andThen is used") {
+  test("Incrementally update execution state when andThen is used & no excessive optimizations") {
+    val defaultOptimizer = Pipeline.getOptimizer
+
+    // Set an optimizer that counts how many times optimization has been executed
+    val numOptimizations = new AtomicInteger(0)
+    Pipeline.setOptimizer(new Optimizer {
+      override protected val batches: Seq[Batch] = Seq(Batch("Update num-optimizations", Once, new Rule {
+        override def apply(plan: Graph, executionState: Map[GraphId, Expression]): (Graph, Map[GraphId, Expression]) = {
+          numOptimizations.addAndGet(1)
+          (plan, executionState)
+        }
+      }))
+    })
+
     sc = new SparkContext("local", "test")
 
     // Construct transformers & accumulators to track how much they have processed
@@ -237,51 +245,59 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     val pipeRight = transformer2 andThen Cacher() andThen (estimator2, data2)
 
     // Nothing should have been executed yet
-    assert(transformerAccum1.value == 0)
-    assert(transformerAccum2.value == 0)
-    assert(estAccum1.value == 0)
-    assert(estAccum2.value == 0)
+    assert(transformerAccum1.value === 0)
+    assert(transformerAccum2.value === 0)
+    assert(estAccum1.value === 0)
+    assert(estAccum2.value === 0)
+    assert(numOptimizations.get() === 0)
 
     // Should fit estimator1, then reuse the cached transformer1 result
     assert(pipeLeft(data1).get().collect() === Array("hdabc", "idabc", "jdabc"))
-    assert(transformerAccum1.value == 3)
-    assert(transformerAccum2.value == 0)
-    assert(estAccum1.value == 3)
-    assert(estAccum2.value == 0)
+    assert(transformerAccum1.value === 3)
+    assert(transformerAccum2.value === 0)
+    assert(estAccum1.value === 3)
+    assert(estAccum2.value === 0)
+    assert(numOptimizations.get() === 1)
 
     // Should fit estimator2, then reuse the cached transformer2 result
     assert(pipeRight(data2).get().collect() === Array("fexyz", "gexyz"))
-    assert(transformerAccum1.value == 3)
-    assert(transformerAccum2.value == 2)
-    assert(estAccum1.value == 3)
-    assert(estAccum2.value == 2)
+    assert(transformerAccum1.value === 3)
+    assert(transformerAccum2.value === 2)
+    assert(estAccum1.value === 3)
+    assert(estAccum2.value === 2)
+    assert(numOptimizations.get() === 2)
 
     // Chain the two pipeline halves
     val pipe = pipeLeft andThen pipeRight
 
     // Should reuse all fit estimators, and the cached data at transformer1. Must compute at transformer2
     assert(pipe(data1).get().collect() === Array("hdabcexyz", "idabcexyz", "jdabcexyz"))
-    assert(transformerAccum1.value == 3)
-    assert(transformerAccum2.value == 5)
-    assert(estAccum1.value == 3)
-    assert(estAccum2.value == 2)
+    assert(transformerAccum1.value === 3)
+    assert(transformerAccum2.value === 5)
+    assert(estAccum1.value === 3)
+    assert(estAccum2.value === 2)
+    assert(numOptimizations.get() === 3)
 
-    // Should reuse all fit estimators. Must compute at transformer1 and transformer2
+    // Should reuse all fit estimators. Must compute at transformer1 and transformer2. Will not reoptimize
     assert(pipe(data2).get().collect() === Array("fdabcexyz", "gdabcexyz"))
-    assert(transformerAccum1.value == 5)
-    assert(transformerAccum2.value == 7)
-    assert(estAccum1.value == 3)
-    assert(estAccum2.value == 2)
+    assert(transformerAccum1.value === 5)
+    assert(transformerAccum2.value === 7)
+    assert(estAccum1.value === 3)
+    assert(estAccum2.value === 2)
+    assert(numOptimizations.get() === 3)
 
-    // Now use a datum. Should reuse all fit estimators. Must compute at transformer1 and transformer2
+    // Now use a datum. Should reuse all fit estimators. Must compute at transformer1 and transformer2.
+    // Will not reoptimize
     assert(pipe("l").get() === "ldabcexyz")
-    assert(transformerAccum1.value == 6)
-    assert(transformerAccum2.value == 8)
-    assert(estAccum1.value == 3)
-    assert(estAccum2.value == 2)
+    assert(transformerAccum1.value === 6)
+    assert(transformerAccum2.value === 8)
+    assert(estAccum1.value === 3)
+    assert(estAccum2.value === 2)
+    assert(numOptimizations.get() === 3)
+
+    // Restore the default optimizer
+    Pipeline.setOptimizer(defaultOptimizer)
   }
 }
 
-// Todo: A test to ensure optimization doesn't happen multiple times?
 // Todo: Proper pipeline.submit tests
-// Todo: Make current tests that use pipeline.submit not use pipeline.submit

@@ -16,7 +16,7 @@ abstract class Estimator[A, B] extends EstimatorOperator {
    * @return A pipeline that fits this estimator and applies the result to inputs.
    */
   final def fit(data: RDD[A]): Pipeline[A, B] = {
-    fit(PipelineRDDUtils.rddToPipelineDatasetOut(data))
+    fit(PipelineDatasetOut(data))
   }
 
   /**

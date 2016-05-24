@@ -1,10 +1,6 @@
 package workflow.graph
 
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileSystem, Path}
-import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
-import pipelines.Logging
 
 import scala.reflect.ClassTag
 
@@ -162,36 +158,38 @@ abstract class GraphBackedExecution[T](
 }
 
 // A lazy representation of a pipeline output
-class PipelineDatumOut[T](initExecutor: GraphExecutor, initSink: SinkId, source: Option[(SourceId, Any)])
+class PipelineDatumOut[T] private[graph] (executor: GraphExecutor, sink: SinkId, source: Option[(SourceId, Any)])
   extends GraphBackedExecution(
-    initExecutor,
+    executor,
     source.map(sourceAndVal => Map(sourceAndVal._1 -> DatumOperator(sourceAndVal._2))).getOrElse(Map()),
-    initSink,
+    sink,
     _.asInstanceOf[DatumExpression].get.asInstanceOf[T])
 
-// A lazy representation of a pipeline output
-class PipelineDatasetOut[T](initExecutor: GraphExecutor, initSink: SinkId, source: Option[(SourceId, RDD[_])])
-  extends GraphBackedExecution(
-    initExecutor,
-    source.map(sourceAndVal => Map(sourceAndVal._1 -> DatasetOperator(sourceAndVal._2))).getOrElse(Map()),
-    initSink,
-    _.asInstanceOf[DatasetExpression].get.asInstanceOf[RDD[T]])
-
-object PipelineRDDUtils {
-  private[graph] def rddToPipelineDatasetOut[T](rdd: RDD[T]): PipelineDatasetOut[T] = {
-    val emptyGraph = Graph(Set(), Map(), Map(), Map())
-    val (graphWithDataset, nodeId) = emptyGraph.addNode(new DatasetOperator(rdd), Seq())
-    val (graph, sinkId) = graphWithDataset.addSink(nodeId)
-
-    new PipelineDatasetOut[T](new GraphExecutor(graph, Map()), sinkId, None)
-  }
-
-  private[graph] def datumToPipelineDatumOut[T](datum: T): PipelineDatumOut[T] = {
+object PipelineDatumOut {
+  private[graph] def apply[T](datum: T): PipelineDatumOut[T] = {
     val emptyGraph = Graph(Set(), Map(), Map(), Map())
     val (graphWithDataset, nodeId) = emptyGraph.addNode(new DatumOperator(datum), Seq())
     val (graph, sinkId) = graphWithDataset.addSink(nodeId)
 
     new PipelineDatumOut[T](new GraphExecutor(graph, Map()), sinkId, None)
+  }
+}
+
+// A lazy representation of a pipeline output
+class PipelineDatasetOut[T] private[graph] (executor: GraphExecutor, sink: SinkId, source: Option[(SourceId, RDD[_])])
+  extends GraphBackedExecution(
+    executor,
+    source.map(sourceAndVal => Map(sourceAndVal._1 -> DatasetOperator(sourceAndVal._2))).getOrElse(Map()),
+    sink,
+    _.asInstanceOf[DatasetExpression].get.asInstanceOf[RDD[T]])
+
+object PipelineDatasetOut {
+  private[graph] def apply[T](rdd: RDD[T]): PipelineDatasetOut[T] = {
+    val emptyGraph = Graph(Set(), Map(), Map(), Map())
+    val (graphWithDataset, nodeId) = emptyGraph.addNode(new DatasetOperator(rdd), Seq())
+    val (graph, sinkId) = graphWithDataset.addSink(nodeId)
+
+    new PipelineDatasetOut[T](new GraphExecutor(graph, Map()), sinkId, None)
   }
 }
 
@@ -259,10 +257,10 @@ trait Pipeline[A, B] {
 
 }
 
-class ConcretePipeline[A, B](
-  @Override private[graph] val executor: GraphExecutor,
-  @Override private[graph] val source: SourceId,
-  @Override private[graph] val sink: SinkId
+private[graph] class ConcretePipeline[A, B](
+  override private[graph] val executor: GraphExecutor,
+  override private[graph] val source: SourceId,
+  override private[graph] val sink: SinkId
 ) extends Pipeline[A, B]
 
 object Pipeline {

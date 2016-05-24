@@ -20,7 +20,7 @@ abstract class LabelEstimator[A, B, L] extends EstimatorOperator {
    * @return A pipeline that fits this label estimator and applies the result to inputs.
    */
   final def fit(data: RDD[A], labels: PipelineDatasetOut[L]): Pipeline[A, B] = {
-    fit(PipelineRDDUtils.rddToPipelineDatasetOut(data), labels)
+    fit(PipelineDatasetOut(data), labels)
   }
 
   /**
@@ -32,7 +32,7 @@ abstract class LabelEstimator[A, B, L] extends EstimatorOperator {
    * @return A pipeline that fits this label estimator and applies the result to inputs.
    */
   final def fit(data: PipelineDatasetOut[A], labels: RDD[L]): Pipeline[A, B] = {
-    fit(data, PipelineRDDUtils.rddToPipelineDatasetOut(labels))
+    fit(data, PipelineDatasetOut(labels))
   }
 
   /**
@@ -44,7 +44,7 @@ abstract class LabelEstimator[A, B, L] extends EstimatorOperator {
    * @return A pipeline that fits this label estimator and applies the result to inputs.
    */
   final def fit(data: RDD[A], labels: RDD[L]): Pipeline[A, B] = {
-    fit(PipelineRDDUtils.rddToPipelineDatasetOut(data), PipelineRDDUtils.rddToPipelineDatasetOut(labels))
+    fit(PipelineDatasetOut(data), PipelineDatasetOut(labels))
   }
 
   /**

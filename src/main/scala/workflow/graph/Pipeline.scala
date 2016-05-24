@@ -265,31 +265,11 @@ class ConcretePipeline[A, B](
   @Override private[graph] val sink: SinkId
 ) extends Pipeline[A, B]
 
-case class Checkpointer[T : ClassTag](path: String) extends Estimator[T, T] {
-  override protected def fitRDD(data: RDD[T]): Transformer[T, T] = {
-    data.saveAsObjectFile(path)
-    new Identity[T]
-  }
-}
-
 object Pipeline {
   private var _optimizer: Optimizer = DefaultOptimizer
   def getOptimizer: Optimizer = _optimizer
   def setOptimizer(optimizer: Optimizer): Unit = {
     _optimizer = optimizer
-  }
-
-  // If the checkpoint is found, return an output that just reads it from disk.
-  // If the checkpoint is not found, return the input data graph w/ an EstimatorOperator just saves to disk added at the end
-  def checkpoint[T : ClassTag](data: PipelineDatasetOut[T], path: String, sc: SparkContext, minPartitions: Int): PipelineDatasetOut[T] = {
-    val filePath = new Path(path)
-    val conf = new Configuration(true)
-    val fs = FileSystem.get(filePath.toUri(), conf)
-    if (fs.exists(filePath)) {
-      PipelineRDDUtils.rddToPipelineDatasetOut(sc.objectFile(path, minPartitions))
-    } else {
-      Checkpointer[T](path).fit(data).apply(data)
-    }
   }
 
   // Combine all the internal graph representations to use the same, merged representation

@@ -189,6 +189,52 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     assert(accum.value === 6, "single uncached value run")
   }
 
+  test("Incrementally update execution state with LabelEstimator") {
+    sc = new SparkContext("local", "test")
+
+    val accum = sc.accumulator(0)
+    val intTransformer = Transformer[Int, String](x => {
+      accum += 1
+      (x * 3).toString
+    })
+    val intEstimator = new LabelEstimator[String, String, String] {
+      protected def fitRDDs(data: RDD[String], labels: RDD[String]): Transformer[String, String] = {
+        Transformer(x => x + "qub")
+      }
+    }
+
+    val data = sc.parallelize(Seq(32, 94, 12))
+    val labels = data.map(_ * 2)
+
+    val featurizer = intTransformer andThen Cacher()
+    val features = featurizer(data)
+    assert(features.get().collect() === Array("96", "282", "36"))
+    assert(accum.value === 3, "Incremental code should not have reprocessed cached values")
+
+    val labelFeatures = featurizer(labels)
+    assert(labelFeatures.get().collect() === Array("192", "564", "72"))
+    assert(accum.value === 6, "Incremental code should not have reprocessed cached values")
+
+    val pipe = featurizer andThen intEstimator.fit(features, labelFeatures)
+    val out = pipe(data)
+    assert(out.get().collect() === Array("96qub", "282qub", "36qub"))
+    assert(out.get().collect() === Array("96qub", "282qub", "36qub"))
+    assert(pipe(data).get().collect() === Array("96qub", "282qub", "36qub"))
+    assert(accum.value === 6, "Incremental code should not have reprocessed cached values")
+
+    val labelsOut = pipe(labels)
+    assert(labelsOut.get().collect() === Array("192qub", "564qub", "72qub"))
+    assert(labelsOut.get().collect() === Array("192qub", "564qub", "72qub"))
+    assert(pipe(labels).get().collect() === Array("192qub", "564qub", "72qub"))
+    assert(accum.value === 6, "Incremental code should not have reprocessed cached values")
+
+    val testData = sc.parallelize(Seq(32, 94))
+    val testOut = pipe(testData)
+    assert(testOut.get().collect() === Array("96qub", "282qub"))
+    assert(testOut.get().collect() === Array("96qub", "282qub"))
+    assert(accum.value === 8, "Incremental code should not have reprocessed cached values")
+  }
+
   test("Incrementally update execution state when andThen is used & no excessive optimizations") {
     val defaultOptimizer = Pipeline.getOptimizer
 

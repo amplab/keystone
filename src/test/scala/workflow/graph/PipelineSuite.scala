@@ -113,7 +113,7 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
   test("Incrementally update execution state variation 1") {
     sc = new SparkContext("local", "test")
 
-    val accum = sc.accumulator(0, "My Accumulator")
+    val accum = sc.accumulator(0)
     val intTransformer = Transformer[Int, String](x => {
       accum += 1
       (x * 3).toString
@@ -301,3 +301,6 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
 }
 
 // Todo: Proper pipeline.submit tests
+// Simple Pipeline.submit unit test:
+// - access features, trainOut, and testOut!
+// - ensure optimization only happens ONCE on everything!

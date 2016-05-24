@@ -393,9 +393,9 @@ object Pipeline {
 
   // Combine all the internal graph representations to use the same, merged representation
 
-  def submit(graphBackedExecutions: Seq[GraphBackedExecution[_]], optimizer: Option[Optimizer]): Unit = {
+  def submit(graphBackedExecutions: GraphBackedExecution[_]*): Unit = {
     val emptyGraph = new Graph(Set(), Map(), Map(), Map())
-    val (newGraph, newExecutionState, sourceMappings, sinkMappings) = graphBackedExecutions.foldLeft(
+    val (newGraph, newExecutionState, _, sinkMappings) = graphBackedExecutions.foldLeft(
       emptyGraph,
       Map[GraphId, Expression](),
       Seq[Map[SourceId, SourceId]](),

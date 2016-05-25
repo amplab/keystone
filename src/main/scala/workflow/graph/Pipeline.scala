@@ -4,6 +4,9 @@ import org.apache.spark.rdd.RDD
 
 import scala.reflect.ClassTag
 
+// pipeline, yay!
+// not thread-safe, sorry
+// chaining is incremental (if stuff is chained after having already been fit/executed/cached, it won't need to re-fit/re-execute/re-cache)
 trait Pipeline[A, B] {
   private[graph] val source: SourceId
   private[graph] val sink: SinkId

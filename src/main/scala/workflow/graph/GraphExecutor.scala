@@ -1,16 +1,29 @@
 package workflow.graph
 
-// Note: NONE OF THIS $#@! is multithreading-safe!
+/**
+ * A GraphExecutor is constructed using a graph with already-executed state attached to it.
+ * It provides methods to further execute parts of the graph, returning the execution result.
+ * By default, it will optimize the graph before any new execution occurs.
+ *
+ * Warning: Not thread-safe at all!
+ *
+ * @param graph The underlying graph to execute
+ * @param state A mapping of GraphId to computed Expression.
+ *              This is the current state of what has already been executed in the graph.
+ * @param optimize Whether or not to optimize the graph using the global executor before executing anything.
+ *                 Defaults to True.
+ */
 private[graph] class GraphExecutor(graph: Graph, state: Map[GraphId, Expression], optimize: Boolean = true) {
   // internally used flag to check if optimization has occurred yet. Not thread-safe!
   private var optimized: Boolean = false
 
   // The lazily computed result of optimizing the initial graph w/ initial state attached to it
   private lazy val optimizedGraphAndState: (Graph, Map[GraphId, Expression]) = {
+    optimized = true
+
     if (optimize) {
       Pipeline.getOptimizer.execute(graph, state)
     } else {
-      optimized = true
       (graph, state)
     }
   }
@@ -32,9 +45,8 @@ private[graph] class GraphExecutor(graph: Graph, state: Map[GraphId, Expression]
 
   /**
    * Get the current graph this executor is wrapping around.
-   *
-   * @return The optimized graph if it has already been optimized, otherwise
-   *         the initial graph this executor was constructed with.
+   * This is the optimized graph if optimization has occurred, otherwise
+   * it is the initial graph this executor was constructed with.
    */
   def getGraph: Graph = if (optimized) {
     optimizedGraph
@@ -44,7 +56,8 @@ private[graph] class GraphExecutor(graph: Graph, state: Map[GraphId, Expression]
 
   /**
    * Get the current execution state of this executor.
-   * @return An immutable copy of the current state
+   * @return An immutable copy of the current execution
+   *         state of Expressions and the graphIds they were computed at.
    */
   def getState: Map[GraphId, Expression] = if (optimized) {
     optimizedState.toMap
@@ -52,12 +65,29 @@ private[graph] class GraphExecutor(graph: Graph, state: Map[GraphId, Expression]
     state
   }
 
+  /**
+   * Partially execute a graph up to an input GraphId as far as is possible.
+   * No node will be executed that depends on unconnected sources, but ancestors the input id
+   * that do not depend on sources may be executed.
+   *
+   * This method updates the internal execution state of the GraphExecutor.
+   *
+   * @param graphId The GraphId to execute up to and including if possible.
+   */
   def partialExecute(graphId: GraphId): Unit = {
     val linearization = AnalysisUtils.linearize(optimizedGraph, graphId) :+ graphId
-    val idsToExecute = linearization.filter(id => (!sourceDependants.contains(id)) && (!optimizedState.contains(id)))
-    idsToExecute.foreach {ancestor => execute(ancestor)}
+    val idsToExecute = linearization.filter(id => !sourceDependants.contains(id))
+    idsToExecute.foreach(execute)
   }
 
+  /**
+   * Execute the graph up to and including an input graph id, and return the result
+   * of execution at that id.
+   * This method updates the internal execution state of the GraphExecutor.
+   *
+   * @param graphId The GraphId to execute up to and including.
+   * @return The execution result at the input graph id.
+   */
   def execute(graphId: GraphId): Expression = {
     require(!sourceDependants.contains(graphId), "May not execute GraphIds that depend on unconnected sources.")
 

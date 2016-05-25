@@ -9,6 +9,9 @@ import scala.reflect.ClassTag
  * They may be chained together, along with [[Estimator]]s and [[LabelEstimator]]s, to produce complex
  * pipelines.
  *
+ * Transformer extends [[Pipeline]], meaning that its publicly exposed methods for transforming data
+ * and chaining are implemented there.
+ *
  * @tparam A input item type the transformer takes
  * @tparam B output item type the transformer produces
  */

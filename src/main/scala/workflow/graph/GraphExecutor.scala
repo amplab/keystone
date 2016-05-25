@@ -1,36 +1,55 @@
 package workflow.graph
 
+// Note: NONE OF THIS $#@! is multithreading-safe!
 private[graph] class GraphExecutor(graph: Graph, state: Map[GraphId, Expression], optimize: Boolean = true) {
+  // internally used flag to check if optimization has occurred yet. Not thread-safe!
   private var optimized: Boolean = false
-  private lazy val optimizedGraphAndState: (Graph, scala.collection.mutable.Map[GraphId, Expression]) = {
-    val (newGraph, newState) = if (optimize) {
+
+  // The lazily computed result of optimizing the initial graph w/ initial state attached to it
+  private lazy val optimizedGraphAndState: (Graph, Map[GraphId, Expression]) = {
+    if (optimize) {
       Pipeline.getOptimizer.execute(graph, state)
     } else {
+      optimized = true
       (graph, state)
     }
-
-    optimized = true
-    (newGraph, scala.collection.mutable.Map() ++ newState)
   }
-  private lazy val optimizedGraph: Graph = optimizedGraphAndState._1
-  private lazy val optimizedState: scala.collection.mutable.Map[GraphId, Expression] = optimizedGraphAndState._2
 
+  // The optimized graph. Lazily computed, requires optimization.
+  private lazy val optimizedGraph: Graph = optimizedGraphAndState._1
+
+  // The mutable internal state attached to the optimized graph. Lazily computed, requires optimization.
+  private lazy val optimizedState: scala.collection.mutable.Map[GraphId, Expression] =
+    scala.collection.mutable.Map() ++ optimizedGraphAndState._2
+
+  // Internally used set of all ids in the optimized graph that are source ids, or depend explicitly or implicitly
+  // on sources. Lazily computed, requires optimization.
+  private lazy val sourceDependants: Set[GraphId] = {
+    optimizedGraph.sources.foldLeft(Set[GraphId]()) {
+      case (descendants, source) => descendants ++ AnalysisUtils.getDescendants(optimizedGraph, source) + source
+    }
+  }
+
+  /**
+   * Get the current graph this executor is wrapping around.
+   *
+   * @return The optimized graph if it has already been optimized, otherwise
+   *         the initial graph this executor was constructed with.
+   */
   def getGraph: Graph = if (optimized) {
     optimizedGraph
   } else {
     graph
   }
 
+  /**
+   * Get the current execution state of this executor.
+   * @return An immutable copy of the current state
+   */
   def getState: Map[GraphId, Expression] = if (optimized) {
     optimizedState.toMap
   } else {
     state
-  }
-
-  private lazy val sourceDependants: Set[GraphId] = {
-    optimizedGraph.sources.foldLeft(Set[GraphId]()) {
-      case (descendants, source) => descendants ++ AnalysisUtils.getDescendants(optimizedGraph, source) + source
-    }
   }
 
   def partialExecute(graphId: GraphId): Unit = {
@@ -44,7 +63,7 @@ private[graph] class GraphExecutor(graph: Graph, state: Map[GraphId, Expression]
 
     optimizedState.getOrElseUpdate(graphId, {
       graphId match {
-        case source: SourceId => throw new IllegalArgumentException("Unconnected sources have no stored value")
+        case source: SourceId => throw new IllegalArgumentException("SourceIds may not be executed.")
         case node: NodeId => {
           val dependencies = optimizedGraph.getDependencies(node)
           val depExpressions = dependencies.map(dep => execute(dep))

@@ -67,7 +67,7 @@ trait Pipeline[A, B] {
 
   /**
    * Chains a pipeline onto the end of this one, producing a new pipeline.
-   * If either this pipeline or the following has already been fit, it will not need to be fit again.
+   * If either this pipeline or the following has already been executed, it will not need to be fit again.
    *
    * @param next the pipeline to chain
    */
@@ -79,14 +79,39 @@ trait Pipeline[A, B] {
     new ConcretePipeline(new GraphExecutor(newGraph, newState), source, sinkMapping(next.sink))
   }
 
+  /**
+   * Chains an estimator onto the end of this pipeline, producing a new pipeline.
+   * If this pipeline has already been executed, it will not need to be fit again.
+   *
+   * @param est The estimator to chain onto the end of this pipeline
+   * @param data The training data to use
+   *             (the estimator will be fit on the result of passing this data through the current pipeline)
+   */
   final def andThen[C](est: Estimator[B, C], data: RDD[A]): Pipeline[A, C] = {
     this andThen est.fit(apply(data))
   }
 
+  /**
+   * Chains an estimator onto the end of this pipeline, producing a new pipeline.
+   * If this pipeline has already been executed, it will not need to be fit again.
+   *
+   * @param est The estimator to chain onto the end of this pipeline
+   * @param data The training data to use
+   *             (the estimator will be fit on the result of passing this data through the current pipeline)
+   */
   final def andThen[C](est: Estimator[B, C], data: PipelineDatasetOut[A]): Pipeline[A, C] = {
     this andThen est.fit(apply(data))
   }
 
+  /**
+   * Chains a label estimator onto the end of this pipeline, producing a new pipeline.
+   * If this pipeline has already been executed, it will not need to be fit again.
+   *
+   * @param est The estimator to chain onto the end of this pipeline
+   * @param data The training data to use
+   *             (the estimator will be fit on the result of passing this data through the current pipeline)
+   * @param labels The labels to use when fitting the LabelEstimator. Must be zippable with the training data.
+   */
   final def andThen[C, L](
     est: LabelEstimator[B, C, L],
     data: RDD[A],
@@ -95,6 +120,15 @@ trait Pipeline[A, B] {
     this andThen est.fit(apply(data), labels)
   }
 
+  /**
+   * Chains a label estimator onto the end of this pipeline, producing a new pipeline.
+   * If this pipeline has already been executed, it will not need to be fit again.
+   *
+   * @param est The estimator to chain onto the end of this pipeline
+   * @param data The training data to use
+   *             (the estimator will be fit on the result of passing this data through the current pipeline)
+   * @param labels The labels to use when fitting the LabelEstimator. Must be zippable with the training data.
+   */
   final def andThen[C, L](
     est: LabelEstimator[B, C, L],
     data: PipelineDatasetOut[A],
@@ -103,6 +137,15 @@ trait Pipeline[A, B] {
     this andThen est.fit(apply(data), labels)
   }
 
+  /**
+   * Chains a label estimator onto the end of this pipeline, producing a new pipeline.
+   * If this pipeline has already been executed, it will not need to be fit again.
+   *
+   * @param est The estimator to chain onto the end of this pipeline
+   * @param data The training data to use
+   *             (the estimator will be fit on the result of passing this data through the current pipeline)
+   * @param labels The labels to use when fitting the LabelEstimator. Must be zippable with the training data.
+   */
   final def andThen[C, L](
     est: LabelEstimator[B, C, L],
     data: RDD[A],
@@ -111,6 +154,15 @@ trait Pipeline[A, B] {
     this andThen est.fit(apply(data), labels)
   }
 
+  /**
+   * Chains a label estimator onto the end of this pipeline, producing a new pipeline.
+   * If this pipeline has already been executed, it will not need to be fit again.
+   *
+   * @param est The estimator to chain onto the end of this pipeline
+   * @param data The training data to use
+   *             (the estimator will be fit on the result of passing this data through the current pipeline)
+   * @param labels The labels to use when fitting the LabelEstimator. Must be zippable with the training data.
+   */
   final def andThen[C, L](
     est: LabelEstimator[B, C, L],
     data: PipelineDatasetOut[A],

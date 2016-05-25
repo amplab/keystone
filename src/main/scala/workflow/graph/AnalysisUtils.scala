@@ -85,14 +85,14 @@ private[graph] object AnalysisUtils {
    * @param id A node/sink/source in the graph
    * @return The ancestors of that id in sorted topological order
    */
-  def linearize(graph: Graph, id: GraphId): Seq[NodeOrSourceId] = {
-    val deps: Seq[NodeOrSourceId] = id match {
+  def linearize(graph: Graph, id: GraphId): Seq[GraphId] = {
+    val deps: Seq[GraphId] = id match {
       case source: SourceId => Seq()
       case node: NodeId => graph.getDependencies(node)
       case sink: SinkId => Seq(graph.getSinkDependency(sink))
     }
 
-    deps.foldLeft(Seq[NodeOrSourceId]()) {
+    deps.foldLeft(Seq[GraphId]()) {
       case (linearization, dep) => if (!linearization.contains(dep)) {
         linearization ++ linearize(graph, dep).filter(id => !linearization.contains(id)) :+ dep
       } else {

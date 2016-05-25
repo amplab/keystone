@@ -15,8 +15,6 @@ abstract class GraphExecution[T](
   private var _sources: Map[SourceId, Operator] = sources
   private var _sink: SinkId = sink
 
-  protected def getExecutor: GraphExecutor = _executor
-
   private[graph] def setExecutor(executor: GraphExecutor): Unit = {
     this._executor = executor
   }
@@ -35,33 +33,24 @@ abstract class GraphExecution[T](
   private var ranExecution: Boolean = false
   private lazy val finalExecutor: GraphExecutor = {
     if (getSources.nonEmpty) {
-      getExecutor.partialExecute(getSink)
+      _executor.partialExecute(getSink)
 
-      val unmergedGraph = _sources.foldLeft(getExecutor.getGraph) {
-        case (curGraph, (sourceId, sourceOp)) => {
-          val (graphWithDataset, nodeId) = getExecutor.getGraph.addNode(sourceOp, Seq())
-          graphWithDataset.replaceDependency(sourceId, nodeId).removeSource(sourceId)
-        }
-      }
-
-      // Note: The existing executor state should not have any value stored at the removed source,
-      // hence we can just reuse it
-      val (newGraph, newState) = EquivalentNodeMergeOptimizer.execute(unmergedGraph, getExecutor.getState)
+      val (newGraph, newState) = EquivalentNodeMergeOptimizer.execute(getGraph, getState)
 
       ranExecution = true
 
       new GraphExecutor(newGraph, newState, optimize = false)
     } else {
-      getExecutor
+      _executor
     }
   }
 
   private[graph] def getGraph: Graph = if (ranExecution) {
     finalExecutor.getGraph
   } else {
-    _sources.foldLeft(getExecutor.getGraph) {
+    _sources.foldLeft(_executor.getGraph) {
       case (curGraph, (sourceId, sourceOp)) => {
-        val (graphWithDataset, nodeId) = getExecutor.getGraph.addNode(sourceOp, Seq())
+        val (graphWithDataset, nodeId) = _executor.getGraph.addNode(sourceOp, Seq())
         graphWithDataset.replaceDependency(sourceId, nodeId).removeSource(sourceId)
       }
     }
@@ -70,7 +59,7 @@ abstract class GraphExecution[T](
   private[graph] def getState: Map[GraphId, Expression] = if (ranExecution) {
     finalExecutor.getState
   } else {
-    getExecutor.getState
+    _executor.getState
   }
 
   final def get(): T = expressionToOutput(finalExecutor.execute(getSink))

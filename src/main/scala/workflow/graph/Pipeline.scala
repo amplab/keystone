@@ -4,178 +4,6 @@ import org.apache.spark.rdd.RDD
 
 import scala.reflect.ClassTag
 
-private[graph] class GraphExecutor(graph: Graph, state: Map[GraphId, Expression], optimize: Boolean = true) {
-  private var optimized: Boolean = false
-  private lazy val optimizedGraphAndState: (Graph, scala.collection.mutable.Map[GraphId, Expression]) = {
-    val (newGraph, newState) = if (optimize) {
-      Pipeline.getOptimizer.execute(graph, state)
-    } else {
-      (graph, state)
-    }
-
-    optimized = true
-    (newGraph, scala.collection.mutable.Map() ++ newState)
-  }
-  private lazy val optimizedGraph: Graph = optimizedGraphAndState._1
-  private lazy val optimizedState: scala.collection.mutable.Map[GraphId, Expression] = optimizedGraphAndState._2
-
-  def getGraph: Graph = if (optimized) {
-    optimizedGraph
-  } else {
-    graph
-  }
-
-  def getState: Map[GraphId, Expression] = if (optimized) {
-    optimizedState.toMap
-  } else {
-    state
-  }
-
-  private lazy val sourceDependants: Set[GraphId] = {
-    optimizedGraph.sources.foldLeft(Set[GraphId]()) {
-      case (descendants, source) => descendants ++ AnalysisUtils.getDescendants(optimizedGraph, source) + source
-    }
-  }
-
-  def partialExecute(graphId: GraphId): Unit = {
-    val linearization = AnalysisUtils.linearize(optimizedGraph, graphId) :+ graphId
-    val idsToExecute = linearization.filter(id => (!sourceDependants.contains(id)) && (!optimizedState.contains(id)))
-    idsToExecute.foreach {ancestor => execute(ancestor)}
-  }
-
-  def execute(graphId: GraphId): Expression = {
-    require(!sourceDependants.contains(graphId), "May not execute GraphIds that depend on unconnected sources.")
-
-    optimizedState.getOrElseUpdate(graphId, {
-      graphId match {
-        case source: SourceId => throw new IllegalArgumentException("Unconnected sources have no stored value")
-        case node: NodeId => {
-          val dependencies = optimizedGraph.getDependencies(node)
-          val depExpressions = dependencies.map(dep => execute(dep))
-          val operator = optimizedGraph.getOperator(node)
-          operator.execute(depExpressions)
-        }
-        case sink: SinkId => {
-          val sinkDep = optimizedGraph.getSinkDependency(sink)
-          execute(sinkDep)
-        }
-      }
-    })
-  }
-}
-
-// rough idea given incrementalism: do everything it can in the base executor (which may be shared w/ other things) w/o inserting sources.
-// then create a "final executor" that is the base one w/ sources inserted, and optimized using the EquivalentNodeMerge optimizer.
-// The final value execution happens on that "final executor"
-// This two stage process allows "intuitive things" to happen a source being passed in is already processed elsewhere in the pipeline (e.g. making sure to reuse a cacher),
-// while pipeline fitting results can be reused across multiple pipeline applies, as they all share the same base executor.
-abstract class GraphBackedExecution[T](
-  executor: GraphExecutor,
-  sources: Map[SourceId, Operator],
-  sink: SinkId,
-  expressionToOutput: Expression => T
-) {
-  private var _executor: GraphExecutor = executor
-  private var _sources: Map[SourceId, Operator] = sources
-  private var _sink: SinkId = sink
-
-  protected def getExecutor: GraphExecutor = _executor
-
-  private[graph] def setExecutor(executor: GraphExecutor): Unit = {
-    this._executor = executor
-  }
-
-  private[graph] def setSources(sources: Map[SourceId, Operator]): Unit = {
-    this._sources = sources
-  }
-
-  private[graph] def setSink(sink: SinkId): Unit = {
-    this._sink = sink
-  }
-
-  private[graph] def getSources: Map[SourceId, Operator] = _sources
-  private[graph] def getSink: SinkId = _sink
-
-  private var ranExecution: Boolean = false
-  private lazy val finalExecutor: GraphExecutor = {
-    if (getSources.nonEmpty) {
-      getExecutor.partialExecute(getSink)
-
-      val unmergedGraph = _sources.foldLeft(getExecutor.getGraph) {
-        case (curGraph, (sourceId, sourceOp)) => {
-          val (graphWithDataset, nodeId) = getExecutor.getGraph.addNode(sourceOp, Seq())
-          graphWithDataset.replaceDependency(sourceId, nodeId).removeSource(sourceId)
-        }
-      }
-
-      // Note: The existing executor state should not have any value stored at the removed source,
-      // hence we can just reuse it
-      val (newGraph, newState) = EquivalentNodeMergeOptimizer.execute(unmergedGraph, getExecutor.getState)
-
-      ranExecution = true
-
-      new GraphExecutor(newGraph, newState, optimize = false)
-    } else {
-      getExecutor
-    }
-  }
-
-  private[graph] def getGraph: Graph = if (ranExecution) {
-    finalExecutor.getGraph
-  } else {
-    _sources.foldLeft(getExecutor.getGraph) {
-      case (curGraph, (sourceId, sourceOp)) => {
-        val (graphWithDataset, nodeId) = getExecutor.getGraph.addNode(sourceOp, Seq())
-        graphWithDataset.replaceDependency(sourceId, nodeId).removeSource(sourceId)
-      }
-    }
-  }
-
-  private[graph] def getState: Map[GraphId, Expression] = if (ranExecution) {
-    finalExecutor.getState
-  } else {
-    getExecutor.getState
-  }
-
-  final def get(): T = expressionToOutput(finalExecutor.execute(getSink))
-}
-
-// A lazy representation of a pipeline output
-class PipelineDatumOut[T] private[graph] (executor: GraphExecutor, sink: SinkId, source: Option[(SourceId, Any)])
-  extends GraphBackedExecution(
-    executor,
-    source.map(sourceAndVal => Map(sourceAndVal._1 -> DatumOperator(sourceAndVal._2))).getOrElse(Map()),
-    sink,
-    _.asInstanceOf[DatumExpression].get.asInstanceOf[T])
-
-object PipelineDatumOut {
-  private[graph] def apply[T](datum: T): PipelineDatumOut[T] = {
-    val emptyGraph = Graph(Set(), Map(), Map(), Map())
-    val (graphWithDataset, nodeId) = emptyGraph.addNode(new DatumOperator(datum), Seq())
-    val (graph, sinkId) = graphWithDataset.addSink(nodeId)
-
-    new PipelineDatumOut[T](new GraphExecutor(graph, Map()), sinkId, None)
-  }
-}
-
-// A lazy representation of a pipeline output
-class PipelineDatasetOut[T] private[graph] (executor: GraphExecutor, sink: SinkId, source: Option[(SourceId, RDD[_])])
-  extends GraphBackedExecution(
-    executor,
-    source.map(sourceAndVal => Map(sourceAndVal._1 -> DatasetOperator(sourceAndVal._2))).getOrElse(Map()),
-    sink,
-    _.asInstanceOf[DatasetExpression].get.asInstanceOf[RDD[T]])
-
-object PipelineDatasetOut {
-  private[graph] def apply[T](rdd: RDD[T]): PipelineDatasetOut[T] = {
-    val emptyGraph = Graph(Set(), Map(), Map(), Map())
-    val (graphWithDataset, nodeId) = emptyGraph.addNode(new DatasetOperator(rdd), Seq())
-    val (graph, sinkId) = graphWithDataset.addSink(nodeId)
-
-    new PipelineDatasetOut[T](new GraphExecutor(graph, Map()), sinkId, None)
-  }
-}
-
 trait Pipeline[A, B] {
   private[graph] val source: SourceId
   private[graph] val sink: SinkId
@@ -270,6 +98,7 @@ object Pipeline {
 
   /**
    * Globally set a new optimizer to use during Pipeline execution.
+   *
    * @param optimizer The new optimizer to use
    */
   def setOptimizer(optimizer: Optimizer): Unit = {
@@ -277,7 +106,7 @@ object Pipeline {
   }
 
   /**
-   * Submit multiple [[GraphBackedExecution]]s to be optimized as a group by looking at all of
+   * Submit multiple [[GraphExecution]]s to be optimized as a group by looking at all of
    * their underlying execution plans together, instead of optimizing each plan individually.
    * When a workload consists of processing multiple datasets using multiple pipelines,
    * this may produce superior workload throughput.
@@ -285,13 +114,13 @@ object Pipeline {
    * This is a lazy method, i.e. no optimization or execution will occur until the submitted executions have
    * their results accessed.
    *
-   * @param graphBackedExecutions The executions to submit as a group.
+   * @param executions The executions to submit as a group.
    */
-  def submit(graphBackedExecutions: GraphBackedExecution[_]*): Unit = {
+  def submit(executions: GraphExecution[_]*): Unit = {
     // Add all the graphs of each graphBackedExecution into a single merged graph,
     // And all the states of each graphBackedExecution into a single merged state
     val emptyGraph = new Graph(Set(), Map(), Map(), Map())
-    val (newGraph, newState, _, sinkMappings) = graphBackedExecutions.foldLeft(
+    val (newGraph, newState, _, sinkMappings) = executions.foldLeft(
       emptyGraph,
       Map[GraphId, Expression](),
       Seq[Map[SourceId, SourceId]](),
@@ -312,8 +141,8 @@ object Pipeline {
     // Create a new executor created that is the merged result of all the individual executors from the above
     // merged graph and merged state, then update every GraphBackedExecution to use the new executor.
     val newExecutor = new GraphExecutor(graph = newGraph, state = newState)
-    for (i <- graphBackedExecutions.indices) {
-      val execution = graphBackedExecutions(i)
+    for (i <- executions.indices) {
+      val execution = executions(i)
       execution.setExecutor(newExecutor)
       execution.setSources(Map())
       execution.setSink(sinkMappings(i).apply(execution.getSink))

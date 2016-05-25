@@ -1,6 +1,10 @@
 package workflow.graph
 
-// A lazy representation of a pipeline output
+/**
+ * This class is a lazy wrapper around the output of a pipeline that was passed a single datum as input.
+ *
+ * Under the hood, it extends [[GraphExecution]] and keeps track of the necessary execution plan.
+ */
 class PipelineDatumOut[T] private[graph] (executor: GraphExecutor, sink: SinkId, source: Option[(SourceId, Any)])
   extends GraphExecution(
     executor,

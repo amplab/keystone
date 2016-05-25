@@ -2,7 +2,11 @@ package workflow.graph
 
 import org.apache.spark.rdd.RDD
 
-// A lazy representation of a pipeline output
+/**
+ * This class is a lazy wrapper around the output of a pipeline that was passed an RDD as input.
+ *
+ * Under the hood, it extends [[GraphExecution]] and keeps track of the necessary execution plan.
+ */
 class PipelineDatasetOut[T] private[graph] (executor: GraphExecutor, sink: SinkId, source: Option[(SourceId, RDD[_])])
   extends GraphExecution(
     executor,

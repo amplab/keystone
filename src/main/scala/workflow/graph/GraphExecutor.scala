@@ -5,7 +5,7 @@ package workflow.graph
  * It provides methods to further execute parts of the graph, returning the execution result.
  * By default, it will optimize the graph before any new execution occurs.
  *
- * Warning: Not thread-safe at all!
+ * Warning: Not thread-safe!
  *
  * @param graph The underlying graph to execute
  * @param state A mapping of GraphId to computed Expression.

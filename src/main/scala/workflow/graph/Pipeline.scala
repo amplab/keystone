@@ -4,22 +4,44 @@ import org.apache.spark.rdd.RDD
 
 import scala.reflect.ClassTag
 
-// pipeline, yay!
-// not thread-safe, sorry
-// chaining is incremental (if stuff is chained after having already been fit/executed/cached, it won't need to re-fit/re-execute/re-cache)
+/**
+ * A Pipeline takes data as input (single item or an RDD), and outputs some transformation
+ * of that data. Internally, a Pipeline contains a [[GraphExecutor]], a specified source, and a specified sink.
+ * When a pipeline is applied to data it produces a [[GraphExecution]], in the form of either a [[PipelineDatasetOut]]
+ * or a [[PipelineDatumOut]]. These are lazy wrappers around the scheduled execution under the hood,
+ * and when their values are accessed the underlying [[Graph]] will be executed.
+ *
+ * Warning: Not thread-safe!
+ *
+ * @tparam A type of the data this Pipeline expects as input
+ * @tparam B type of the data this Pipeline outputs
+ */
 trait Pipeline[A, B] {
   private[graph] val source: SourceId
   private[graph] val sink: SinkId
   private[graph] def executor: GraphExecutor
 
+  /**
+   * Lazily apply the pipeline to a single datum.
+   * @return A lazy wrapper around the result of passing the datum through the pipeline.
+   */
   final def apply(datum: A): PipelineDatumOut[B] = {
     new PipelineDatumOut[B](executor, sink, Some(source, datum))
   }
 
+  /**
+   * Lazily apply the pipeline to a dataset.
+   * @return A lazy wrapper around the result of passing the dataset through the pipeline.
+   */
   final def apply(data: RDD[A]): PipelineDatasetOut[B] = {
     new PipelineDatasetOut[B](executor, sink, Some(source, data))
   }
 
+  /**
+   * Lazily apply the pipeline to the lazy output of a different pipeline given an initial dataset.
+   * If the previous pipeline has already been fit, it will not need to be fit again.
+   * @return A lazy wrapper around the result of passing lazy output from a different pipeline through this pipeline.
+   */
   final def apply(data: PipelineDatasetOut[A]): PipelineDatasetOut[B] = {
     val (newGraph, sourceMapping, nodeMapping, sinkMapping) =
       data.getGraph.connectGraph(executor.getGraph, Map(source -> data.getSink))
@@ -29,6 +51,11 @@ trait Pipeline[A, B] {
     new PipelineDatasetOut[B](new GraphExecutor(newGraph, newState), sinkMapping(sink), None)
   }
 
+  /**
+   * Lazily apply the pipeline to the lazy output of a different pipeline given an initial datum.
+   * If the previous pipeline has already been fit, it will not need to be fit again.
+   * @return A lazy wrapper around the result of passing lazy output from a different pipeline through this pipeline.
+   */
   final def apply(datum: PipelineDatumOut[A]): PipelineDatumOut[B] = {
     val (newGraph, sourceMapping, nodeMapping, sinkMapping) =
       datum.getGraph.connectGraph(executor.getGraph, Map(source -> datum.getSink))
@@ -38,6 +65,12 @@ trait Pipeline[A, B] {
     new PipelineDatumOut[B](new GraphExecutor(newGraph, newState), sinkMapping(sink), None)
   }
 
+  /**
+   * Chains a pipeline onto the end of this one, producing a new pipeline.
+   * If either this pipeline or the following has already been fit, it will not need to be fit again.
+   *
+   * @param next the pipeline to chain
+   */
   final def andThen[C](next: Pipeline[B, C]): Pipeline[A, C] = {
     val (newGraph, sourceMapping, nodeMapping, sinkMapping) =
       executor.getGraph.connectGraph(next.executor.getGraph, Map(next.source -> sink))

@@ -7,14 +7,14 @@ import scala.reflect.ClassTag
 private[graph] class GraphExecutor(graph: Graph, state: Map[GraphId, Expression], optimize: Boolean = true) {
   private var optimized: Boolean = false
   private lazy val optimizedGraphAndState: (Graph, scala.collection.mutable.Map[GraphId, Expression]) = {
-    val (newGraph, newExecutionState) = if (optimize) {
+    val (newGraph, newState) = if (optimize) {
       Pipeline.getOptimizer.execute(graph, state)
     } else {
       (graph, state)
     }
 
     optimized = true
-    (newGraph, scala.collection.mutable.Map() ++ newExecutionState)
+    (newGraph, scala.collection.mutable.Map() ++ newState)
   }
   private lazy val optimizedGraph: Graph = optimizedGraphAndState._1
   private lazy val optimizedState: scala.collection.mutable.Map[GraphId, Expression] = optimizedGraphAndState._2
@@ -31,22 +31,20 @@ private[graph] class GraphExecutor(graph: Graph, state: Map[GraphId, Expression]
     state
   }
 
-  // Todo put comment: A result is unstorable if it implicitly depends on any source
-  private lazy val descendantsOfSources: Set[GraphId] = {
+  private lazy val sourceDependants: Set[GraphId] = {
     optimizedGraph.sources.foldLeft(Set[GraphId]()) {
       case (descendants, source) => descendants ++ AnalysisUtils.getDescendants(optimizedGraph, source) + source
     }
   }
 
-  // TODO rename and comment. This method executes & stores all ancestors of a sink that don't depend on sources, and haven't already been executed
   def partialExecute(graphId: GraphId): Unit = {
-    val linearizedAncestors = AnalysisUtils.linearize(optimizedGraph, graphId) :+ graphId
-    val ancestorsToExecute = linearizedAncestors.filter(id => (!descendantsOfSources.contains(id)) && (!optimizedState.contains(id)))
-    ancestorsToExecute.foreach {ancestor => execute(ancestor)}
+    val linearization = AnalysisUtils.linearize(optimizedGraph, graphId) :+ graphId
+    val idsToExecute = linearization.filter(id => (!sourceDependants.contains(id)) && (!optimizedState.contains(id)))
+    idsToExecute.foreach {ancestor => execute(ancestor)}
   }
 
   def execute(graphId: GraphId): Expression = {
-    require(!descendantsOfSources.contains(graphId), "May not execute GraphIds dependent on unconnected sources.")
+    require(!sourceDependants.contains(graphId), "May not execute GraphIds that depend on unconnected sources.")
 
     optimizedState.getOrElseUpdate(graphId, {
       graphId match {
@@ -66,6 +64,11 @@ private[graph] class GraphExecutor(graph: Graph, state: Map[GraphId, Expression]
   }
 }
 
+// rough idea given incrementalism: do everything it can in the base executor (which may be shared w/ other things) w/o inserting sources.
+// then create a "final executor" that is the base one w/ sources inserted, and optimized using the EquivalentNodeMerge optimizer.
+// The final value execution happens on that "final executor"
+// This two stage process allows "intuitive things" to happen a source being passed in is already processed elsewhere in the pipeline (e.g. making sure to reuse a cacher),
+// while pipeline fitting results can be reused across multiple pipeline applies, as they all share the same base executor.
 abstract class GraphBackedExecution[T](
   executor: GraphExecutor,
   sources: Map[SourceId, Operator],
@@ -105,7 +108,8 @@ abstract class GraphBackedExecution[T](
         }
       }
 
-      // Note: The existing executor state should not have any value stored at the source, hence we don't need to update it
+      // Note: The existing executor state should not have any value stored at the removed source,
+      // hence we can just reuse it
       val (newGraph, newState) = EquivalentNodeMergeOptimizer.execute(unmergedGraph, getExecutor.getState)
 
       ranExecution = true
@@ -186,28 +190,29 @@ trait Pipeline[A, B] {
   }
 
   final def apply(data: PipelineDatasetOut[A]): PipelineDatasetOut[B] = {
-    val (newGraph, newSourceMapping, newNodeMapping, newSinkMapping) = data.getGraph.connectGraph(executor.getGraph, Map(source -> data.getSink))
-    val graphIdMappings: Map[GraphId, GraphId] = newSourceMapping ++ newNodeMapping ++ newSinkMapping
-    val newExecutionState = data.getState - data.getSink ++ executor.getState.map(x => (graphIdMappings(x._1), x._2))
+    val (newGraph, sourceMapping, nodeMapping, sinkMapping) =
+      data.getGraph.connectGraph(executor.getGraph, Map(source -> data.getSink))
+    val idMapping: Map[GraphId, GraphId] = sourceMapping ++ nodeMapping ++ sinkMapping
+    val newState = data.getState - data.getSink ++ executor.getState.map(x => (idMapping(x._1), x._2))
 
-    new PipelineDatasetOut[B](new GraphExecutor(newGraph, newExecutionState), newSinkMapping(sink), None)
+    new PipelineDatasetOut[B](new GraphExecutor(newGraph, newState), sinkMapping(sink), None)
   }
 
   final def apply(datum: PipelineDatumOut[A]): PipelineDatumOut[B] = {
-    val (newGraph, newSourceMapping, newNodeMapping, newSinkMapping) =
+    val (newGraph, sourceMapping, nodeMapping, sinkMapping) =
       datum.getGraph.connectGraph(executor.getGraph, Map(source -> datum.getSink))
-    val graphIdMappings: Map[GraphId, GraphId] = newSourceMapping ++ newNodeMapping ++ newSinkMapping
-    val newExecutionState = datum.getState - datum.getSink ++ executor.getState.map(x => (graphIdMappings(x._1), x._2))
+    val idMapping: Map[GraphId, GraphId] = sourceMapping ++ nodeMapping ++ sinkMapping
+    val newState = datum.getState - datum.getSink ++ executor.getState.map(x => (idMapping(x._1), x._2))
 
-    new PipelineDatumOut[B](new GraphExecutor(newGraph, newExecutionState), newSinkMapping(sink), None)
+    new PipelineDatumOut[B](new GraphExecutor(newGraph, newState), sinkMapping(sink), None)
   }
 
-  // TODO: Clean up this method
   final def andThen[C](next: Pipeline[B, C]): Pipeline[A, C] = {
-    val (newGraph, newSourceMappings, newNodeMappings, newSinkMappings) = executor.getGraph.connectGraph(next.executor.getGraph, Map(next.source -> sink))
-    val graphIdMappings: Map[GraphId, GraphId] = newSourceMappings ++ newNodeMappings ++ newSinkMappings
-    val newExecutionState = executor.getState - sink ++ next.executor.getState.map(x => (graphIdMappings(x._1), x._2))
-    new ConcretePipeline(new GraphExecutor(newGraph, newExecutionState), source, newSinkMappings(next.sink))
+    val (newGraph, sourceMapping, nodeMapping, sinkMapping) =
+      executor.getGraph.connectGraph(next.executor.getGraph, Map(next.source -> sink))
+    val idMapping: Map[GraphId, GraphId] = sourceMapping ++ nodeMapping ++ sinkMapping
+    val newState = executor.getState - sink ++ next.executor.getState.map(x => (idMapping(x._1), x._2))
+    new ConcretePipeline(new GraphExecutor(newGraph, newState), source, sinkMapping(next.sink))
   }
 
   final def andThen[C](est: Estimator[B, C], data: RDD[A]): Pipeline[A, C] = {
@@ -218,64 +223,95 @@ trait Pipeline[A, B] {
     this andThen est.fit(apply(data))
   }
 
-  final def andThen[C, L](est: LabelEstimator[B, C, L], data: RDD[A], labels: RDD[L]): Pipeline[A, C] = {
+  final def andThen[C, L](
+    est: LabelEstimator[B, C, L],
+    data: RDD[A],
+    labels: RDD[L]
+  ): Pipeline[A, C] = {
     this andThen est.fit(apply(data), labels)
   }
 
-  final def andThen[C, L](est: LabelEstimator[B, C, L], data: PipelineDatasetOut[A], labels: RDD[L]): Pipeline[A, C] = {
+  final def andThen[C, L](
+    est: LabelEstimator[B, C, L],
+    data: PipelineDatasetOut[A],
+    labels: RDD[L]
+  ): Pipeline[A, C] = {
     this andThen est.fit(apply(data), labels)
   }
 
-  final def andThen[C, L](est: LabelEstimator[B, C, L], data: RDD[A], labels: PipelineDatasetOut[L]): Pipeline[A, C] = {
+  final def andThen[C, L](
+    est: LabelEstimator[B, C, L],
+    data: RDD[A],
+    labels: PipelineDatasetOut[L]
+  ): Pipeline[A, C] = {
     this andThen est.fit(apply(data), labels)
   }
 
-  final def andThen[C, L](est: LabelEstimator[B, C, L], data: PipelineDatasetOut[A], labels: PipelineDatasetOut[L]): Pipeline[A, C] = {
+  final def andThen[C, L](
+    est: LabelEstimator[B, C, L],
+    data: PipelineDatasetOut[A],
+    labels: PipelineDatasetOut[L]
+  ): Pipeline[A, C] = {
     this andThen est.fit(apply(data), labels)
   }
 
 }
 
-/**
- * An implementation of [[Pipeline]] that explicitly specifies the Pipline internals as vals.
- *
- * @param executor The [[GraphExecutor]] underlying the Pipeline execution.
- * @param source The SourceId of the pipeline
- * @param sink The SinkId of the Pipeline
- * @tparam A The type of input to the Pipeline
- * @tparam B The type of output from the Pipeline
- */
-private[graph] class ConcretePipeline[A, B](
-  override private[graph] val executor: GraphExecutor,
-  override private[graph] val source: SourceId,
-  override private[graph] val sink: SinkId
-) extends Pipeline[A, B]
-
 object Pipeline {
+  /**
+   * The internally stored optimizer globally used for all Pipeline execution. Accessible using getter and setter.
+   */
   private var _optimizer: Optimizer = DefaultOptimizer
+
+  /**
+   * @return The current global optimizer used during Pipeline execution.
+   */
   def getOptimizer: Optimizer = _optimizer
+
+  /**
+   * Globally set a new optimizer to use during Pipeline execution.
+   * @param optimizer The new optimizer to use
+   */
   def setOptimizer(optimizer: Optimizer): Unit = {
     _optimizer = optimizer
   }
 
-  // Combine all the internal graph representations to use the same, merged representation
+  /**
+   * Submit multiple [[GraphBackedExecution]]s to be optimized as a group by looking at all of
+   * their underlying execution plans together, instead of optimizing each plan individually.
+   * When a workload consists of processing multiple datasets using multiple pipelines,
+   * this may produce superior workload throughput.
+   *
+   * This is a lazy method, i.e. no optimization or execution will occur until the submitted executions have
+   * their results accessed.
+   *
+   * @param graphBackedExecutions The executions to submit as a group.
+   */
   def submit(graphBackedExecutions: GraphBackedExecution[_]*): Unit = {
+    // Add all the graphs of each graphBackedExecution into a single merged graph,
+    // And all the states of each graphBackedExecution into a single merged state
     val emptyGraph = new Graph(Set(), Map(), Map(), Map())
-    val (newGraph, newExecutionState, _, sinkMappings) = graphBackedExecutions.foldLeft(
+    val (newGraph, newState, _, sinkMappings) = graphBackedExecutions.foldLeft(
       emptyGraph,
       Map[GraphId, Expression](),
       Seq[Map[SourceId, SourceId]](),
       Seq[Map[SinkId, SinkId]]()
     ) {
-      case ((curGraph, curExecutionState, curSourceMappings, curSinkMappings), graphExecution) =>
-        val (nextGraph, nextSourceMapping, nextNodeMapping, nextSinkMapping) = curGraph.addGraph(graphExecution.getGraph)
-        val graphIdMappings: Map[GraphId, GraphId] = nextSourceMapping ++ nextNodeMapping ++ nextSinkMapping
-        val nextExecutionState = curExecutionState ++ graphExecution.getState.map(x => (graphIdMappings(x._1), x._2))
+      case ((curGraph, curState, curSourceMappings, curSinkMappings), graphExecution) =>
+        // Merge in an additional execution's graph into the total merged graph
+        val (nextGraph, nextSourceMapping, nextNodeMapping, nextSinkMapping) =
+          curGraph.addGraph(graphExecution.getGraph)
 
-        (nextGraph, nextExecutionState, curSourceMappings :+ nextSourceMapping, curSinkMappings :+ nextSinkMapping)
+        // Merge in an additional execution's state into the total merged state
+        val idMapping: Map[GraphId, GraphId] = nextSourceMapping ++ nextNodeMapping ++ nextSinkMapping
+        val nextState = curState ++ graphExecution.getState.map(x => (idMapping(x._1), x._2))
+
+        (nextGraph, nextState, curSourceMappings :+ nextSourceMapping, curSinkMappings :+ nextSinkMapping)
     }
 
-    val newExecutor = new GraphExecutor(graph = newGraph, state = newExecutionState)
+    // Create a new executor created that is the merged result of all the individual executors from the above
+    // merged graph and merged state, then update every GraphBackedExecution to use the new executor.
+    val newExecutor = new GraphExecutor(graph = newGraph, state = newState)
     for (i <- graphBackedExecutions.indices) {
       val execution = graphBackedExecutions(i)
       execution.setExecutor(newExecutor)
@@ -318,8 +354,8 @@ object Pipeline {
         // Because pipeline construction is incremental, we make sure to add the state of the branch to our
         // accumulated state. We update the graph ids for the new branch's state, and remove all graph ids
         // that no longer exist.
-        val graphIdMappings: Map[GraphId, GraphId] = sourceMapping ++ nodeMapping ++ sinkMapping
-        val branchState = branch.executor.getState.map(x => (graphIdMappings(x._1), x._2)) - branchSink - branchSource
+        val idMapping: Map[GraphId, GraphId] = sourceMapping ++ nodeMapping ++ sinkMapping
+        val branchState = branch.executor.getState.map(x => (idMapping(x._1), x._2)) - branchSink - branchSource
         val nextState = state ++ branchState
 
         (nextGraph, nextState, sinks :+ branchSinkDep)

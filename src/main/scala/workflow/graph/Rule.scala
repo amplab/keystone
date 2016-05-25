@@ -1,8 +1,12 @@
 package workflow.graph
 
 /**
- * Represents a pipeline transformation rule: A transformation from one pipeline
- * to a differently-executed but functionally equivalent pipeline
+ * Represents a DAG transformation rule: A transformation from one DAG
+ * to a differently-executed but logically equivalent DAG.
+ *
+ * A rule must also produce execution state for
+ * the new DAG, logically equivalent to the execution state
+ * attached to the old DAG.
  */
 abstract class Rule {
   /** Name for this rule, automatically inferred based on class name. */
@@ -11,5 +15,5 @@ abstract class Rule {
     if (className endsWith "$") className.dropRight(1) else className
   }
 
-  def apply(plan: Graph, executionState: Map[GraphId, Expression]): (Graph, Map[GraphId, Expression])
+  def apply(plan: Graph, state: Map[GraphId, Expression]): (Graph, Map[GraphId, Expression])
 }

@@ -9,8 +9,8 @@ object DanglingNodeRemovalRule extends Rule {
       case (ancestors, sink) => ancestors ++ AnalysisUtils.getAncestors(plan, sink)
     }
 
-    val nodesToRemove = plan.nodes -- ancestorsOfSinks.collect{ case node: NodeId => node }
-    val sourcesToRemove = plan.sources -- ancestorsOfSinks.collect{ case source: SourceId => source }
+    val nodesToRemove = plan.nodes -- ancestorsOfSinks.collect { case node: NodeId => node }
+    val sourcesToRemove = plan.sources -- ancestorsOfSinks.collect { case source: SourceId => source }
 
     val afterSourceRemoval = sourcesToRemove.foldLeft(plan) {
       case (curPlan, sourceToRemove) => curPlan.removeSource(sourceToRemove)

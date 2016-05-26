@@ -7,7 +7,7 @@ import scala.reflect.ClassTag
 /**
  * A Pipeline takes data as input (single item or an RDD), and outputs some transformation
  * of that data. Internally, a Pipeline contains a [[GraphExecutor]], a specified source, and a specified sink.
- * When a pipeline is applied to data it produces a [[GraphExecution]], in the form of either a [[PipelineDatasetOut]]
+ * When a pipeline is applied to data it produces a [[PipelineResult]], in the form of either a [[PipelineDatasetOut]]
  * or a [[PipelineDatumOut]]. These are lazy wrappers around the scheduled execution under the hood,
  * and when their values are accessed the underlying [[Graph]] will be executed.
  *
@@ -23,6 +23,7 @@ trait Pipeline[A, B] {
 
   /**
    * Lazily apply the pipeline to a single datum.
+ *
    * @return A lazy wrapper around the result of passing the datum through the pipeline.
    */
   final def apply(datum: A): PipelineDatumOut[B] = {
@@ -31,6 +32,7 @@ trait Pipeline[A, B] {
 
   /**
    * Lazily apply the pipeline to a dataset.
+ *
    * @return A lazy wrapper around the result of passing the dataset through the pipeline.
    */
   final def apply(data: RDD[A]): PipelineDatasetOut[B] = {
@@ -40,6 +42,7 @@ trait Pipeline[A, B] {
   /**
    * Lazily apply the pipeline to the lazy output of a different pipeline given an initial dataset.
    * If the previous pipeline has already been fit, it will not need to be fit again.
+ *
    * @return A lazy wrapper around the result of passing lazy output from a different pipeline through this pipeline.
    */
   final def apply(data: PipelineDatasetOut[A]): PipelineDatasetOut[B] = {
@@ -54,6 +57,7 @@ trait Pipeline[A, B] {
   /**
    * Lazily apply the pipeline to the lazy output of a different pipeline given an initial datum.
    * If the previous pipeline has already been fit, it will not need to be fit again.
+ *
    * @return A lazy wrapper around the result of passing lazy output from a different pipeline through this pipeline.
    */
   final def apply(datum: PipelineDatumOut[A]): PipelineDatumOut[B] = {
@@ -174,6 +178,9 @@ trait Pipeline[A, B] {
 }
 
 object Pipeline {
+  // not threadsafe
+  private[graph] val state: scala.collection.mutable.Map[Prefix, Expression] = scala.collection.mutable.Map()
+
   /**
    * The internally stored optimizer globally used for all Pipeline execution. Accessible using getter and setter.
    */
@@ -194,7 +201,7 @@ object Pipeline {
   }
 
   /**
-   * Submit multiple [[GraphExecution]]s to be optimized as a group by looking at all of
+   * Submit multiple [[PipelineResult]]s to be optimized as a group by looking at all of
    * their underlying execution plans together, instead of optimizing each plan individually.
    * When a workload consists of processing multiple datasets using multiple pipelines,
    * this may produce superior workload throughput.
@@ -204,7 +211,7 @@ object Pipeline {
    *
    * @param executions The executions to submit as a group.
    */
-  def submit(executions: GraphExecution[_]*): Unit = {
+  def submit(executions: PipelineResult[_]*): Unit = {
     // Add all the graphs of each graphBackedExecution into a single merged graph,
     // And all the states of each graphBackedExecution into a single merged state
     val emptyGraph = new Graph(Set(), Map(), Map(), Map())

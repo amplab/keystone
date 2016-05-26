@@ -5,7 +5,15 @@ package workflow.graph
  */
 object ExtractSaveablePrefixes extends Rule {
   override def apply(plan: Graph, prefixes: Map[NodeId, Prefix]): (Graph, Map[NodeId, Prefix]) = {
-    // TODO FIXME
-    (plan, prefixes)
+    val nodesToExtract = plan.operators.collect {
+      case (node, _: Cacher[_]) => node
+      case (node, _: EstimatorOperator) => node
+    }
+
+    val newPrefixes = nodesToExtract.map {
+      node => (node, Prefix.get(plan, node))
+    }.toMap
+
+    (plan, newPrefixes)
   }
 }

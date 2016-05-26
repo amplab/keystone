@@ -24,7 +24,7 @@ abstract class Transformer[A, B : ClassTag] extends TransformerOperator with Pip
     sinkDependencies = Map(SinkId(0) -> NodeId(0)),
     operators = Map(NodeId(0) -> this),
     dependencies = Map(NodeId(0) -> Seq(SourceId(0)))
-  ), Map())
+  ))
 
   /**
    * The source this transformer contains under the hood (because it extends Pipeline)

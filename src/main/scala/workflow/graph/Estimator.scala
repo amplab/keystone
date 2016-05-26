@@ -40,10 +40,7 @@ abstract class Estimator[A, B] extends EstimatorOperator {
     val (almostFinalGraph, delegatingId) = estGraphWithNewSource.addNode(new DelegatingOperator, Seq(estId, sourceId))
     val (newGraph, sinkId) = almostFinalGraph.addSink(delegatingId)
 
-    // Because pipeline construction is incremental, we make sure to add the states of the data,
-    // removing the graph ids that no longer exist.
-    val newState = data.getState - data.getSink
-    new ConcretePipeline(new GraphExecutor(newGraph, newState), sourceId, sinkId)
+    new ConcretePipeline(new GraphExecutor(newGraph), sourceId, sinkId)
   }
 
   /**

@@ -57,7 +57,7 @@ abstract class LabelEstimator[A, B, L] extends EstimatorOperator {
    */
   final def fit(data: PipelineDatasetOut[A], labels: PipelineDatasetOut[L]): Pipeline[A, B] = {
     // Add the data input and the labels inputs into the same Graph
-    val (dataAndLabels, labelSourceMapping, labelNodeMapping, labelSinkMapping) =
+    val (dataAndLabels, _, _, labelSinkMapping) =
       data.getGraph.addGraph(labels.getGraph)
 
     // Remove the data sink & the labels sink,
@@ -77,16 +77,8 @@ abstract class LabelEstimator[A, B, L] extends EstimatorOperator {
     val (almostFinalGraph, delegatingId) = estGraphWithNewSource.addNode(new DelegatingOperator, Seq(estId, sourceId))
     val (newGraph, sinkId) = almostFinalGraph.addSink(delegatingId)
 
-    // Because pipeline construction is incremental, we make sure to add the states of the data & labels,
-    // updating graph ids for the new graph, and removing all graph ids that no longer exist.
-    val graphIdMappings: Map[GraphId, GraphId] = labelSourceMapping ++ labelNodeMapping ++ labelSinkMapping
-    val newState = data.getState ++
-      labels.getState.map(x => (graphIdMappings(x._1), x._2)) -
-      data.getSink -
-      labelSinkMapping(labels.getSink)
-
     // Finally, we construct a new pipeline w/ the new graph & new state.
-    new ConcretePipeline(new GraphExecutor(newGraph, newState), sourceId, sinkId)
+    new ConcretePipeline(new GraphExecutor(newGraph), sourceId, sinkId)
   }
 
   /**

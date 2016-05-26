@@ -242,9 +242,9 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     val numOptimizations = new AtomicInteger(0)
     Pipeline.setOptimizer(new Optimizer {
       override protected val batches: Seq[Batch] = Seq(Batch("Update num-optimizations", Once, new Rule {
-        override def apply(plan: Graph, executionState: Map[GraphId, Expression]): (Graph, Map[GraphId, Expression]) = {
+        override def apply(plan: Graph, prefixes: Map[NodeId, Prefix]): (Graph, Map[NodeId, Prefix]) = {
           numOptimizations.addAndGet(1)
-          (plan, executionState)
+          (plan, prefixes)
         }
       }))
     })
@@ -354,10 +354,10 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
       override protected val batches: Seq[Batch] =
         Batch("Common Sub-expression Elimination", FixedPoint(Int.MaxValue), EquivalentNodeMergeRule) ::
         Batch("Update num-optimizations", Once, new Rule {
-          override def apply(plan: Graph, executionState: Map[GraphId, Expression]):
-          (Graph, Map[GraphId, Expression]) = {
+          override def apply(plan: Graph, prefixes: Map[NodeId, Prefix]):
+          (Graph, Map[NodeId, Prefix]) = {
             numOptimizations.addAndGet(1)
-            (plan, executionState)
+            (plan, prefixes)
           }
         }) ::
         Nil

@@ -7,10 +7,9 @@ import org.apache.spark.rdd.RDD
  *
  * Under the hood, it extends [[PipelineResult]] and keeps track of the necessary execution plan.
  */
-class PipelineDatasetOut[T] private[graph] (executor: GraphExecutor, sink: SinkId, source: Option[(SourceId, RDD[_])])
+class PipelineDatasetOut[T] private[graph] (executor: GraphExecutor, sink: SinkId)
   extends PipelineResult[RDD[T]](
     executor,
-    source.map(sourceAndVal => Map(sourceAndVal._1 -> DatasetOperator(sourceAndVal._2))).getOrElse(Map()),
     sink)
 
 object PipelineDatasetOut {
@@ -19,6 +18,6 @@ object PipelineDatasetOut {
     val (graphWithDataset, nodeId) = emptyGraph.addNode(new DatasetOperator(rdd), Seq())
     val (graph, sinkId) = graphWithDataset.addSink(nodeId)
 
-    new PipelineDatasetOut[T](new GraphExecutor(graph, Map()), sinkId, None)
+    new PipelineDatasetOut[T](new GraphExecutor(graph), sinkId)
   }
 }

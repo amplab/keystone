@@ -13,27 +13,28 @@ package workflow.graph
  * @param optimize Whether or not to optimize the graph using the global executor before executing anything.
  *                 Defaults to True.
  */
-private[graph] class GraphExecutor(graph: Graph, optimize: Boolean = true) {
+private[graph] class GraphExecutor(val graph: Graph, optimize: Boolean = true) {
   // internally used flag to check if optimization has occurred yet. Not thread-safe!
   private var optimized: Boolean = false
 
   // The lazily computed result of optimizing the initial graph w/ initial state attached to it
-  private lazy val optimizedGraphAndState: (Graph, Map[GraphId, Expression]) = {
+  private lazy val optimizedGraphAndPrefixes: (Graph, Map[NodeId, Prefix]) = {
     optimized = true
 
     if (optimize) {
-      Pipeline.getOptimizer.execute(graph, state)
+      Pipeline.getOptimizer.execute(graph, Map())
     } else {
-      (graph, state)
+      (graph, Map())
     }
   }
 
   // The optimized graph. Lazily computed, requires optimization.
-  private lazy val optimizedGraph: Graph = optimizedGraphAndState._1
+  private lazy val optimizedGraph: Graph = optimizedGraphAndPrefixes._1
+  private lazy val prefixes: Map[NodeId, Prefix] = optimizedGraphAndPrefixes._2
 
   // The mutable internal state attached to the optimized graph. Lazily computed, requires optimization.
-  private lazy val optimizedState: scala.collection.mutable.Map[GraphId, Expression] =
-    scala.collection.mutable.Map() ++ optimizedGraphAndState._2
+  private val executionState: scala.collection.mutable.Map[GraphId, Expression] =
+    scala.collection.mutable.Map()
 
   // Internally used set of all ids in the optimized graph that are source ids, or depend explicitly or implicitly
   // on sources. Lazily computed, requires optimization.
@@ -41,17 +42,6 @@ private[graph] class GraphExecutor(graph: Graph, optimize: Boolean = true) {
     optimizedGraph.sources.foldLeft(Set[GraphId]()) {
       case (descendants, source) => descendants ++ AnalysisUtils.getDescendants(optimizedGraph, source) + source
     }
-  }
-
-  /**
-   * Get the current graph this executor is wrapping around.
-   * This is the optimized graph if optimization has occurred, otherwise
-   * it is the initial graph this executor was constructed with.
-   */
-  def getGraph: Graph = if (optimized) {
-    optimizedGraph
-  } else {
-    graph
   }
 
   /**
@@ -80,7 +70,7 @@ private[graph] class GraphExecutor(graph: Graph, optimize: Boolean = true) {
   def execute(graphId: GraphId): Expression = {
     require(!sourceDependants.contains(graphId), "May not execute GraphIds that depend on unconnected sources.")
 
-    optimizedState.getOrElseUpdate(graphId, {
+    executionState.getOrElseUpdate(graphId, {
       graphId match {
         case source: SourceId => throw new IllegalArgumentException("SourceIds may not be executed.")
         case node: NodeId => {

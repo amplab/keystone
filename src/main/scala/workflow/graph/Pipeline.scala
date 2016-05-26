@@ -23,46 +23,46 @@ trait Pipeline[A, B] {
 
   /**
    * Lazily apply the pipeline to a single datum.
- *
+   *
    * @return A lazy wrapper around the result of passing the datum through the pipeline.
    */
   final def apply(datum: A): PipelineDatumOut[B] = {
-    new PipelineDatumOut[B](executor, sink, Some(source, datum))
+    apply(PipelineDatumOut(datum))
   }
 
   /**
    * Lazily apply the pipeline to a dataset.
- *
+   *
    * @return A lazy wrapper around the result of passing the dataset through the pipeline.
    */
   final def apply(data: RDD[A]): PipelineDatasetOut[B] = {
-    new PipelineDatasetOut[B](executor, sink, Some(source, data))
+    apply(PipelineDatasetOut(data))
   }
 
   /**
    * Lazily apply the pipeline to the lazy output of a different pipeline given an initial dataset.
    * If the previous pipeline has already been fit, it will not need to be fit again.
- *
+   *
    * @return A lazy wrapper around the result of passing lazy output from a different pipeline through this pipeline.
    */
   final def apply(data: PipelineDatasetOut[A]): PipelineDatasetOut[B] = {
     val (newGraph, _, _, sinkMapping) =
-      data.getGraph.connectGraph(executor.getGraph, Map(source -> data.getSink))
+      data.getGraph.connectGraph(executor.graph, Map(source -> data.getSink))
 
-    new PipelineDatasetOut[B](new GraphExecutor(newGraph), sinkMapping(sink), None)
+    new PipelineDatasetOut[B](new GraphExecutor(newGraph), sinkMapping(sink))
   }
 
   /**
    * Lazily apply the pipeline to the lazy output of a different pipeline given an initial datum.
    * If the previous pipeline has already been fit, it will not need to be fit again.
- *
+   *
    * @return A lazy wrapper around the result of passing lazy output from a different pipeline through this pipeline.
    */
   final def apply(datum: PipelineDatumOut[A]): PipelineDatumOut[B] = {
     val (newGraph, _, _, sinkMapping) =
-      datum.getGraph.connectGraph(executor.getGraph, Map(source -> datum.getSink))
+      datum.getGraph.connectGraph(executor.graph, Map(source -> datum.getSink))
 
-    new PipelineDatumOut[B](new GraphExecutor(newGraph), sinkMapping(sink), None)
+    new PipelineDatumOut[B](new GraphExecutor(newGraph), sinkMapping(sink))
   }
 
   /**
@@ -73,7 +73,7 @@ trait Pipeline[A, B] {
    */
   final def andThen[C](next: Pipeline[B, C]): Pipeline[A, C] = {
     val (newGraph, _, _, sinkMapping) =
-      executor.getGraph.connectGraph(next.executor.getGraph, Map(next.source -> sink))
+      executor.graph.connectGraph(next.executor.graph, Map(next.source -> sink))
 
     new ConcretePipeline(new GraphExecutor(newGraph), source, sinkMapping(next.sink))
   }
@@ -229,7 +229,6 @@ object Pipeline {
     for (i <- executions.indices) {
       val execution = executions(i)
       execution.setExecutor(newExecutor)
-      execution.setSources(Map())
       execution.setSink(sinkMappings(i).apply(execution.getSink))
     }
   }
@@ -252,7 +251,7 @@ object Pipeline {
       Seq[NodeOrSourceId]()) {
       case ((graph, sinks), branch) =>
         // We add the new branch to the graph containing already-processed branches
-        val (graphWithBranch, sourceMapping, _, sinkMapping) = graph.addGraph(branch.executor.getGraph)
+        val (graphWithBranch, sourceMapping, _, sinkMapping) = graph.addGraph(branch.executor.graph)
 
         // We then remove the new branch's individual source and make the branch
         // depend on the new joint source for all branches.

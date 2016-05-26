@@ -45,13 +45,3 @@ object EquivalentNodeMergeRule extends Rule {
     }
   }
 }
-
-/**
- * An optimizer that merges all equivalent nodes in a Pipeline DAG.
- * It is used by the incremental Pipeline construction & execution methods.
- */
-object EquivalentNodeMergeOptimizer extends Optimizer {
-  protected val batches: Seq[Batch] =
-    Batch("Common Sub-expression Elimination", FixedPoint(Int.MaxValue), EquivalentNodeMergeRule) ::
-      Nil
-}

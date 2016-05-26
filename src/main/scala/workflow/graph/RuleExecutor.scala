@@ -26,8 +26,8 @@ abstract class RuleExecutor extends Logging {
    * Executes the batches of rules defined by the subclass. The batches are executed serially
    * using the defined execution strategy. Within each batch, rules are also executed serially.
    */
-  def execute(plan: Graph, executionState: Map[GraphId, Expression]): (Graph, Map[GraphId, Expression]) = {
-    var curPlan = (plan, executionState)
+  def execute(plan: Graph, prefixes: Map[NodeId, Prefix]): (Graph, Map[NodeId, Prefix]) = {
+    var curPlan = (plan, prefixes)
 
     batches.foreach { batch =>
       val batchStartPlan = curPlan

@@ -40,7 +40,7 @@ abstract class PipelineResult[T](
 
       ranExecution = true
 
-      new GraphExecutor(newGraph, newState, optimize = false)
+      new GraphExecutor(newGraph, optimize = false)
     } else {
       _executor
     }
@@ -55,12 +55,6 @@ abstract class PipelineResult[T](
         graphWithDataset.replaceDependency(sourceId, nodeId).removeSource(sourceId)
       }
     }
-  }
-
-  private[graph] def getState: Map[GraphId, Expression] = if (ranExecution) {
-    finalExecutor.getState
-  } else {
-    _executor.getState
   }
 
   final def get(): T = finalExecutor.execute(getSink).get.asInstanceOf[T]

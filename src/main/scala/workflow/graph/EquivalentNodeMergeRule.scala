@@ -6,19 +6,19 @@ package workflow.graph
  * - The operators stored within the nodes are equal (.equals() is true)
  * - They share the same dependencies
  *
- * This rule also merges execution state if any of
- * the nodes being merged already have state attached.
+ * This rule also merges prefixes if any of
+ * the nodes being merged have their prefix attached.
  */
 object EquivalentNodeMergeRule extends Rule {
-  override def apply(plan: Graph, executionState: Map[GraphId, Expression]): (Graph, Map[GraphId, Expression]) = {
+  override def apply(plan: Graph, prefixes: Map[NodeId, Prefix]): (Graph, Map[NodeId, Prefix]) = {
     val nodeSetsToMerge = plan.nodes.groupBy(id => (plan.getOperator(id), plan.getDependencies(id))).values
 
     if (nodeSetsToMerge.size == plan.nodes.size) {
       // no nodes are mergable
-      (plan, executionState)
+      (plan, prefixes)
     } else {
-      nodeSetsToMerge.filter(_.size > 1).foldLeft((plan, executionState)) {
-        case ((curPlan, curExecutionState), setToMerge) => {
+      nodeSetsToMerge.filter(_.size > 1).foldLeft((plan, prefixes)) {
+        case ((curPlan, curPrefixes), setToMerge) => {
           // Construct a graph that merges all of the nodes
           val nodeToKeep = setToMerge.minBy(_.id)
           val nextGraph = (setToMerge - nodeToKeep).foldLeft(curPlan) {
@@ -29,17 +29,17 @@ object EquivalentNodeMergeRule extends Rule {
             }
           }
 
-          // If any of the nodes being merged have been executed, update the execution state
-          val executionValue = setToMerge.collectFirst {
-            case node if curExecutionState.contains(node) => curExecutionState(node)
+          // If any of the nodes being merged have been executed, update the prefixes
+          val prefix = setToMerge.collectFirst {
+            case node if curPrefixes.contains(node) => curPrefixes(node)
           }
-          val nextExecutionState = if (executionValue.nonEmpty) {
-            (curExecutionState -- setToMerge) + (nodeToKeep -> executionValue.get)
+          val nextPrefixes = if (prefix.nonEmpty) {
+            (curPrefixes -- setToMerge) + (nodeToKeep -> prefix.get)
           } else {
-            curExecutionState
+            curPrefixes
           }
 
-          (nextGraph, nextExecutionState)
+          (nextGraph, nextPrefixes)
         }
       }
     }

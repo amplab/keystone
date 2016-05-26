@@ -46,12 +46,10 @@ trait Pipeline[A, B] {
    * @return A lazy wrapper around the result of passing lazy output from a different pipeline through this pipeline.
    */
   final def apply(data: PipelineDatasetOut[A]): PipelineDatasetOut[B] = {
-    val (newGraph, sourceMapping, nodeMapping, sinkMapping) =
+    val (newGraph, _, _, sinkMapping) =
       data.getGraph.connectGraph(executor.getGraph, Map(source -> data.getSink))
-    val idMapping: Map[GraphId, GraphId] = sourceMapping ++ nodeMapping ++ sinkMapping
-    val newState = data.getState - data.getSink ++ executor.getState.map(x => (idMapping(x._1), x._2))
 
-    new PipelineDatasetOut[B](new GraphExecutor(newGraph, newState), sinkMapping(sink), None)
+    new PipelineDatasetOut[B](new GraphExecutor(newGraph), sinkMapping(sink), None)
   }
 
   /**
@@ -61,12 +59,10 @@ trait Pipeline[A, B] {
    * @return A lazy wrapper around the result of passing lazy output from a different pipeline through this pipeline.
    */
   final def apply(datum: PipelineDatumOut[A]): PipelineDatumOut[B] = {
-    val (newGraph, sourceMapping, nodeMapping, sinkMapping) =
+    val (newGraph, _, _, sinkMapping) =
       datum.getGraph.connectGraph(executor.getGraph, Map(source -> datum.getSink))
-    val idMapping: Map[GraphId, GraphId] = sourceMapping ++ nodeMapping ++ sinkMapping
-    val newState = datum.getState - datum.getSink ++ executor.getState.map(x => (idMapping(x._1), x._2))
 
-    new PipelineDatumOut[B](new GraphExecutor(newGraph, newState), sinkMapping(sink), None)
+    new PipelineDatumOut[B](new GraphExecutor(newGraph), sinkMapping(sink), None)
   }
 
   /**
@@ -76,11 +72,10 @@ trait Pipeline[A, B] {
    * @param next the pipeline to chain
    */
   final def andThen[C](next: Pipeline[B, C]): Pipeline[A, C] = {
-    val (newGraph, sourceMapping, nodeMapping, sinkMapping) =
+    val (newGraph, _, _, sinkMapping) =
       executor.getGraph.connectGraph(next.executor.getGraph, Map(next.source -> sink))
-    val idMapping: Map[GraphId, GraphId] = sourceMapping ++ nodeMapping ++ sinkMapping
-    val newState = executor.getState - sink ++ next.executor.getState.map(x => (idMapping(x._1), x._2))
-    new ConcretePipeline(new GraphExecutor(newGraph, newState), source, sinkMapping(next.sink))
+
+    new ConcretePipeline(new GraphExecutor(newGraph), source, sinkMapping(next.sink))
   }
 
   /**
@@ -215,27 +210,22 @@ object Pipeline {
     // Add all the graphs of each graphBackedExecution into a single merged graph,
     // And all the states of each graphBackedExecution into a single merged state
     val emptyGraph = new Graph(Set(), Map(), Map(), Map())
-    val (newGraph, newState, _, sinkMappings) = executions.foldLeft(
+    val (newGraph, _, sinkMappings) = executions.foldLeft(
       emptyGraph,
-      Map[GraphId, Expression](),
       Seq[Map[SourceId, SourceId]](),
       Seq[Map[SinkId, SinkId]]()
     ) {
-      case ((curGraph, curState, curSourceMappings, curSinkMappings), graphExecution) =>
+      case ((curGraph, curSourceMappings, curSinkMappings), graphExecution) =>
         // Merge in an additional execution's graph into the total merged graph
-        val (nextGraph, nextSourceMapping, nextNodeMapping, nextSinkMapping) =
+        val (nextGraph, nextSourceMapping, _, nextSinkMapping) =
           curGraph.addGraph(graphExecution.getGraph)
 
-        // Merge in an additional execution's state into the total merged state
-        val idMapping: Map[GraphId, GraphId] = nextSourceMapping ++ nextNodeMapping ++ nextSinkMapping
-        val nextState = curState ++ graphExecution.getState.map(x => (idMapping(x._1), x._2))
-
-        (nextGraph, nextState, curSourceMappings :+ nextSourceMapping, curSinkMappings :+ nextSinkMapping)
+        (nextGraph, curSourceMappings :+ nextSourceMapping, curSinkMappings :+ nextSinkMapping)
     }
 
     // Create a new executor created that is the merged result of all the individual executors from the above
     // merged graph and merged state, then update every GraphBackedExecution to use the new executor.
-    val newExecutor = new GraphExecutor(graph = newGraph, state = newState)
+    val newExecutor = new GraphExecutor(graph = newGraph)
     for (i <- executions.indices) {
       val execution = executions(i)
       execution.setExecutor(newExecutor)
@@ -257,13 +247,12 @@ object Pipeline {
 
     // We fold the branches together one by one, updating the graph and the overall execution state
     // to include all of the branches.
-    val (graphWithAllBranches, newState, branchSinks) = branches.foldLeft(
+    val (graphWithAllBranches, branchSinks) = branches.foldLeft(
       emptyGraph,
-      Map[GraphId, Expression](),
       Seq[NodeOrSourceId]()) {
-      case ((graph, state, sinks), branch) =>
+      case ((graph, sinks), branch) =>
         // We add the new branch to the graph containing already-processed branches
-        val (graphWithBranch, sourceMapping, nodeMapping, sinkMapping) = graph.addGraph(branch.executor.getGraph)
+        val (graphWithBranch, sourceMapping, _, sinkMapping) = graph.addGraph(branch.executor.getGraph)
 
         // We then remove the new branch's individual source and make the branch
         // depend on the new joint source for all branches.
@@ -275,14 +264,7 @@ object Pipeline {
           .removeSource(branchSource)
           .removeSink(branchSink)
 
-        // Because pipeline construction is incremental, we make sure to add the state of the branch to our
-        // accumulated state. We update the graph ids for the new branch's state, and remove all graph ids
-        // that no longer exist.
-        val idMapping: Map[GraphId, GraphId] = sourceMapping ++ nodeMapping ++ sinkMapping
-        val branchState = branch.executor.getState.map(x => (idMapping(x._1), x._2)) - branchSink - branchSource
-        val nextState = state ++ branchState
-
-        (nextGraph, nextState, sinks :+ branchSinkDep)
+        (nextGraph, sinks :+ branchSinkDep)
     }
 
     // Finally, we add a gather transformer with all of the branches' endpoints as dependencies,
@@ -291,7 +273,7 @@ object Pipeline {
     val (newGraph, sink) = graphWithGather.addSink(gatherNode)
 
     // We construct & return the new gathered pipeline
-    val executor = new GraphExecutor(newGraph, newState)
+    val executor = new GraphExecutor(newGraph)
     new ConcretePipeline[A, Seq[B]](executor, source, sink)
   }
 }

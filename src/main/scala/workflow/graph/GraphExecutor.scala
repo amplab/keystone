@@ -13,7 +13,7 @@ package workflow.graph
  * @param optimize Whether or not to optimize the graph using the global executor before executing anything.
  *                 Defaults to True.
  */
-private[graph] class GraphExecutor(graph: Graph, state: Map[GraphId, Expression], optimize: Boolean = true) {
+private[graph] class GraphExecutor(graph: Graph, optimize: Boolean = true) {
   // internally used flag to check if optimization has occurred yet. Not thread-safe!
   private var optimized: Boolean = false
 
@@ -52,17 +52,6 @@ private[graph] class GraphExecutor(graph: Graph, state: Map[GraphId, Expression]
     optimizedGraph
   } else {
     graph
-  }
-
-  /**
-   * Get the current execution state of this executor.
-   * @return An immutable copy of the current execution
-   *         state of Expressions and the graphIds they were computed at.
-   */
-  def getState: Map[GraphId, Expression] = if (optimized) {
-    optimizedState.toMap
-  } else {
-    state
   }
 
   /**

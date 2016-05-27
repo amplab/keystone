@@ -3,7 +3,7 @@ title: KeystoneML - Large scale end-to-end machine pipelines.
 layout: default
 ---
 
-# KeystoneML
+<img src="images/keystone-logo.png" alt="KeytoneML" width="25%" /><br>
 [![Build Status](https://amplab.cs.berkeley.edu/jenkins/job/KeystoneML/badge/icon)](https://amplab.cs.berkeley.edu/jenkins/job/KeystoneML/)
 
 KeystoneML is a software framework, written in [Scala](http://scala-lang.org/), from the [UC Berkeley AMPLab](http://amplab.cs.berkeley.edu/) designed to simplify the construction of *large scale*, *end-to-end*, machine learning pipelines with [Apache Spark](http://spark.apache.org/).

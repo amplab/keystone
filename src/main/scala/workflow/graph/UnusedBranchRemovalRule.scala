@@ -3,7 +3,7 @@ package workflow.graph
 /**
  * A rule to remove all nodes & sources in a graph that don't lead to any sink.
  */
-object DanglingNodeRemovalRule extends Rule {
+object UnusedBranchRemovalRule extends Rule {
   override def apply(plan: Graph, prefixes: Map[NodeId, Prefix]): (Graph, Map[NodeId, Prefix]) = {
     val ancestorsOfSinks = plan.sinks.foldLeft(Set[GraphId]()) {
       case (ancestors, sink) => ancestors ++ AnalysisUtils.getAncestors(plan, sink)

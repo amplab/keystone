@@ -386,7 +386,7 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     val numOptimizations = new AtomicInteger(0)
     Pipeline.setOptimizer(new Optimizer {
       override protected val batches: Seq[Batch] =
-        Batch("Load Saved State", Once, ExtractSaveablePrefixes, SavedStateLoadRule, DanglingNodeRemovalRule) ::
+        Batch("Load Saved State", Once, ExtractSaveablePrefixes, SavedStateLoadRule, UnusedBranchRemovalRule) ::
         Batch("Common Sub-expression Elimination", FixedPoint(Int.MaxValue), EquivalentNodeMergeRule) ::
           Batch("Update num-optimizations", Once, new Rule {
             override def apply(plan: Graph, prefixes: Map[NodeId, Prefix]):

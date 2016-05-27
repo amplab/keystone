@@ -19,12 +19,42 @@ import scala.reflect.ClassTag
  * @tparam A type of the data this Pipeline expects as input
  * @tparam B type of the data this Pipeline outputs
  */
-class Pipeline[A, B](
+class Pipeline[A, B] private[graph] (
   private[graph] val executor: GraphExecutor,
   private[graph] val source: SourceId,
   private[graph] val sink: SinkId) extends Chainable[A, B] {
 
   private[graph] def toPipeline: Pipeline[A, B] = this
+
+  // TODO: Add docs
+  final def fit(): FittedPipeline[A, B] = {
+    val optimizedGraph = Pipeline.getOptimizer.execute(executor.graph, Map())._1
+
+    val estFittingExecutor = new GraphExecutor(optimizedGraph, optimize = false)
+    val delegatingNodes = optimizedGraph.operators.collect {
+      case (node, _: DelegatingOperator) => node
+    }
+
+    val graphWithFitEstimators = delegatingNodes.foldLeft(optimizedGraph) {
+      case (curGraph, node) => {
+        val deps = optimizedGraph.getDependencies(node)
+        val estimatorDep = deps.head
+        val transformer = estFittingExecutor.execute(estimatorDep).get.asInstanceOf[TransformerOperator]
+
+        curGraph.setOperator(node, transformer).setDependencies(node, deps.tail)
+      }
+    }
+
+    val newGraph = UnusedBranchRemovalRule.apply(graphWithFitEstimators, Map())._1
+
+    val transformerGraph = TransformerGraph(
+      newGraph.sources,
+      newGraph.sinkDependencies,
+      newGraph.operators.map(op => (op._1, op._2.asInstanceOf[TransformerOperator])),
+      newGraph.dependencies)
+
+    new FittedPipeline[A, B](transformerGraph, source, sink)
+  }
 
   /**
    * Lazily apply the pipeline to a single datum.
@@ -54,7 +84,7 @@ class Pipeline[A, B](
     val (newGraph, _, _, sinkMapping) =
       data.executor.graph.connectGraph(executor.graph, Map(source -> data.sink))
 
-    new PipelineDatasetOut[B](new GraphExecutor(newGraph), sinkMapping(sink))
+    new PipelineDatasetOut[B](new GraphExecutor(newGraph, executor.optimize), sinkMapping(sink))
   }
 
   /**
@@ -67,7 +97,7 @@ class Pipeline[A, B](
     val (newGraph, _, _, sinkMapping) =
       datum.executor.graph.connectGraph(executor.graph, Map(source -> datum.sink))
 
-    new PipelineDatumOut[B](new GraphExecutor(newGraph), sinkMapping(sink))
+    new PipelineDatumOut[B](new GraphExecutor(newGraph, executor.optimize), sinkMapping(sink))
   }
 }
 

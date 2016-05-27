@@ -11,7 +11,7 @@ package workflow.graph
  * @param optimize Whether or not to optimize the graph using the global executor before executing anything.
  *                 Defaults to True.
  */
-private[graph] class GraphExecutor(val graph: Graph, optimize: Boolean = true) {
+private[graph] class GraphExecutor(val graph: Graph, val optimize: Boolean = true) {
   // internally used flag to check if optimization has occurred yet. Not thread-safe!
   private var optimized: Boolean = false
 

@@ -1,5 +1,6 @@
 package workflow.graph
 
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, ObjectInputStream, ObjectOutputStream}
 import java.util.concurrent.atomic.AtomicInteger
 
 import org.apache.spark.SparkContext
@@ -545,6 +546,82 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     }
     assert(pipeline(sc.parallelize(data)).get().collect().toSeq === correctOut)
     assert(numEstimations.get() === 2, "Estimators should not have been fit again")
+
+    // Clean global pipeline state
+    Pipeline.state.clear()
+  }
+
+  test("Pipeline fit") {
+    // Clean global pipeline state
+    Pipeline.state.clear()
+
+    sc = new SparkContext("local", "test")
+
+    val firstPipeline = Transformer[Int, Int](_ * 2) andThen Transformer[Int, Int](_ - 3)
+
+    val secondPipeline = Transformer[Int, Int](_ * 2) andThen (new Estimator[Int, Int] {
+      def fit(data: RDD[Int]): Transformer[Int, Int] = {
+        val first = data.first()
+        Transformer(x => x + first)
+      }
+    }, sc.parallelize(Seq(32, 94, 12)))
+
+    val thirdPipeline = Transformer[Int, Int](_ * 4) andThen (new LabelEstimator[Int, Int, String] {
+      def fit(data: RDD[Int], labels: RDD[String]): Transformer[Int, Int] = {
+        val first = data.first() + labels.first().toInt
+        Transformer(x => x + first)
+      }
+    }, sc.parallelize(Seq(32, 94, 12)), sc.parallelize(Seq("10", "7", "14")))
+
+    val pipeline = Pipeline.gather {
+      firstPipeline :: secondPipeline :: thirdPipeline :: Nil
+    }
+
+    // Fit the pipeline
+    val fittedPipe = pipeline.fit()
+
+    // Test that the fittedPipeline works
+    val single = 7
+    assert {
+      fittedPipe(single) === Seq(
+        firstPipeline.apply(single).get(),
+        secondPipeline.apply(single).get(),
+        thirdPipeline.apply(single).get())
+    }
+
+    val data = Seq(13, 2, 83)
+    val correctOut = data.map { x => Seq(
+      firstPipeline.apply(x).get(),
+      secondPipeline.apply(x).get(),
+      thirdPipeline.apply(x).get())
+    }
+    assert(fittedPipe(sc.parallelize(data)).collect().toSeq === correctOut)
+
+    // Test serializing the fitted Pipeline
+    val byteOut = new ByteArrayOutputStream()
+    val pipeOut = new ObjectOutputStream(byteOut)
+    pipeOut.writeObject(fittedPipe)
+    pipeOut.close()
+    byteOut.close()
+    val serializedFittedPipe = byteOut.toByteArray
+
+
+    // Test deserializing the fitted Pipeline
+    val byteIn = new ByteArrayInputStream(serializedFittedPipe)
+    val pipeIn = new ObjectInputStream(byteIn)
+    val deserializedFittedPipe = pipeIn.readObject().asInstanceOf[FittedPipeline[Int, Seq[Int]]]
+    byteIn.close()
+    pipeIn.close()
+
+    // Test that the deserialized fitted pipe works
+    assert {
+      deserializedFittedPipe(single) === Seq(
+        firstPipeline.apply(single).get(),
+        secondPipeline.apply(single).get(),
+        thirdPipeline.apply(single).get())
+    }
+
+    assert(deserializedFittedPipe(sc.parallelize(data)).collect().toSeq === correctOut)
 
     // Clean global pipeline state
     Pipeline.state.clear()

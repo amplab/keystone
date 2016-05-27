@@ -15,8 +15,8 @@ abstract class Estimator[A, B] extends EstimatorOperator {
    * @param data The training data
    * @return A pipeline that fits this estimator and applies the result to inputs.
    */
-  final def fit(data: RDD[A]): Pipeline[A, B] = {
-    fit(PipelineDatasetOut(data))
+  final def withData(data: RDD[A]): Pipeline[A, B] = {
+    withData(PipelineDatasetOut(data))
   }
 
   /**
@@ -26,11 +26,11 @@ abstract class Estimator[A, B] extends EstimatorOperator {
    * @param data The training data
    * @return A pipeline that fits this estimator and applies the result to inputs.
    */
-  final def fit(data: PipelineDatasetOut[A]): Pipeline[A, B] = {
+  final def withData(data: PipelineDatasetOut[A]): Pipeline[A, B] = {
     // Remove the data sink,
     // Then insert this estimator into the graph with the data as the input
-    val curSink = data.getGraph.getSinkDependency(data.getSink)
-    val (estGraph, estId) = data.getGraph.removeSink(data.getSink).addNode(this, Seq(curSink))
+    val curSink = data.executor.graph.getSinkDependency(data.sink)
+    val (estGraph, estId) = data.executor.graph.removeSink(data.sink).addNode(this, Seq(curSink))
 
     // Now that the estimator is attached to the data, we need to build a pipeline DAG
     // that applies the fit output of the estimator. We do this by creating a new Source in the DAG,
@@ -47,7 +47,7 @@ abstract class Estimator[A, B] extends EstimatorOperator {
    * The non-type-safe `fitRDDs` method of [[EstimatorOperator]] that is being overridden by the Estimator API.
    */
   final override private[graph] def fitRDDs(inputs: Seq[DatasetExpression]): TransformerOperator = {
-    fitRDD(inputs.head.get.asInstanceOf[RDD[A]])
+    fit(inputs.head.get.asInstanceOf[RDD[A]])
   }
 
   /**
@@ -56,5 +56,5 @@ abstract class Estimator[A, B] extends EstimatorOperator {
    * @param data The estimator's training data.
    * @return A new transformer
    */
-  protected def fitRDD(data: RDD[A]): Transformer[A, B]
+  protected def fit(data: RDD[A]): Transformer[A, B]
 }

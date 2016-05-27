@@ -19,8 +19,8 @@ abstract class LabelEstimator[A, B, L] extends EstimatorOperator {
    * @param labels The training labels
    * @return A pipeline that fits this label estimator and applies the result to inputs.
    */
-  final def fit(data: RDD[A], labels: PipelineDatasetOut[L]): Pipeline[A, B] = {
-    fit(PipelineDatasetOut(data), labels)
+  final def withData(data: RDD[A], labels: PipelineDatasetOut[L]): Pipeline[A, B] = {
+    withData(PipelineDatasetOut(data), labels)
   }
 
   /**
@@ -31,8 +31,8 @@ abstract class LabelEstimator[A, B, L] extends EstimatorOperator {
    * @param labels The training labels
    * @return A pipeline that fits this label estimator and applies the result to inputs.
    */
-  final def fit(data: PipelineDatasetOut[A], labels: RDD[L]): Pipeline[A, B] = {
-    fit(data, PipelineDatasetOut(labels))
+  final def withData(data: PipelineDatasetOut[A], labels: RDD[L]): Pipeline[A, B] = {
+    withData(data, PipelineDatasetOut(labels))
   }
 
   /**
@@ -43,8 +43,8 @@ abstract class LabelEstimator[A, B, L] extends EstimatorOperator {
    * @param labels The training labels
    * @return A pipeline that fits this label estimator and applies the result to inputs.
    */
-  final def fit(data: RDD[A], labels: RDD[L]): Pipeline[A, B] = {
-    fit(PipelineDatasetOut(data), PipelineDatasetOut(labels))
+  final def withData(data: RDD[A], labels: RDD[L]): Pipeline[A, B] = {
+    withData(PipelineDatasetOut(data), PipelineDatasetOut(labels))
   }
 
   /**
@@ -55,18 +55,18 @@ abstract class LabelEstimator[A, B, L] extends EstimatorOperator {
    * @param labels The training labels
    * @return A pipeline that fits this label estimator and applies the result to inputs.
    */
-  final def fit(data: PipelineDatasetOut[A], labels: PipelineDatasetOut[L]): Pipeline[A, B] = {
+  final def withData(data: PipelineDatasetOut[A], labels: PipelineDatasetOut[L]): Pipeline[A, B] = {
     // Add the data input and the labels inputs into the same Graph
     val (dataAndLabels, _, _, labelSinkMapping) =
-      data.getGraph.addGraph(labels.getGraph)
+      data.executor.graph.addGraph(labels.executor.graph)
 
     // Remove the data sink & the labels sink,
     // Then insert this label estimator into the graph with the data & labels as the inputs
-    val dataSink = dataAndLabels.getSinkDependency(data.getSink)
-    val labelsSink = dataAndLabels.getSinkDependency(labelSinkMapping(labels.getSink))
+    val dataSink = dataAndLabels.getSinkDependency(data.sink)
+    val labelsSink = dataAndLabels.getSinkDependency(labelSinkMapping(labels.sink))
     val (estimatorWithInputs, estId) = dataAndLabels
-      .removeSink(data.getSink)
-      .removeSink(labelSinkMapping(labels.getSink))
+      .removeSink(data.sink)
+      .removeSink(labelSinkMapping(labels.sink))
       .addNode(this, Seq(dataSink, labelsSink))
 
     // Now that the labeled estimator is attached to the data & labels, we need to build a pipeline DAG
@@ -85,7 +85,7 @@ abstract class LabelEstimator[A, B, L] extends EstimatorOperator {
    * The non-type-safe `fitRDDs` method of [[EstimatorOperator]] that is being overridden by the LabelEstimator API.
    */
   final override private[graph] def fitRDDs(inputs: Seq[DatasetExpression]): TransformerOperator = {
-    fitRDDs(inputs(0).get.asInstanceOf[RDD[A]], inputs(1).get.asInstanceOf[RDD[L]])
+    fit(inputs(0).get.asInstanceOf[RDD[A]], inputs(1).get.asInstanceOf[RDD[L]])
   }
 
   /**
@@ -95,6 +95,6 @@ abstract class LabelEstimator[A, B, L] extends EstimatorOperator {
    * @param labels The estimator's training labels
    * @return A new transformer
    */
-  protected def fitRDDs(data: RDD[A], labels: RDD[L]): Transformer[A, B]
+  protected def fit(data: RDD[A], labels: RDD[L]): Transformer[A, B]
 
 }

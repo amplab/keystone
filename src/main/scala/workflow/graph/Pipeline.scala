@@ -47,7 +47,7 @@ trait Pipeline[A, B] {
    */
   final def apply(data: PipelineDatasetOut[A]): PipelineDatasetOut[B] = {
     val (newGraph, _, _, sinkMapping) =
-      data.getGraph.connectGraph(executor.graph, Map(source -> data.getSink))
+      data.executor.graph.connectGraph(executor.graph, Map(source -> data.sink))
 
     new PipelineDatasetOut[B](new GraphExecutor(newGraph), sinkMapping(sink))
   }
@@ -60,7 +60,7 @@ trait Pipeline[A, B] {
    */
   final def apply(datum: PipelineDatumOut[A]): PipelineDatumOut[B] = {
     val (newGraph, _, _, sinkMapping) =
-      datum.getGraph.connectGraph(executor.graph, Map(source -> datum.getSink))
+      datum.executor.graph.connectGraph(executor.graph, Map(source -> datum.sink))
 
     new PipelineDatumOut[B](new GraphExecutor(newGraph), sinkMapping(sink))
   }
@@ -87,7 +87,7 @@ trait Pipeline[A, B] {
    *             (the estimator will be fit on the result of passing this data through the current pipeline)
    */
   final def andThen[C](est: Estimator[B, C], data: RDD[A]): Pipeline[A, C] = {
-    this andThen est.fit(apply(data))
+    this andThen est.withData(apply(data))
   }
 
   /**
@@ -99,7 +99,7 @@ trait Pipeline[A, B] {
    *             (the estimator will be fit on the result of passing this data through the current pipeline)
    */
   final def andThen[C](est: Estimator[B, C], data: PipelineDatasetOut[A]): Pipeline[A, C] = {
-    this andThen est.fit(apply(data))
+    this andThen est.withData(apply(data))
   }
 
   /**
@@ -116,7 +116,7 @@ trait Pipeline[A, B] {
     data: RDD[A],
     labels: RDD[L]
   ): Pipeline[A, C] = {
-    this andThen est.fit(apply(data), labels)
+    this andThen est.withData(apply(data), labels)
   }
 
   /**
@@ -133,7 +133,7 @@ trait Pipeline[A, B] {
     data: PipelineDatasetOut[A],
     labels: RDD[L]
   ): Pipeline[A, C] = {
-    this andThen est.fit(apply(data), labels)
+    this andThen est.withData(apply(data), labels)
   }
 
   /**
@@ -150,7 +150,7 @@ trait Pipeline[A, B] {
     data: RDD[A],
     labels: PipelineDatasetOut[L]
   ): Pipeline[A, C] = {
-    this andThen est.fit(apply(data), labels)
+    this andThen est.withData(apply(data), labels)
   }
 
   /**
@@ -167,7 +167,7 @@ trait Pipeline[A, B] {
     data: PipelineDatasetOut[A],
     labels: PipelineDatasetOut[L]
   ): Pipeline[A, C] = {
-    this andThen est.fit(apply(data), labels)
+    this andThen est.withData(apply(data), labels)
   }
 
 }
@@ -193,44 +193,6 @@ object Pipeline {
    */
   def setOptimizer(optimizer: Optimizer): Unit = {
     _optimizer = optimizer
-  }
-
-  /**
-   * Submit multiple [[PipelineResult]]s to be optimized as a group by looking at all of
-   * their underlying execution plans together, instead of optimizing each plan individually.
-   * When a workload consists of processing multiple datasets using multiple pipelines,
-   * this may produce superior workload throughput.
-   *
-   * This is a lazy method, i.e. no optimization or execution will occur until the submitted executions have
-   * their results accessed.
-   *
-   * @param executions The executions to submit as a group.
-   */
-  def submit(executions: PipelineResult[_]*): Unit = {
-    // Add all the graphs of each graphBackedExecution into a single merged graph,
-    // And all the states of each graphBackedExecution into a single merged state
-    val emptyGraph = new Graph(Set(), Map(), Map(), Map())
-    val (newGraph, _, sinkMappings) = executions.foldLeft(
-      emptyGraph,
-      Seq[Map[SourceId, SourceId]](),
-      Seq[Map[SinkId, SinkId]]()
-    ) {
-      case ((curGraph, curSourceMappings, curSinkMappings), graphExecution) =>
-        // Merge in an additional execution's graph into the total merged graph
-        val (nextGraph, nextSourceMapping, _, nextSinkMapping) =
-          curGraph.addGraph(graphExecution.getGraph)
-
-        (nextGraph, curSourceMappings :+ nextSourceMapping, curSinkMappings :+ nextSinkMapping)
-    }
-
-    // Create a new executor created that is the merged result of all the individual executors from the above
-    // merged graph and merged state, then update every GraphBackedExecution to use the new executor.
-    val newExecutor = new GraphExecutor(graph = newGraph)
-    for (i <- executions.indices) {
-      val execution = executions(i)
-      execution.setExecutor(newExecutor)
-      execution.setSink(sinkMappings(i).apply(execution.getSink))
-    }
   }
 
   /**

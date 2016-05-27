@@ -39,7 +39,7 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
 
     val intTransformer = Transformer[Int, Int](x => x)
     val intEstimator = new Estimator[Int, Int] {
-      protected def fitRDD(data: RDD[Int]): Transformer[Int, Int] = {
+      protected def fit(data: RDD[Int]): Transformer[Int, Int] = {
         numFits = numFits + 1
         Transformer(x => x)
       }
@@ -70,7 +70,7 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     val doubleTransformer = Transformer[Int, Int](_ * 2)
 
     val intEstimator = new Estimator[Int, Int] {
-      protected def fitRDD(data: RDD[Int]): Transformer[Int, Int] = {
+      protected def fit(data: RDD[Int]): Transformer[Int, Int] = {
         val first = data.first()
         Transformer(x => x + first)
       }
@@ -80,7 +80,7 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     val data = sc.parallelize(Seq(32, 94, 12))
 
     val features = doubleTransformer(data)
-    val model = intEstimator.fit(features)
+    val model = intEstimator.withData(features)
 
     val pipelineChainOne = doubleTransformer andThen (intEstimator, data)
     val pipelineChainTwo = doubleTransformer andThen model
@@ -106,7 +106,7 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     val doubleTransformer = Transformer[Int, Int](_ * 2)
 
     val intEstimator = new LabelEstimator[Int, Int, String] {
-      protected def fitRDDs(data: RDD[Int], labels: RDD[String]): Transformer[Int, Int] = {
+      protected def fit(data: RDD[Int], labels: RDD[String]): Transformer[Int, Int] = {
         val first = data.first() + labels.first().toInt
         Transformer(x => x + first)
       }
@@ -117,7 +117,7 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     val labels = sc.parallelize(Seq("10", "7", "14"))
 
     val features = doubleTransformer(data)
-    val model = intEstimator.fit(features, labels)
+    val model = intEstimator.withData(features, labels)
 
     val pipelineChainOne = doubleTransformer andThen (intEstimator, data, labels)
     val pipelineChainTwo = doubleTransformer andThen model
@@ -146,7 +146,7 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
       (x * 3).toString
     })
     val intEstimator = new Estimator[String, String] {
-      protected def fitRDD(data: RDD[String]): Transformer[String, String] = {
+      protected def fit(data: RDD[String]): Transformer[String, String] = {
         Transformer(x => x + "qub")
       }
     }
@@ -158,7 +158,7 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     assert(features.get().collect() === Array("96", "282", "36"))
     assert(accum.value === 3, "Incremental code should not have reprocessed cached values")
 
-    val pipe = featurizer andThen intEstimator.fit(features)
+    val pipe = featurizer andThen intEstimator.withData(features)
     val out = pipe(data)
     assert(out.get().collect() === Array("96qub", "282qub", "36qub"))
     assert(out.get().collect() === Array("96qub", "282qub", "36qub"))
@@ -187,7 +187,7 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
       (x * 3).toString
     })
     val intEstimator = new Estimator[String, String] {
-      protected def fitRDD(data: RDD[String]): Transformer[String, String] = {
+      protected def fit(data: RDD[String]): Transformer[String, String] = {
         Transformer(x => x + "qub")
       }
     }
@@ -204,7 +204,7 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     assert(testFeatures.get().collect() === Array("96", "282"))
     assert(accum.value === 5, "Incremental code should not have reprocessed cached values")
 
-    val model = intEstimator.fit(features)
+    val model = intEstimator.withData(features)
 
     val out = model(features)
     assert(out.get().collect() === Array("96qub", "282qub", "36qub"))
@@ -237,7 +237,7 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
       (x * 3).toString
     })
     val intEstimator = new LabelEstimator[String, String, String] {
-      protected def fitRDDs(data: RDD[String], labels: RDD[String]): Transformer[String, String] = {
+      protected def fit(data: RDD[String], labels: RDD[String]): Transformer[String, String] = {
         Transformer(x => x + "qub")
       }
     }
@@ -254,7 +254,7 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     assert(labelFeatures.get().collect() === Array("192", "564", "72"))
     assert(accum.value === 6, "Incremental code should not have reprocessed cached values")
 
-    val pipe = featurizer andThen intEstimator.fit(features, labelFeatures)
+    val pipe = featurizer andThen intEstimator.withData(features, labelFeatures)
     val out = pipe(data)
     assert(out.get().collect() === Array("96qub", "282qub", "36qub"))
     assert(out.get().collect() === Array("96qub", "282qub", "36qub"))
@@ -301,7 +301,7 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     val estAccum1 = sc.accumulator(0)
     val estAccum2 = sc.accumulator(0)
     val estimator1 = new Estimator[String, String] {
-      protected def fitRDD(data: RDD[String]): Transformer[String, String] = {
+      protected def fit(data: RDD[String]): Transformer[String, String] = {
         data.foreach { _ =>
           estAccum1 += 1
         }
@@ -309,7 +309,7 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
       }
     }
     val estimator2 = new Estimator[String, String] {
-      protected def fitRDD(data: RDD[String]): Transformer[String, String] = {
+      protected def fit(data: RDD[String]): Transformer[String, String] = {
         data.foreach { _ =>
           estAccum2 += 1
         }
@@ -376,79 +376,7 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     Pipeline.state.clear()
   }
 
-  test("pipeline submit") {
-    // Clean global pipeline state
-    Pipeline.state.clear()
-
-    val defaultOptimizer = Pipeline.getOptimizer
-
-    // Set an optimizer that counts how many times optimization has been executed
-    val numOptimizations = new AtomicInteger(0)
-    Pipeline.setOptimizer(new Optimizer {
-      override protected val batches: Seq[Batch] =
-        Batch("Load Saved State", Once, ExtractSaveablePrefixes, SavedStateLoadRule, DanglingNodeRemovalRule) ::
-        Batch("Common Sub-expression Elimination", FixedPoint(Int.MaxValue), EquivalentNodeMergeRule) ::
-        Batch("Update num-optimizations", Once, new Rule {
-          override def apply(plan: Graph, prefixes: Map[NodeId, Prefix]):
-          (Graph, Map[NodeId, Prefix]) = {
-            numOptimizations.addAndGet(1)
-            (plan, prefixes)
-          }
-        }) ::
-        Nil
-    })
-
-    sc = new SparkContext("local", "test")
-
-    val accum = sc.accumulator(0)
-    val intTransformer = Transformer[Int, String](x => {
-      accum += 1
-      (x * 3).toString
-    })
-    val intEstimator = new Estimator[String, String] {
-      protected def fitRDD(data: RDD[String]): Transformer[String, String] = {
-        Transformer(x => x + "qub")
-      }
-    }
-
-    val data = sc.parallelize(Seq(32, 94, 12))
-    val testData = sc.parallelize(Seq(32, 94))
-
-    val pipe = intTransformer andThen Cacher() andThen (intEstimator, data)
-    val featurizer = intTransformer andThen Cacher()
-
-    val features = featurizer(data)
-    val trainOut = pipe(data)
-    val testOut = pipe(testData)
-
-    Pipeline.submit(features, trainOut, testOut)
-
-    assert(numOptimizations.get() === 0, "Nothing should have been optimized yet")
-    assert(accum.value === 0, "Nothing should have been executed yet")
-
-
-    assert(trainOut.get().collect() === Array("96qub", "282qub", "36qub"))
-    assert(trainOut.get().collect() === Array("96qub", "282qub", "36qub"))
-    assert(accum.value === 3, "train features should have been processed exactly once")
-    assert(numOptimizations.get() === 1, "Exactly one global optimization should have occurred")
-
-    assert(features.get().collect() === Array("96", "282", "36"))
-    assert(accum.value === 3, "train features should have been processed exactly once")
-    assert(numOptimizations.get() === 1, "Exactly one global optimization should have occurred")
-
-    assert(testOut.get().collect() === Array("96qub", "282qub"))
-    assert(testOut.get().collect() === Array("96qub", "282qub"))
-    assert(accum.value === 5, "train and test features should have been processed once each")
-    assert(numOptimizations.get() === 1, "Exactly one global optimization should have occurred")
-
-    // Restore the default optimizer
-    Pipeline.setOptimizer(defaultOptimizer)
-
-    // Clean global pipeline state
-    Pipeline.state.clear()
-  }
-
-  test("pipeline submit-like") {
+  test("access features and final value") {
     // Clean global pipeline state
     Pipeline.state.clear()
 
@@ -478,7 +406,7 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
       (x * 3).toString
     })
     val intEstimator = new Estimator[String, String] {
-      protected def fitRDD(data: RDD[String]): Transformer[String, String] = {
+      protected def fit(data: RDD[String]): Transformer[String, String] = {
         Transformer(x => x + "qub")
       }
     }
@@ -527,14 +455,14 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     val firstPipeline = Transformer[Int, Int](_ * 2) andThen Transformer[Int, Int](_ - 3)
 
     val secondPipeline = Transformer[Int, Int](_ * 2) andThen (new Estimator[Int, Int] {
-      protected def fitRDD(data: RDD[Int]): Transformer[Int, Int] = {
+      protected def fit(data: RDD[Int]): Transformer[Int, Int] = {
         val first = data.first()
         Transformer(x => x + first)
       }
     }, sc.parallelize(Seq(32, 94, 12)))
 
     val thirdPipeline = Transformer[Int, Int](_ * 4) andThen (new LabelEstimator[Int, Int, String] {
-      protected def fitRDDs(data: RDD[Int], labels: RDD[String]): Transformer[Int, Int] = {
+      protected def fit(data: RDD[Int], labels: RDD[String]): Transformer[Int, Int] = {
         val first = data.first() + labels.first().toInt
         Transformer(x => x + first)
       }
@@ -575,7 +503,7 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     val firstPipeline = Transformer[Int, Int](_ * 2) andThen Transformer[Int, Int](_ - 3)
 
     val secondPipeline = Transformer[Int, Int](_ * 2) andThen (new Estimator[Int, Int] {
-      protected def fitRDD(data: RDD[Int]): Transformer[Int, Int] = {
+      protected def fit(data: RDD[Int]): Transformer[Int, Int] = {
         numEstimations.addAndGet(1)
         val first = data.first()
         Transformer(x => x + first)
@@ -583,7 +511,7 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     }, sc.parallelize(Seq(32, 94, 12)))
 
     val thirdPipeline = Transformer[Int, Int](_ * 4) andThen (new LabelEstimator[Int, Int, String] {
-      protected def fitRDDs(data: RDD[Int], labels: RDD[String]): Transformer[Int, Int] = {
+      protected def fit(data: RDD[Int], labels: RDD[String]): Transformer[Int, Int] = {
         numEstimations.addAndGet(1)
         val first = data.first() + labels.first().toInt
         Transformer(x => x + first)

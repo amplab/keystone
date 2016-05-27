@@ -10,7 +10,7 @@ class LabelEstimatorSuite extends FunSuite with LocalSparkContext with Logging {
     sc = new SparkContext("local", "test")
 
     val intEstimator = new LabelEstimator[Int, Int, String] {
-      protected def fitRDDs(data: RDD[Int], labels: RDD[String]): Transformer[Int, Int] = {
+      protected def fit(data: RDD[Int], labels: RDD[String]): Transformer[Int, Int] = {
         val first = data.first()
         val label = labels.first().hashCode
         Transformer(x => x + first + label)
@@ -22,7 +22,7 @@ class LabelEstimatorSuite extends FunSuite with LocalSparkContext with Logging {
     val trainLabels = sc.parallelize(Seq("sjkfdl", "iw", "432"))
     val testData = sc.parallelize(Seq(42, 58, 61))
 
-    val pipeline = intEstimator.fit(trainData, trainLabels)
+    val pipeline = intEstimator.withData(trainData, trainLabels)
     val offset = 32 + "sjkfdl".hashCode
     assert(pipeline.apply(testData).get().collect().toSeq === Seq(42 + offset, 58 + offset, 61 + offset))
   }
@@ -34,7 +34,7 @@ class LabelEstimatorSuite extends FunSuite with LocalSparkContext with Logging {
     val labelTransformer = Transformer[String, String](_ + "hi")
 
     val intEstimator = new LabelEstimator[Int, Int, String] {
-      protected def fitRDDs(data: RDD[Int], labels: RDD[String]): Transformer[Int, Int] = {
+      protected def fit(data: RDD[Int], labels: RDD[String]): Transformer[Int, Int] = {
         val first = data.first()
         val label = labels.first().hashCode
         Transformer(x => x + first + label)
@@ -46,7 +46,7 @@ class LabelEstimatorSuite extends FunSuite with LocalSparkContext with Logging {
     val trainLabels = sc.parallelize(Seq("sjkfdl", "iw", "432"))
     val testData = sc.parallelize(Seq(42, 58, 61))
 
-    val pipeline = intEstimator.fit(dataTransformer(trainData), labelTransformer(trainLabels))
+    val pipeline = intEstimator.withData(dataTransformer(trainData), labelTransformer(trainLabels))
     val offset = 64 + "sjkfdlhi".hashCode
     assert(pipeline.apply(testData).get().collect().toSeq === Seq(42 + offset, 58 + offset, 61 + offset))
   }

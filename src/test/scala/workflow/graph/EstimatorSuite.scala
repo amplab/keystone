@@ -10,7 +10,7 @@ class EstimatorSuite extends FunSuite with LocalSparkContext with Logging {
     sc = new SparkContext("local", "test")
 
     val intEstimator = new Estimator[Int, Int] {
-      protected def fitRDD(data: RDD[Int]): Transformer[Int, Int] = {
+      protected def fit(data: RDD[Int]): Transformer[Int, Int] = {
         val first = data.first()
         Transformer(x => x + first)
       }
@@ -19,7 +19,7 @@ class EstimatorSuite extends FunSuite with LocalSparkContext with Logging {
     val trainData = sc.parallelize(Seq(32, 94, 12))
     val testData = sc.parallelize(Seq(42, 58, 61))
 
-    val pipeline = intEstimator.fit(trainData)
+    val pipeline = intEstimator.withData(trainData)
     assert(pipeline.apply(testData).get().collect().toSeq === Seq(42 + 32, 58 + 32, 61 + 32))
   }
 
@@ -29,7 +29,7 @@ class EstimatorSuite extends FunSuite with LocalSparkContext with Logging {
     val transformer = Transformer[Int, Int](_ * 2)
 
     val intEstimator = new Estimator[Int, Int] {
-      protected def fitRDD(data: RDD[Int]): Transformer[Int, Int] = {
+      protected def fit(data: RDD[Int]): Transformer[Int, Int] = {
         val first = data.first()
         Transformer(x => x + first)
       }
@@ -38,7 +38,7 @@ class EstimatorSuite extends FunSuite with LocalSparkContext with Logging {
     val trainData = sc.parallelize(Seq(32, 94, 12))
     val testData = sc.parallelize(Seq(42, 58, 61))
 
-    val pipeline = intEstimator.fit(transformer(trainData))
+    val pipeline = intEstimator.withData(transformer(trainData))
     assert(pipeline.apply(testData).get().collect().toSeq === Seq(42 + 64, 58 + 64, 61 + 64))
   }
 

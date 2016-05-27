@@ -10,7 +10,7 @@ class EstimatorSuite extends FunSuite with LocalSparkContext with Logging {
     sc = new SparkContext("local", "test")
 
     val intEstimator = new Estimator[Int, Int] {
-      protected def fit(data: RDD[Int]): Transformer[Int, Int] = {
+      def fit(data: RDD[Int]): Transformer[Int, Int] = {
         val first = data.first()
         Transformer(x => x + first)
       }
@@ -29,7 +29,7 @@ class EstimatorSuite extends FunSuite with LocalSparkContext with Logging {
     val transformer = Transformer[Int, Int](_ * 2)
 
     val intEstimator = new Estimator[Int, Int] {
-      protected def fit(data: RDD[Int]): Transformer[Int, Int] = {
+      def fit(data: RDD[Int]): Transformer[Int, Int] = {
         val first = data.first()
         Transformer(x => x + first)
       }

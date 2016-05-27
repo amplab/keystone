@@ -10,6 +10,6 @@ import scala.reflect.ClassTag
  * @tparam T Type of the input and, by definition, output.
  */
 case class Identity[T : ClassTag]() extends Transformer[T,T] {
-  override protected def singleTransform(in: T): T = in
-  override protected def batchTransform(in: RDD[T]): RDD[T] = in
+  override protected def apply(in: T): T = in
+  override protected def apply(in: RDD[T]): RDD[T] = in
 }

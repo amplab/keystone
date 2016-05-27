@@ -78,7 +78,7 @@ abstract class LabelEstimator[A, B, L] extends EstimatorOperator {
     val (newGraph, sinkId) = almostFinalGraph.addSink(delegatingId)
 
     // Finally, we construct a new pipeline w/ the new graph & new state.
-    new ConcretePipeline(new GraphExecutor(newGraph), sourceId, sinkId)
+    new Pipeline(new GraphExecutor(newGraph), sourceId, sinkId)
   }
 
   /**

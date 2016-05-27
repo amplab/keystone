@@ -39,7 +39,7 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
 
     val intTransformer = Transformer[Int, Int](x => x)
     val intEstimator = new Estimator[Int, Int] {
-      protected def fit(data: RDD[Int]): Transformer[Int, Int] = {
+      def fit(data: RDD[Int]): Transformer[Int, Int] = {
         numFits = numFits + 1
         Transformer(x => x)
       }
@@ -70,7 +70,7 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     val doubleTransformer = Transformer[Int, Int](_ * 2)
 
     val intEstimator = new Estimator[Int, Int] {
-      protected def fit(data: RDD[Int]): Transformer[Int, Int] = {
+      def fit(data: RDD[Int]): Transformer[Int, Int] = {
         val first = data.first()
         Transformer(x => x + first)
       }
@@ -146,7 +146,7 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
       (x * 3).toString
     })
     val intEstimator = new Estimator[String, String] {
-      protected def fit(data: RDD[String]): Transformer[String, String] = {
+      def fit(data: RDD[String]): Transformer[String, String] = {
         Transformer(x => x + "qub")
       }
     }
@@ -187,7 +187,7 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
       (x * 3).toString
     })
     val intEstimator = new Estimator[String, String] {
-      protected def fit(data: RDD[String]): Transformer[String, String] = {
+      def fit(data: RDD[String]): Transformer[String, String] = {
         Transformer(x => x + "qub")
       }
     }
@@ -301,7 +301,7 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     val estAccum1 = sc.accumulator(0)
     val estAccum2 = sc.accumulator(0)
     val estimator1 = new Estimator[String, String] {
-      protected def fit(data: RDD[String]): Transformer[String, String] = {
+      def fit(data: RDD[String]): Transformer[String, String] = {
         data.foreach { _ =>
           estAccum1 += 1
         }
@@ -309,7 +309,7 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
       }
     }
     val estimator2 = new Estimator[String, String] {
-      protected def fit(data: RDD[String]): Transformer[String, String] = {
+      def fit(data: RDD[String]): Transformer[String, String] = {
         data.foreach { _ =>
           estAccum2 += 1
         }
@@ -406,7 +406,7 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
       (x * 3).toString
     })
     val intEstimator = new Estimator[String, String] {
-      protected def fit(data: RDD[String]): Transformer[String, String] = {
+      def fit(data: RDD[String]): Transformer[String, String] = {
         Transformer(x => x + "qub")
       }
     }
@@ -455,14 +455,14 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     val firstPipeline = Transformer[Int, Int](_ * 2) andThen Transformer[Int, Int](_ - 3)
 
     val secondPipeline = Transformer[Int, Int](_ * 2) andThen (new Estimator[Int, Int] {
-      protected def fit(data: RDD[Int]): Transformer[Int, Int] = {
+      def fit(data: RDD[Int]): Transformer[Int, Int] = {
         val first = data.first()
         Transformer(x => x + first)
       }
     }, sc.parallelize(Seq(32, 94, 12)))
 
     val thirdPipeline = Transformer[Int, Int](_ * 4) andThen (new LabelEstimator[Int, Int, String] {
-      protected def fit(data: RDD[Int], labels: RDD[String]): Transformer[Int, Int] = {
+      def fit(data: RDD[Int], labels: RDD[String]): Transformer[Int, Int] = {
         val first = data.first() + labels.first().toInt
         Transformer(x => x + first)
       }
@@ -503,7 +503,7 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     val firstPipeline = Transformer[Int, Int](_ * 2) andThen Transformer[Int, Int](_ - 3)
 
     val secondPipeline = Transformer[Int, Int](_ * 2) andThen (new Estimator[Int, Int] {
-      protected def fit(data: RDD[Int]): Transformer[Int, Int] = {
+      def fit(data: RDD[Int]): Transformer[Int, Int] = {
         numEstimations.addAndGet(1)
         val first = data.first()
         Transformer(x => x + first)
@@ -511,7 +511,7 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     }, sc.parallelize(Seq(32, 94, 12)))
 
     val thirdPipeline = Transformer[Int, Int](_ * 4) andThen (new LabelEstimator[Int, Int, String] {
-      protected def fit(data: RDD[Int], labels: RDD[String]): Transformer[Int, Int] = {
+      def fit(data: RDD[Int], labels: RDD[String]): Transformer[Int, Int] = {
         numEstimations.addAndGet(1)
         val first = data.first() + labels.first().toInt
         Transformer(x => x + first)

@@ -13,13 +13,18 @@ import scala.reflect.ClassTag
  *
  * Warning: Not thread-safe!
  *
+ * @param executor The [[GraphExecutor]] underlying the Pipeline execution.
+ * @param source The SourceId of the Pipeline
+ * @param sink The SinkId of the Pipeline
  * @tparam A type of the data this Pipeline expects as input
  * @tparam B type of the data this Pipeline outputs
  */
-trait Pipeline[A, B] {
-  private[graph] val source: SourceId
-  private[graph] val sink: SinkId
-  private[graph] def executor: GraphExecutor
+class Pipeline[A, B](
+  private[graph] val executor: GraphExecutor,
+  private[graph] val source: SourceId,
+  private[graph] val sink: SinkId) extends Chainable[A, B] {
+
+  private[graph] def toPipeline: Pipeline[A, B] = this
 
   /**
    * Lazily apply the pipeline to a single datum.
@@ -64,112 +69,6 @@ trait Pipeline[A, B] {
 
     new PipelineDatumOut[B](new GraphExecutor(newGraph), sinkMapping(sink))
   }
-
-  /**
-   * Chains a pipeline onto the end of this one, producing a new pipeline.
-   * If either this pipeline or the following has already been executed, it will not need to be fit again.
-   *
-   * @param next the pipeline to chain
-   */
-  final def andThen[C](next: Pipeline[B, C]): Pipeline[A, C] = {
-    val (newGraph, _, _, sinkMapping) =
-      executor.graph.connectGraph(next.executor.graph, Map(next.source -> sink))
-
-    new ConcretePipeline(new GraphExecutor(newGraph), source, sinkMapping(next.sink))
-  }
-
-  /**
-   * Chains an estimator onto the end of this pipeline, producing a new pipeline.
-   * If this pipeline has already been executed, it will not need to be fit again.
-   *
-   * @param est The estimator to chain onto the end of this pipeline
-   * @param data The training data to use
-   *             (the estimator will be fit on the result of passing this data through the current pipeline)
-   */
-  final def andThen[C](est: Estimator[B, C], data: RDD[A]): Pipeline[A, C] = {
-    this andThen est.withData(apply(data))
-  }
-
-  /**
-   * Chains an estimator onto the end of this pipeline, producing a new pipeline.
-   * If this pipeline has already been executed, it will not need to be fit again.
-   *
-   * @param est The estimator to chain onto the end of this pipeline
-   * @param data The training data to use
-   *             (the estimator will be fit on the result of passing this data through the current pipeline)
-   */
-  final def andThen[C](est: Estimator[B, C], data: PipelineDatasetOut[A]): Pipeline[A, C] = {
-    this andThen est.withData(apply(data))
-  }
-
-  /**
-   * Chains a label estimator onto the end of this pipeline, producing a new pipeline.
-   * If this pipeline has already been executed, it will not need to be fit again.
-   *
-   * @param est The estimator to chain onto the end of this pipeline
-   * @param data The training data to use
-   *             (the estimator will be fit on the result of passing this data through the current pipeline)
-   * @param labels The labels to use when fitting the LabelEstimator. Must be zippable with the training data.
-   */
-  final def andThen[C, L](
-    est: LabelEstimator[B, C, L],
-    data: RDD[A],
-    labels: RDD[L]
-  ): Pipeline[A, C] = {
-    this andThen est.withData(apply(data), labels)
-  }
-
-  /**
-   * Chains a label estimator onto the end of this pipeline, producing a new pipeline.
-   * If this pipeline has already been executed, it will not need to be fit again.
-   *
-   * @param est The estimator to chain onto the end of this pipeline
-   * @param data The training data to use
-   *             (the estimator will be fit on the result of passing this data through the current pipeline)
-   * @param labels The labels to use when fitting the LabelEstimator. Must be zippable with the training data.
-   */
-  final def andThen[C, L](
-    est: LabelEstimator[B, C, L],
-    data: PipelineDatasetOut[A],
-    labels: RDD[L]
-  ): Pipeline[A, C] = {
-    this andThen est.withData(apply(data), labels)
-  }
-
-  /**
-   * Chains a label estimator onto the end of this pipeline, producing a new pipeline.
-   * If this pipeline has already been executed, it will not need to be fit again.
-   *
-   * @param est The estimator to chain onto the end of this pipeline
-   * @param data The training data to use
-   *             (the estimator will be fit on the result of passing this data through the current pipeline)
-   * @param labels The labels to use when fitting the LabelEstimator. Must be zippable with the training data.
-   */
-  final def andThen[C, L](
-    est: LabelEstimator[B, C, L],
-    data: RDD[A],
-    labels: PipelineDatasetOut[L]
-  ): Pipeline[A, C] = {
-    this andThen est.withData(apply(data), labels)
-  }
-
-  /**
-   * Chains a label estimator onto the end of this pipeline, producing a new pipeline.
-   * If this pipeline has already been executed, it will not need to be fit again.
-   *
-   * @param est The estimator to chain onto the end of this pipeline
-   * @param data The training data to use
-   *             (the estimator will be fit on the result of passing this data through the current pipeline)
-   * @param labels The labels to use when fitting the LabelEstimator. Must be zippable with the training data.
-   */
-  final def andThen[C, L](
-    est: LabelEstimator[B, C, L],
-    data: PipelineDatasetOut[A],
-    labels: PipelineDatasetOut[L]
-  ): Pipeline[A, C] = {
-    this andThen est.withData(apply(data), labels)
-  }
-
 }
 
 object Pipeline {
@@ -235,6 +134,6 @@ object Pipeline {
 
     // We construct & return the new gathered pipeline
     val executor = new GraphExecutor(newGraph)
-    new ConcretePipeline[A, Seq[B]](executor, source, sink)
+    new Pipeline[A, Seq[B]](executor, source, sink)
   }
 }

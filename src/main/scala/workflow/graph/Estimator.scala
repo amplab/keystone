@@ -40,7 +40,7 @@ abstract class Estimator[A, B] extends EstimatorOperator {
     val (almostFinalGraph, delegatingId) = estGraphWithNewSource.addNode(new DelegatingOperator, Seq(estId, sourceId))
     val (newGraph, sinkId) = almostFinalGraph.addSink(delegatingId)
 
-    new ConcretePipeline(new GraphExecutor(newGraph), sourceId, sinkId)
+    new Pipeline(new GraphExecutor(newGraph), sourceId, sinkId)
   }
 
   /**
@@ -56,5 +56,5 @@ abstract class Estimator[A, B] extends EstimatorOperator {
    * @param data The estimator's training data.
    * @return A new transformer
    */
-  protected def fit(data: RDD[A]): Transformer[A, B]
+  def fit(data: RDD[A]): Transformer[A, B]
 }

@@ -1,7 +1,8 @@
 package workflow.graph
 
 /**
- * Extract the prefixes whose state we want to save (aka for any cacher or estimator node)
+ * Extract the prefixes of all Nodes whose state we want to save for reuse by other Pipeline apply and fit calls.
+ * This is all nodes that either have a Cacher or an EstimatorOperator as the internal operator.
  */
 object ExtractSaveablePrefixes extends Rule {
   override def apply(plan: Graph, prefixes: Map[NodeId, Prefix]): (Graph, Map[NodeId, Prefix]) = {

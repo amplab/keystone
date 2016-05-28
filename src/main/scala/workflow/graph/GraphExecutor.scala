@@ -62,7 +62,7 @@ private[graph] class GraphExecutor(val graph: Graph, val optimize: Boolean = tru
           val operator = optimizedGraph.getOperator(node)
           val expression = operator.execute(depExpressions)
 
-          // Save state if prefix exists!
+          // Save state if the prefix is being considered for saving/loading state!
           // Note: This whole process isn't threadsafe & things could get messed up if
           // multiple pipelines are executing and/or optimizing at once
           if (prefixes.contains(node)) {

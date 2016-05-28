@@ -12,7 +12,7 @@ import scala.reflect.ClassTag
  * @tparam T Type of the input to cache.
  */
 case class Cacher[T: ClassTag](name: Option[String] = None) extends Transformer[T,T] with Logging {
-  override protected def apply(in: RDD[T]): RDD[T] = {
+  override def apply(in: RDD[T]): RDD[T] = {
     logInfo(s"CACHING ${name.getOrElse(in.id)}")
     name match {
       case Some(x) => in.cache().setName(x)
@@ -20,5 +20,5 @@ case class Cacher[T: ClassTag](name: Option[String] = None) extends Transformer[
     }
   }
 
-  override protected def apply(in: T): T = in
+  override def apply(in: T): T = in
 }

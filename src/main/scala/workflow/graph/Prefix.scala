@@ -22,4 +22,9 @@ private[graph] object Prefix {
   }
 }
 
+/**
+ * This case class represents the logical prefix of a node in a Pipeline.
+ * @param operator The operator stored at the node
+ * @param deps The prefixes of the operator's dependencies
+ */
 private[graph] case class Prefix(operator: Operator, deps: Seq[Prefix])

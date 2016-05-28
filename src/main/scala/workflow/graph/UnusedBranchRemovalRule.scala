@@ -1,7 +1,8 @@
 package workflow.graph
 
 /**
- * A rule to remove all nodes & sources in a graph that don't lead to any sink.
+ * A rule to remove all nodes & sources in a graph that don't lead to any sink,
+ * and are effectively unused.
  */
 object UnusedBranchRemovalRule extends Rule {
   override def apply(plan: Graph, prefixes: Map[NodeId, Prefix]): (Graph, Map[NodeId, Prefix]) = {

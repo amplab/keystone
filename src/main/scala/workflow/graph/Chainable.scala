@@ -3,11 +3,18 @@ package workflow.graph
 import org.apache.spark.rdd.RDD
 
 /**
- * TODO Write me :(
- * @tparam A
- * @tparam B
+ * This trait provides methods to chain an object with [[Estimator]]s, [[LabelEstimator]]s, and other
+ * [[Chainable]]s to construct [[Pipeline]]s. To extend this trait, a class must implement the
+ * `toPipeline` method, which converts an object of the class into a [[Pipeline]].
+ *
+ * @tparam A type of the data this Chainable expects as input
+ * @tparam B type of the data this Chainable outputs
  */
 trait Chainable[A, B] {
+  /**
+   * A method that converts this object into a Pipeline.
+   * Must be implemented by anything that extends Chainable.
+   */
   private[graph] def toPipeline: Pipeline[A, B]
 
   /**

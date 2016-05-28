@@ -1,8 +1,8 @@
 package workflow.graph
 
 /**
- * A GraphExecutor is constructed using a graph with already-executed state attached to it.
- * It provides methods to further execute parts of the graph, returning the execution result.
+ * A GraphExecutor is constructed using a graph.
+ * It provides methods to execute parts of the graph, returning the execution result.
  * By default, it will optimize the graph before any new execution occurs.
  *
  * Warning: Not thread-safe!
@@ -45,7 +45,7 @@ private[graph] class GraphExecutor(val graph: Graph, val optimize: Boolean = tru
   /**
    * Execute the graph up to and including an input graph id, and return the result
    * of execution at that id.
-   * This method updates the internal execution state of the GraphExecutor.
+   * This method updates the global [[Pipeline.state]] prefix state table.
    *
    * @param graphId The GraphId to execute up to and including.
    * @return The execution result at the input graph id.

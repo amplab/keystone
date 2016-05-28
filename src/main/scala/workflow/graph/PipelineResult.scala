@@ -1,11 +1,16 @@
 package workflow.graph
 
-// rough idea given incrementalism: do everything it can in the base executor (which may be shared w/ other things) w/o inserting sources.
-// then create a "final executor" that is the base one w/ sources inserted, and optimized using the EquivalentNodeMerge optimizer.
-// The final value execution happens on that "final executor"
-// This two stage process allows "intuitive things" to happen a source being passed in is already processed elsewhere in the pipeline (e.g. making sure to reuse a cacher),
-// while pipeline fitting results can be reused across multiple pipeline applies, as they all share the same base executor.
-abstract class PipelineResult[T](
+/**
+ * A PipelineResult is a lazy wrapper around the result of applying a [[Pipeline]] to data.
+ * Internally it contains the Pipeline's execution plan with data sources inserted,
+ * and the sink that the Pipeline's output is expected to be produced by.
+ *
+ * @param executor The Pipeline's underlying execution plan,
+ *                 with the Pipeline's sources inserted into the [[Graph]]
+ * @param sink The Pipeline's sink
+ * @tparam T The type of the result.
+ */
+abstract class PipelineResult[T] private[graph] (
     private[graph] val executor: GraphExecutor,
     private[graph] val sink: SinkId
   ) {

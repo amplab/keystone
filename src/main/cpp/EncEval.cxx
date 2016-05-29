@@ -179,6 +179,7 @@ JNIEXPORT jfloatArray JNICALL Java_utils_external_EncEval_computeGMM (
   env->SetFloatArrayRegion(result, meanResSize, varResSize, varRes);
   env->SetFloatArrayRegion(result, meanResSize+varResSize, coefResSize, coefRes);
 
+  env->ReleaseFloatArrayElements(gmm_samples, samples_body, 0);
   //Cleanup structs created;
   free(meanRes);
   meanRes = NULL;

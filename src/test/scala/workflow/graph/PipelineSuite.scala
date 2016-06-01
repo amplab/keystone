@@ -1,6 +1,6 @@
 package workflow.graph
 
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream, ObjectInputStream, ObjectOutputStream}
+import java.io._
 import java.util.concurrent.atomic.AtomicInteger
 
 import org.apache.spark.SparkContext
@@ -605,12 +605,21 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     byteOut.close()
     val serializedFittedPipe = byteOut.toByteArray
 
-
-
-
     // Test deserializing the fitted Pipeline
     val byteIn = new ByteArrayInputStream(serializedFittedPipe)
-    val pipeIn = new ObjectInputStream(byteIn)
+    // Overriding code comes from sbt.IO
+    // It prevents the following error at sbt test time due to weird sbt class-loading:
+    // java.lang.ClassCastException: cannot assign instance of scala.collection.immutable.HashMap$SerializationProxy
+    // to field workflow.graph.TransformerGraph.dependencies of type scala.collection.immutable.Map
+    // in instance of workflow.graph.TransformerGraph
+    val pipeIn = new ObjectInputStream(byteIn) {
+      override def resolveClass(osc: ObjectStreamClass): Class[_] =
+      {
+        val c = Class.forName(osc.getName, false, this.getClass.getClassLoader)
+        if (c eq null) super.resolveClass(osc) else c
+      }
+    }
+
     val deserializedFittedPipe = pipeIn.readObject().asInstanceOf[FittedPipeline[Int, Seq[Int]]]
     byteIn.close()
     pipeIn.close()

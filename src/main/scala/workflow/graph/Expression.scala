@@ -6,7 +6,9 @@ import org.apache.spark.rdd.RDD
  * Output is a trait extended by everything that may be output by an [[Operator]].
  * It is intended to add some extra type checking to the internal operator execution.
  */
-private[graph] sealed trait Expression
+private[graph] sealed trait Expression {
+  def get: Any
+}
 
 /**
  * This is an output that wraps around an [[RDD]]. It wraps the RDD as call-by-name, so the RDD
@@ -16,7 +18,7 @@ private[graph] sealed trait Expression
  * that it will already be stored, and will not be computed.
  */
 private[graph] class DatasetExpression(compute: => RDD[_]) extends Expression {
-  lazy val get: RDD[_] = compute
+  lazy override val get: RDD[_] = compute
 }
 
 /**
@@ -27,7 +29,7 @@ private[graph] class DatasetExpression(compute: => RDD[_]) extends Expression {
  * that it will already be stored, and will not be computed.
  */
 private[graph] class DatumExpression(compute: => Any) extends Expression {
-  lazy val get: Any = compute
+  lazy override val get: Any = compute
 }
 
 /**
@@ -38,5 +40,5 @@ private[graph] class DatumExpression(compute: => Any) extends Expression {
  * that it will already be stored, and will not be computed.
  */
 private[graph] class TransformerExpression(compute: => TransformerOperator) extends Expression {
-  lazy val get: TransformerOperator = compute
+  lazy override val get: TransformerOperator = compute
 }

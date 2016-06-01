@@ -2,7 +2,6 @@ package workflow.graph
 
 import java.util.concurrent.atomic.AtomicInteger
 
-import nodes.util.Identity
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.scalatest.FunSuite

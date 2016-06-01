@@ -162,3 +162,16 @@ private[graph] class DelegatingOperator extends Operator with Serializable {
     }
   }
 }
+
+/**
+ * An operator initialized with an [[Expression]], which takes no inputs and always outputs
+ * that expression, regardless of the inputs.
+ *
+ * @param expression The expression to always output
+ */
+private[graph] class ExpressionOperator(expression: Expression) extends Operator {
+  override def execute(deps: Seq[Expression]): Expression = {
+    require(deps.isEmpty, "ExpressionOperator does not take any inputs")
+    expression
+  }
+}

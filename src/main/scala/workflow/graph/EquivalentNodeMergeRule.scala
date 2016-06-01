@@ -3,7 +3,8 @@ package workflow.graph
 /**
  * A rule to merge equivalent nodes in the DAG.
  * Nodes are considered equivalent if:
- * - The operators stored within the nodes are equal (.equals() is true)
+ * - The operators stored within the nodes are equal, i.e. `.hashCode()` of both ops is equal AND `.equals()` is true
+ *    (when an operator is a case class, both methods will automatically be generated)
  * - They share the same dependencies
  *
  * This rule also merges prefixes if any of

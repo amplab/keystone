@@ -20,7 +20,7 @@ private[graph] class GraphExecutor(val graph: Graph, val optimize: Boolean = tru
     optimized = true
 
     if (optimize) {
-      Pipeline.getOptimizer.execute(graph, Map())
+      PipelineEnv.getOrCreate.getOptimizer.execute(graph, Map())
     } else {
       (graph, Map())
     }
@@ -45,7 +45,7 @@ private[graph] class GraphExecutor(val graph: Graph, val optimize: Boolean = tru
   /**
    * Execute the graph up to and including an input graph id, and return the result
    * of execution at that id.
-   * This method updates the global [[Pipeline.state]] prefix state table.
+   * This method updates the [[PipelineEnv.state]] prefix state table.
    *
    * @param graphId The GraphId to execute up to and including.
    * @return The execution result at the input graph id.
@@ -66,7 +66,7 @@ private[graph] class GraphExecutor(val graph: Graph, val optimize: Boolean = tru
           // Note: This whole process isn't threadsafe & things could get messed up if
           // multiple pipelines are executing and/or optimizing at once
           if (prefixes.contains(node)) {
-            Pipeline.state(prefixes(node)) = expression
+            PipelineEnv.getOrCreate.state(prefixes(node)) = expression
           }
 
           expression

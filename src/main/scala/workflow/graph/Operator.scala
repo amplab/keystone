@@ -170,5 +170,8 @@ private[graph] class DelegatingOperator extends Operator with Serializable {
  * @param expression The expression to always output
  */
 private[graph] class ExpressionOperator(expression: Expression) extends Operator {
-  override def execute(deps: Seq[Expression]): Expression = expression
+  override def execute(deps: Seq[Expression]): Expression = {
+    require(deps.isEmpty, "ExpressionOperator does not take any inputs")
+    expression
+  }
 }

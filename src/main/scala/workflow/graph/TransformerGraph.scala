@@ -1,6 +1,5 @@
 package workflow.graph
 
-// This is serializable :)
 /**
  * TransformerGraphs are similar to [[Graph]]s, but unlike normal Graphs they may only contain
  * [[TransformerOperator]]s as operators, and as a result are guaranteed to be serializable.

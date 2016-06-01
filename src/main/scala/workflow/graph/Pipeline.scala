@@ -26,9 +26,17 @@ class Pipeline[A, B] private[graph] (
 
   private[graph] def toPipeline: Pipeline[A, B] = this
 
-  // TODO: Add docs
+  /**
+   * Fit all Estimators in this pipeline to produce a [[FittedPipeline]].
+   * It is logically equivalent, but only contains Transformers in the underlying graph.
+   * Applying the FittedPipeline to new data does not trigger any new optimization or estimator fitting.
+   *
+   * It is also serializable and may be written to and from disk.
+   *
+   * @return the fitted version of this Pipeline.
+   */
   final def fit(): FittedPipeline[A, B] = {
-    val optimizedGraph = Pipeline.getOptimizer.execute(executor.graph, Map())._1
+    val optimizedGraph = PipelineEnv.getOrCreate.getOptimizer.execute(executor.graph, Map())._1
 
     val estFittingExecutor = new GraphExecutor(optimizedGraph, optimize = false)
     val delegatingNodes = optimizedGraph.operators.collect {
@@ -102,28 +110,6 @@ class Pipeline[A, B] private[graph] (
 }
 
 object Pipeline {
-  // not threadsafe
-  private[graph] val state: scala.collection.mutable.Map[Prefix, Expression] = scala.collection.mutable.Map()
-
-  /**
-   * The internally stored optimizer globally used for all Pipeline execution. Accessible using getter and setter.
-   */
-  private var _optimizer: Optimizer = DefaultOptimizer
-
-  /**
-   * @return The current global optimizer used during Pipeline execution.
-   */
-  def getOptimizer: Optimizer = _optimizer
-
-  /**
-   * Globally set a new optimizer to use during Pipeline execution.
-   *
-   * @param optimizer The new optimizer to use
-   */
-  def setOptimizer(optimizer: Optimizer): Unit = {
-    _optimizer = optimizer
-  }
-
   /**
    * Produces a pipeline that when given an input,
    * combines the outputs of all its branches when executed on that input into a single Seq (in order)

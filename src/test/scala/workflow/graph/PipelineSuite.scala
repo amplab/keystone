@@ -11,7 +11,7 @@ import pipelines.{LocalSparkContext, Logging}
 class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
   test("pipeline chaining") {
     // Clean global pipeline state
-    Pipeline.state.clear()
+    PipelineEnv.getOrCreate.state.clear()
 
     sc = new SparkContext("local", "test")
 
@@ -27,12 +27,12 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     assert(pipelineOut === Seq((32*2) - 3, (94*2) - 3, (12*2) - 3))
 
     // Clean global pipeline state
-    Pipeline.state.clear()
+    PipelineEnv.getOrCreate.state.clear()
   }
 
   test("Do not fit estimators multiple times") {
     // Clean global pipeline state
-    Pipeline.state.clear()
+    PipelineEnv.getOrCreate.state.clear()
 
     sc = new SparkContext("local", "test")
 
@@ -59,12 +59,12 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     assert(numFits === 1, "Estimator should have been fit exactly once")
 
     // Clean global pipeline state
-    Pipeline.state.clear()
+    PipelineEnv.getOrCreate.state.clear()
   }
 
   test("estimator chaining") {
     // Clean global pipeline state
-    Pipeline.state.clear()
+    PipelineEnv.getOrCreate.state.clear()
 
     sc = new SparkContext("local", "test")
 
@@ -95,12 +95,12 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     assert(modelOut.get().collect().toSeq === Seq(32 + 32*2, 94 + 32*2, 12 + 32*2))
 
     // Clean global pipeline state
-    Pipeline.state.clear()
+    PipelineEnv.getOrCreate.state.clear()
   }
 
   test("label estimator chaining") {
     // Clean global pipeline state
-    Pipeline.state.clear()
+    PipelineEnv.getOrCreate.state.clear()
 
     sc = new SparkContext("local", "test")
 
@@ -132,12 +132,12 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     assert(modelOut.get().collect().toSeq === Seq(32 + 32*2 + 10, 94 + 32*2 + 10, 12 + 32*2 + 10))
 
     // Clean global pipeline state
-    Pipeline.state.clear()
+    PipelineEnv.getOrCreate.state.clear()
   }
 
   test("Incrementally update execution state variation 1") {
     // Clean global pipeline state
-    Pipeline.state.clear()
+    PipelineEnv.getOrCreate.state.clear()
 
     sc = new SparkContext("local", "test")
 
@@ -173,12 +173,12 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     assert(accum.value === 5, "Incremental code should not have reprocessed cached values")
 
     // Clean global pipeline state
-    Pipeline.state.clear()
+    PipelineEnv.getOrCreate.state.clear()
   }
 
   test("Incrementally update execution state variation 2") {
     // Clean global pipeline state
-    Pipeline.state.clear()
+    PipelineEnv.getOrCreate.state.clear()
 
     sc = new SparkContext("local", "test")
 
@@ -223,12 +223,12 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     assert(accum.value === 6, "single uncached value run")
 
     // Clean global pipeline state
-    Pipeline.state.clear()
+    PipelineEnv.getOrCreate.state.clear()
   }
 
   test("Incrementally update execution state with LabelEstimator") {
     // Clean global pipeline state
-    Pipeline.state.clear()
+    PipelineEnv.getOrCreate.state.clear()
 
     sc = new SparkContext("local", "test")
 
@@ -275,14 +275,14 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     assert(accum.value === 8, "Incremental code should not have reprocessed cached values")
 
     // Clean global pipeline state
-    Pipeline.state.clear()
+    PipelineEnv.getOrCreate.state.clear()
   }
 
   test("Incrementally update execution state when andThen is used") {
     // Clean global pipeline state
-    Pipeline.state.clear()
+    PipelineEnv.getOrCreate.state.clear()
 
-    val defaultOptimizer = Pipeline.getOptimizer
+    val defaultOptimizer = PipelineEnv.getOrCreate.getOptimizer
 
     sc = new SparkContext("local", "test")
 
@@ -371,21 +371,21 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     assert(estAccum2.value === 2)
 
     // Restore the default optimizer
-    Pipeline.setOptimizer(defaultOptimizer)
+    PipelineEnv.getOrCreate.setOptimizer(defaultOptimizer)
 
     // Clean global pipeline state
-    Pipeline.state.clear()
+    PipelineEnv.getOrCreate.state.clear()
   }
 
   test("access features and final value") {
     // Clean global pipeline state
-    Pipeline.state.clear()
+    PipelineEnv.getOrCreate.state.clear()
 
-    val defaultOptimizer = Pipeline.getOptimizer
+    val defaultOptimizer = PipelineEnv.getOrCreate.getOptimizer
 
     // Set an optimizer that counts how many times optimization has been executed
     val numOptimizations = new AtomicInteger(0)
-    Pipeline.setOptimizer(new Optimizer {
+    PipelineEnv.getOrCreate.setOptimizer(new Optimizer {
       override protected val batches: Seq[Batch] =
         Batch("Load Saved State", Once, ExtractSaveablePrefixes, SavedStateLoadRule, UnusedBranchRemovalRule) ::
         Batch("Common Sub-expression Elimination", FixedPoint(Int.MaxValue), EquivalentNodeMergeRule) ::
@@ -441,15 +441,15 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     assert(numOptimizations.get() === 3, "Another optimization should have occurred")
 
     // Restore the default optimizer
-    Pipeline.setOptimizer(defaultOptimizer)
+    PipelineEnv.getOrCreate.setOptimizer(defaultOptimizer)
 
     // Clean global pipeline state
-    Pipeline.state.clear()
+    PipelineEnv.getOrCreate.state.clear()
   }
 
   test("Pipeline gather") {
     // Clean global pipeline state
-    Pipeline.state.clear()
+    PipelineEnv.getOrCreate.state.clear()
 
     sc = new SparkContext("local", "test")
 
@@ -490,12 +490,12 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     assert(pipeline(sc.parallelize(data)).get().collect().toSeq === correctOut)
 
     // Clean global pipeline state
-    Pipeline.state.clear()
+    PipelineEnv.getOrCreate.state.clear()
   }
 
   test("Pipeline gather incremental construction") {
     // Clean global pipeline state
-    Pipeline.state.clear()
+    PipelineEnv.getOrCreate.state.clear()
 
     sc = new SparkContext("local", "test")
 
@@ -548,12 +548,12 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     assert(numEstimations.get() === 2, "Estimators should not have been fit again")
 
     // Clean global pipeline state
-    Pipeline.state.clear()
+    PipelineEnv.getOrCreate.state.clear()
   }
 
   test("Pipeline fit") {
     // Clean global pipeline state
-    Pipeline.state.clear()
+    PipelineEnv.getOrCreate.state.clear()
 
     sc = new SparkContext("local", "test")
 
@@ -606,6 +606,8 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     val serializedFittedPipe = byteOut.toByteArray
 
 
+
+
     // Test deserializing the fitted Pipeline
     val byteIn = new ByteArrayInputStream(serializedFittedPipe)
     val pipeIn = new ObjectInputStream(byteIn)
@@ -624,6 +626,6 @@ class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
     assert(deserializedFittedPipe(sc.parallelize(data)).collect().toSeq === correctOut)
 
     // Clean global pipeline state
-    Pipeline.state.clear()
+    PipelineEnv.getOrCreate.state.clear()
   }
 }

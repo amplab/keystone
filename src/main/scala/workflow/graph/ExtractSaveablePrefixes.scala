@@ -12,7 +12,7 @@ object ExtractSaveablePrefixes extends Rule {
     }
 
     val newPrefixes = nodesToExtract.map {
-      node => (node, Prefix.get(plan, node))
+      node => (node, Prefix.findPrefix(plan, node))
     }.toMap
 
     (plan, newPrefixes)

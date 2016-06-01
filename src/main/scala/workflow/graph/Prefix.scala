@@ -10,10 +10,10 @@ private[graph] object Prefix {
    * @param node A node in the graph
    * @return The prefix of that id
    */
-  def get(graph: Graph, node: NodeId): Prefix = {
+  def findPrefix(graph: Graph, node: NodeId): Prefix = {
     val rootOp = graph.getOperator(node)
     val deps = graph.getDependencies(node).map {
-      case dep: NodeId => get(graph, dep)
+      case dep: NodeId => findPrefix(graph, dep)
       case dep: SourceId =>
         throw new IllegalArgumentException("May not get the prefix of a node with Sources in the dependencies.")
     }

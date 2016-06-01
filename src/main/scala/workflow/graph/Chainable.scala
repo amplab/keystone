@@ -82,9 +82,9 @@ trait Chainable[A, B] {
    * @param labels The labels to use when fitting the LabelEstimator. Must be zippable with the training data.
    */
   final def andThen[C, L](
-                           est: LabelEstimator[B, C, L],
-                           data: PipelineDataset[A],
-                           labels: RDD[L]
+    est: LabelEstimator[B, C, L],
+    data: PipelineDataset[A],
+    labels: RDD[L]
   ): Pipeline[A, C] = {
     this andThen est.withData(toPipeline.apply(data), labels)
   }
@@ -116,9 +116,9 @@ trait Chainable[A, B] {
    * @param labels The labels to use when fitting the LabelEstimator. Must be zippable with the training data.
    */
   final def andThen[C, L](
-                           est: LabelEstimator[B, C, L],
-                           data: PipelineDataset[A],
-                           labels: PipelineDataset[L]
+    est: LabelEstimator[B, C, L],
+    data: PipelineDataset[A],
+    labels: PipelineDataset[L]
   ): Pipeline[A, C] = {
     this andThen est.withData(toPipeline.apply(data), labels)
   }

@@ -16,7 +16,7 @@ abstract class Estimator[A, B] extends EstimatorOperator {
    * @return A pipeline that fits this estimator and applies the result to inputs.
    */
   final def withData(data: RDD[A]): Pipeline[A, B] = {
-    withData(PipelineDatasetOut(data))
+    withData(PipelineDataset(data))
   }
 
   /**
@@ -26,7 +26,7 @@ abstract class Estimator[A, B] extends EstimatorOperator {
    * @param data The training data
    * @return A pipeline that fits this estimator and applies the result to inputs.
    */
-  final def withData(data: PipelineDatasetOut[A]): Pipeline[A, B] = {
+  final def withData(data: PipelineDataset[A]): Pipeline[A, B] = {
     // Remove the data sink,
     // Then insert this estimator into the graph with the data as the input
     val curSink = data.executor.graph.getSinkDependency(data.sink)

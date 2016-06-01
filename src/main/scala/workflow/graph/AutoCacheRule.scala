@@ -89,6 +89,7 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
       case _: TransformerOperator => false
       case _: EstimatorOperator => true
       case _: DelegatingOperator => false
+      // Currently, ExpressionOperators are only inserted for Cached RDDs & fitted Transformers
       case _: ExpressionOperator => true
     }}
   }

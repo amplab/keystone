@@ -6,10 +6,10 @@ import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
 import org.scalatest.mock.MockitoSugar
 import org.mockito.Mockito._
-import pipelines.{LocalSparkContext, Logging}
+import pipelines.{PipelineContext, Logging}
 
 class POSTaggerSuite extends FunSuite
-   with LocalSparkContext with Logging with MockitoSugar {
+   with PipelineContext with Logging with MockitoSugar {
 
   val SENTENCE = "Hello my name is Nikolsky and I like bananas".split(" ")
   val EMPTY_ANNOTATED_SENTENCE = TaggedSequence(IndexedSeq(), IndexedSeq())

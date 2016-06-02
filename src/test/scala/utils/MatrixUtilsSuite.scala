@@ -9,7 +9,7 @@ import org.apache.spark.SparkContext
 
 import pipelines._
 
-class MatrixUtilsSuite extends FunSuite with LocalSparkContext {
+class MatrixUtilsSuite extends FunSuite with PipelineContext {
 
   test("computeMean works correctly") {
     val numRows = 1000

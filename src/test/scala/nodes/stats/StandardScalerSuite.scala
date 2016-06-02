@@ -5,10 +5,10 @@ import org.apache.spark.SparkContext
 import org.apache.spark.mllib.stat.{MultivariateOnlineSummarizer, MultivariateStatisticalSummary}
 import org.apache.spark.rdd.RDD
 import org.scalatest.FunSuite
-import pipelines.LocalSparkContext
+import pipelines.PipelineContext
 import utils.{MLlibUtils, Stats}
 
-class StandardScalerSuite extends FunSuite with LocalSparkContext {
+class StandardScalerSuite extends FunSuite with PipelineContext {
 
   // When the input data is all constant, the variance is zero. The standardization against
   // zero variance is not well-defined, but we decide to just set it into zero here.

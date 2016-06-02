@@ -6,7 +6,7 @@ import org.scalatest.FunSuite
 import pipelines._
 import utils.{MatrixUtils, Stats}
 
-class KMeansPlusPlusSuite extends FunSuite with LocalSparkContext with Logging {
+class KMeansPlusPlusSuite extends FunSuite with PipelineContext with Logging {
 
   test("K-Means++ Single Center") {
     sc = new SparkContext("local", "test")

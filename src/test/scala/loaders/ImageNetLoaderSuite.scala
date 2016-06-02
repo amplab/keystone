@@ -3,10 +3,10 @@ package loaders
 import org.scalatest.FunSuite
 import org.apache.spark.SparkContext
 
-import pipelines.LocalSparkContext
+import pipelines.PipelineContext
 import utils.TestUtils
 
-class ImageNetLoaderSuite extends FunSuite with LocalSparkContext {
+class ImageNetLoaderSuite extends FunSuite with PipelineContext {
   test("load a sample of imagenet data") {
     sc = new SparkContext("local", "test")
     val dataPath = TestUtils.getTestResourceFileName("images/imagenet")

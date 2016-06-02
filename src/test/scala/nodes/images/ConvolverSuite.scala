@@ -6,13 +6,13 @@ import breeze.linalg._
 import breeze.stats._
 import org.scalatest.FunSuite
 
-import pipelines.{Logging, LocalSparkContext}
+import pipelines.{Logging, PipelineContext}
 import utils._
 import org.apache.spark.SparkContext
 import utils.ChannelMajorArrayVectorizedImage
 import utils.ImageMetadata
 
-class ConvolverSuite extends FunSuite with LocalSparkContext with Logging {
+class ConvolverSuite extends FunSuite with PipelineContext with Logging {
 
   test("1x1 patches convolutions") {
     val imgWidth = 4

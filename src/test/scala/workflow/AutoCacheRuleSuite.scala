@@ -3,9 +3,9 @@ package workflow
 import nodes.util.Cacher
 import org.apache.spark.rdd.RDD
 import org.scalatest.FunSuite
-import pipelines.{LocalSparkContext, Logging}
+import pipelines.{PipelineContext, Logging}
 
-class AutoCacheRuleSuite extends FunSuite with LocalSparkContext with Logging {
+class AutoCacheRuleSuite extends FunSuite with PipelineContext with Logging {
   val transformerOne = Transformer[Int, Int](x => x + 1)
   val transformerTwo = Transformer[Int, Int](x => x + 2)
   val transformerThree = Transformer[Int, Int](x => x + 3)

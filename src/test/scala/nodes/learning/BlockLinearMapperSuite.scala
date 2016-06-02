@@ -12,7 +12,7 @@ import org.apache.spark.rdd.RDD
 import pipelines._
 import utils.Stats
 
-class BlockLinearMapperSuite extends FunSuite with LocalSparkContext with Logging {
+class BlockLinearMapperSuite extends FunSuite with PipelineContext with Logging {
 
   test("BlockLinearMapper transformation") {
     sc = new SparkContext("local", "test")

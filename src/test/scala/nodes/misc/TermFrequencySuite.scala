@@ -3,9 +3,9 @@ package nodes.misc
 import nodes.stats.TermFrequency
 import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
-import pipelines.LocalSparkContext
+import pipelines.PipelineContext
 
-class TermFrequencySuite extends FunSuite with LocalSparkContext {
+class TermFrequencySuite extends FunSuite with PipelineContext {
   test("term frequency of simple strings") {
     sc = new SparkContext("local", "test")
     val in = Seq(Seq[Any]("b", "a", "c", "b", "b", "a", "b"))

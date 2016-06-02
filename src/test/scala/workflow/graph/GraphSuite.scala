@@ -1,9 +1,9 @@
 package workflow.graph
 
 import org.scalatest.FunSuite
-import pipelines.{LocalSparkContext, Logging}
+import pipelines.{PipelineContext, Logging}
 
-class GraphSuite extends FunSuite with LocalSparkContext with Logging {
+class GraphSuite extends FunSuite with PipelineContext with Logging {
 
   val graph = Graph(
     sources = Set(SourceId(1), SourceId(2), SourceId(3)),

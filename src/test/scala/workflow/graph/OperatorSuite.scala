@@ -5,9 +5,9 @@ import java.util.concurrent.atomic.AtomicInteger
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.scalatest.FunSuite
-import pipelines.{LocalSparkContext, Logging}
+import pipelines.{PipelineContext, Logging}
 
-class OperatorSuite extends FunSuite with LocalSparkContext with Logging {
+class OperatorSuite extends FunSuite with PipelineContext with Logging {
   test("DatumOperator") {
     val datum = 4
     val op = new DatumOperator(datum)

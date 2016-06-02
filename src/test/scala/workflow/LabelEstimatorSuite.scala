@@ -3,9 +3,9 @@ package workflow
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.scalatest.FunSuite
-import pipelines.{LocalSparkContext, Logging}
+import pipelines.{PipelineContext, Logging}
 
-class LabelEstimatorSuite extends FunSuite with LocalSparkContext with Logging {
+class LabelEstimatorSuite extends FunSuite with PipelineContext with Logging {
   test("estimator withData") {
     sc = new SparkContext("local", "test")
 

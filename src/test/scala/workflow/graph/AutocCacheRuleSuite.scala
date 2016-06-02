@@ -3,8 +3,8 @@ package workflow.graph
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.scalatest.FunSuite
-import pipelines.{LocalSparkContext, Logging}
-import workflow.AutoCacheRule.GreedyCache
+import pipelines.{PipelineContext, Logging}
+import workflow.graph.AutoCacheRule.GreedyCache
 
 case class Waiter(time: Long, nanos: Int = 0) {
   def waitHere(): Unit = synchronized {
@@ -19,7 +19,7 @@ case class TransformerPlus(plus: Int, time: Int) extends Transformer[Int, Int] {
   }
 }
 
-class AutoCacheRuleSuite extends FunSuite with LocalSparkContext with Logging {
+class AutoCacheRuleSuite extends FunSuite with PipelineContext with Logging {
 
   def estimatorOne = new Estimator[Int, Int] with WeightedOperator {
     override def fit(data: RDD[Int]): Transformer[Int, Int] = {

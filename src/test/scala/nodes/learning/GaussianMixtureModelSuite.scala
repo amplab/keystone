@@ -6,7 +6,7 @@ import org.scalatest.FunSuite
 import pipelines._
 import utils.{TestUtils, MatrixUtils, Stats}
 
-class GaussianMixtureModelSuite extends FunSuite with LocalSparkContext with Logging {
+class GaussianMixtureModelSuite extends FunSuite with PipelineContext with Logging {
 
   test("GMM Single Center") {
     sc = new SparkContext("local", "test")

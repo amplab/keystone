@@ -6,7 +6,7 @@ import org.scalatest.FunSuite
 import pipelines._
 import workflow.WorkflowUtils
 
-class LeastSquaresEstimatorSuite extends FunSuite with LocalSparkContext with Logging {
+class LeastSquaresEstimatorSuite extends FunSuite with PipelineContext with Logging {
 
   test("Big n small d dense") {
     sc = new SparkContext("local", "test")

@@ -5,10 +5,10 @@ import edu.berkeley.cs.amplab.mlmatrix.RowPartitionedMatrix
 import nodes.stats.StandardScaler
 import org.apache.spark.{rdd, SparkContext}
 import org.scalatest.FunSuite
-import pipelines.{LocalSparkContext, Logging}
+import pipelines.{PipelineContext, Logging}
 import utils.{TestUtils, MatrixUtils, Stats}
 
-class LBFGSSuite extends FunSuite with LocalSparkContext with Logging {
+class LBFGSSuite extends FunSuite with PipelineContext with Logging {
   test("Solve a dense linear system (fit intercept)") {
     sc = new SparkContext("local", "test")
 

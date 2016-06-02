@@ -3,10 +3,10 @@ package loaders
 import org.scalatest.FunSuite
 import org.apache.spark.SparkContext
 
-import pipelines.LocalSparkContext
+import pipelines.PipelineContext
 import utils.TestUtils
 
-class VOCLoaderSuite extends FunSuite with LocalSparkContext {
+class VOCLoaderSuite extends FunSuite with PipelineContext {
   test("load a sample of VOC data") {
     sc = new SparkContext("local", "test")
     val dataPath = TestUtils.getTestResourceFileName("images/voc")

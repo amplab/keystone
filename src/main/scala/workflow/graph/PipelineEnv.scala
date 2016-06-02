@@ -30,6 +30,14 @@ class PipelineEnv {
   def setOptimizer(optimizer: Optimizer): Unit = {
     _optimizer = optimizer
   }
+
+  /**
+   * Reset this PipelineEnv (clear state and set the Optimizer to the DefaultOptimizer)
+   */
+  def reset(): Unit = {
+    state.clear()
+    setOptimizer(DefaultOptimizer)
+  }
 }
 
 object PipelineEnv {

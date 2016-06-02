@@ -13,7 +13,7 @@ import org.apache.spark.SparkContext
 import pipelines._
 import utils.{Stats, MatrixUtils, TestUtils}
 
-class BlockWeightedLeastSquaresSuite extends FunSuite with Logging with LocalSparkContext {
+class BlockWeightedLeastSquaresSuite extends FunSuite with Logging with PipelineContext {
 
   def computeGradient(
       trainingFeatures: RDD[DenseVector[Double]],

@@ -166,6 +166,90 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
 
     val sortedScales = partitionScales.sorted
     val initProfiling = ProfilingState(Map(), Map(), Map())
+    def profileTransformer(state: ProfilingState, node: NodeId, transformer: TransformerOperator): ProfilingState = {
+      val deps = graph.getDependencies(node).map(_.asInstanceOf[NodeId])
+      val npp = state.numPerPartitionPerNode(deps.head)
+      val totalCount = npp.values.map(_.toLong).sum
+
+      if (nodesToProfile.contains(node) && state.registers(deps.head).isInstanceOf[DatasetExpression]) {
+        // Access & cache the rdd inputs
+        val inputs = deps.map(state.registers).collect {
+          case dataset: DatasetExpression => dataset.get.cache()
+        }
+        inputs.foreach(_.count())
+
+        val sampleProfiles = for (
+          (partitionScale, scaleIndex) <- sortedScales.zipWithIndex;
+          trial <- 1 to numTrials
+        ) yield {
+          // Calculate the necessary number of items per partition to maintain the same partition distribution,
+          // while only having scale items instead of totalCount items.
+          // Can't use mapValues because that isn't serializable
+          val scale = partitionScale * npp.size
+          val scaledNumPerPartition = npp
+            .toSeq.map(x => (x._1, math.round((scale.toDouble / totalCount) * x._2).toInt)).toMap
+
+          // Sample the inputs. Samples containing only scale items, but w/ the same relative partition distribution
+          // NOTE: Assumes all inputs have equal, zippable partition counts
+          val sampledInputs = inputs.map(_.mapPartitionsWithIndex {
+            case (pid, partition) => partition.take(scaledNumPerPartition(pid))
+          }).map(rdd => new DatasetExpression(rdd))
+
+          // Profile sample timing
+          val start = System.nanoTime()
+          // Construct and cache a sample
+          val sample = transformer.batchTransform(sampledInputs).cache()
+          sample.count()
+          val duration = System.nanoTime() - start
+
+          // Profile sample memory
+          val rddSize = sample.context.getRDDStorageInfo.filter(_.id == sample.id).map(_.memSize).head
+
+          (sample, SampleProfile(scaledNumPerPartition.values.sum, Profile(duration, rddSize, 0)))
+        }
+
+        // Unpersist all samples that won't be reused, save the final and largest sample
+        sampleProfiles.map(_._1).dropRight(1).foreach(_.unpersist())
+        val newProfile = generalizeProfiles(totalCount, sampleProfiles.map(_._2))
+        val newRegister = new DatasetExpression(sampleProfiles.last._1)
+
+        state.copy(
+          registers = state.registers + (node -> newRegister),
+          numPerPartitionPerNode = state.numPerPartitionPerNode + (node -> npp),
+          profiles = state.profiles + (node -> newProfile))
+
+      } else if (nodesToProfile.contains(node) && state.registers(deps.head).isInstanceOf[DatumExpression]) {
+        val inputs = deps.map(state.registers).collect {
+          case datum: DatumExpression => datum
+        }
+
+        // Profile sample timing
+        val start = System.nanoTime()
+        val datum = transformer.singleTransform(inputs)
+        val duration = System.nanoTime() - start
+
+        // Profile datum size memory
+        val datumSize = datum match {
+          case obj: AnyRef =>
+            SparkUtilWrapper.estimateSize(obj)
+          case _ => 0
+        }
+
+        val profile = Profile(duration, 0, datumSize)
+        val newRegister = new DatumExpression(datum)
+
+        state.copy(
+          registers = state.registers + (node -> newRegister),
+          numPerPartitionPerNode = state.numPerPartitionPerNode + (node -> npp),
+          profiles = state.profiles + (node -> profile))
+
+      } else {
+        val out = transformer.execute(deps.map(state.registers))
+        state.copy(
+          registers = state.registers + (node -> out),
+          numPerPartitionPerNode = state.numPerPartitionPerNode + (node -> npp))
+      }
+    }
     val profiling = linearization.collect {
       case node: NodeId if nodesToExecute.contains(node) => node
     }.foldLeft(initProfiling) { case (state, node) => {
@@ -260,88 +344,7 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
           }
         }
         case transformer: TransformerOperator => {
-          val deps = graph.getDependencies(node).map(_.asInstanceOf[NodeId])
-          val npp = state.numPerPartitionPerNode(deps.head)
-          val totalCount = npp.values.map(_.toLong).sum
-
-          if (nodesToProfile.contains(node) && state.registers(deps.head).isInstanceOf[DatasetExpression]) {
-            // Access & cache the rdd inputs
-            val inputs = deps.map(state.registers).collect {
-              case dataset: DatasetExpression => dataset.get.cache()
-            }
-            inputs.foreach(_.count())
-
-            val sampleProfiles = for (
-              (partitionScale, scaleIndex) <- sortedScales.zipWithIndex;
-              trial <- 1 to numTrials
-            ) yield {
-              // Calculate the necessary number of items per partition to maintain the same partition distribution,
-              // while only having scale items instead of totalCount items.
-              // Can't use mapValues because that isn't serializable
-              val scale = partitionScale * npp.size
-              val scaledNumPerPartition = npp
-                .toSeq.map(x => (x._1, math.round((scale.toDouble / totalCount) * x._2).toInt)).toMap
-
-              // Sample the inputs. Samples containing only scale items, but w/ the same relative partition distribution
-              // NOTE: Assumes all inputs have equal, zippable partition counts
-              val sampledInputs = inputs.map(_.mapPartitionsWithIndex {
-                case (pid, partition) => partition.take(scaledNumPerPartition(pid))
-              }).map(rdd => new DatasetExpression(rdd))
-
-              // Profile sample timing
-              val start = System.nanoTime()
-              // Construct and cache a sample
-              val sample = transformer.batchTransform(sampledInputs).cache()
-              sample.count()
-              val duration = System.nanoTime() - start
-
-              // Profile sample memory
-              val rddSize = sample.context.getRDDStorageInfo.filter(_.id == sample.id).map(_.memSize).head
-
-              (sample, SampleProfile(scaledNumPerPartition.values.sum, Profile(duration, rddSize, 0)))
-            }
-
-            // Unpersist all samples that won't be reused, save the final and largest sample
-            sampleProfiles.map(_._1).dropRight(1).foreach(_.unpersist())
-            val newProfile = generalizeProfiles(totalCount, sampleProfiles.map(_._2))
-            val newRegister = new DatasetExpression(sampleProfiles.last._1)
-
-            state.copy(
-              registers = state.registers + (node -> newRegister),
-              numPerPartitionPerNode = state.numPerPartitionPerNode + (node -> npp),
-              profiles = state.profiles + (node -> newProfile))
-
-          } else if (nodesToProfile.contains(node) && state.registers(deps.head).isInstanceOf[DatumExpression]) {
-            val inputs = deps.map(state.registers).collect {
-              case datum: DatumExpression => datum
-            }
-
-            // Profile sample timing
-            val start = System.nanoTime()
-            val datum = transformer.singleTransform(inputs)
-            val duration = System.nanoTime() - start
-
-            // Profile datum size memory
-            val datumSize = datum match {
-              case obj: AnyRef =>
-                SparkUtilWrapper.estimateSize(obj)
-              case _ => 0
-            }
-
-            val profile = Profile(duration, 0, datumSize)
-            val newRegister = new DatumExpression(datum)
-
-            state.copy(
-              registers = state.registers + (node -> newRegister),
-              numPerPartitionPerNode = state.numPerPartitionPerNode + (node -> npp),
-              profiles = state.profiles + (node -> profile))
-
-          } else {
-            val out = transformer.execute(deps.map(state.registers))
-            state.copy(
-              registers = state.registers + (node -> out),
-              numPerPartitionPerNode = state.numPerPartitionPerNode + (node -> npp))
-          }
+          profileTransformer(state, node, transformer)
         }
         case op: DelegatingOperator => {
           val deps = graph.getDependencies(node).map(_.asInstanceOf[NodeId])
@@ -486,6 +489,94 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
               numPerPartitionPerNode = state.numPerPartitionPerNode + (node -> npp))
           }
         }
+        case op: ExpressionOperator => {
+          op.execute(Seq()) match {
+            // A dataset, treat like a DatasetOperator:
+            case exp: DatasetExpression => {
+              val rdd = exp.get
+              val npp = WorkflowUtils.numPerPartition(rdd)
+
+              val totalCount = npp.values.map(_.toLong).sum
+
+              if (nodesToProfile.contains(node)) {
+                val sampleProfiles = for (
+                  (partitionScale, scaleIndex) <- sortedScales.zipWithIndex;
+                  trial <- 1 to numTrials
+                ) yield {
+                  // Calculate the necessary number of items per partition to maintain the same partition distribution,
+                  // while only having scale items instead of totalCount items.
+                  // Can't use mapValues because that isn't serializable
+                  val scale = partitionScale * npp.size
+                  val scaledNumPerPartition = npp.toSeq
+                    .map(x => (x._1, math.round((scale.toDouble / totalCount) * x._2).toInt)).toMap
+
+                  // Profile sample timing
+                  val start = System.nanoTime()
+                  // Construct a sample containing only scale items, but w/ the same relative partition distribution
+                  val sample = rdd.mapPartitionsWithIndex {
+                    case (pid, partition) => partition.take(scaledNumPerPartition(pid))
+                  }.cache()
+                  sample.count()
+                  val duration = System.nanoTime() - start
+
+                  // Profile sample memory
+                  val rddSize = sample.context.getRDDStorageInfo.filter(_.id == sample.id).map(_.memSize).head
+
+                  (sample, SampleProfile(scaledNumPerPartition.values.sum, Profile(duration, rddSize, 0)))
+                }
+
+                // Unpersist all samples that won't be reused, save the final and largest sample
+                sampleProfiles.map(_._1).dropRight(1).foreach(_.unpersist())
+                val newProfile = generalizeProfiles(totalCount, sampleProfiles.map(_._2))
+                val newRegister = new DatasetExpression(sampleProfiles.last._1)
+
+                state.copy(
+                  registers = state.registers + (node -> newRegister),
+                  numPerPartitionPerNode = state.numPerPartitionPerNode + (node -> npp),
+                  profiles = state.profiles + (node -> newProfile))
+              } else {
+                val partitionScale = sortedScales.max
+
+                // Calculate the necessary number of items per partition to maintain the same partition distribution,
+                // while only having scale items instead of totalCount items.
+                // Can't use mapValues because that isn't serializable
+                val scale = partitionScale * npp.size
+                val scaledNumPerPartition = npp.toSeq
+                  .map(x => (x._1, math.round((scale.toDouble / totalCount) * x._2).toInt)).toMap
+
+                // Construct a sample containing only scale items, but w/ the same relative partition distribution
+                val sample = rdd.mapPartitionsWithIndex {
+                  case (pid, partition) => partition.take(scaledNumPerPartition(pid))
+                }
+
+                val newRegisters = state.registers + (node -> new DatasetExpression(rdd))
+                state.copy(
+                  registers = newRegisters,
+                  numPerPartitionPerNode = state.numPerPartitionPerNode + (node -> npp))
+              }
+            }
+            // Not a dataset:
+            case exp => {
+              if (nodesToProfile.contains(node)) {
+                val expSize = exp.get match {
+                  case obj: AnyRef =>
+                    SparkUtilWrapper.estimateSize(obj)
+                  case _ => 0
+                }
+
+                val profile = Profile(0, 0, expSize)
+                state.copy(
+                  registers = state.registers + (node -> exp),
+                  numPerPartitionPerNode = state.numPerPartitionPerNode + (node -> Map()),
+                  profiles = state.profiles + (node -> profile))
+              } else {
+                state.copy(
+                  registers = state.registers + (node -> exp),
+                  numPerPartitionPerNode = state.numPerPartitionPerNode + (node -> Map()))
+              }
+            }
+          }
+        }
       }
     }}
 
@@ -538,14 +629,14 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
     val cached = initCacheSet(graph)
     val nodeWeights = getNodeWeights(graph)
     val childrenByNode = getChildrenForAllNodes(graph)
-    val linearization = AnalysisUtils.linearize(graph)
-    val runs = getRuns(linearization, childrenByNode, cached, nodeWeights)
-
     val descendantsOfSources = getDescendantsOfSources(graph)
 
     // Cache any node whose direct output is used more than once and isn't already cached
     val instructionsToCache = graph.nodes.filter {
-      node => (runs.getOrElse(node, 0) > 1) && (!cached(node)) && (!descendantsOfSources(node))
+      node => (childrenByNode(node).map {
+        case child: NodeId => nodeWeights(child)
+        case _ => 1
+      }.sum > 1) && (!cached(node)) && (!descendantsOfSources(node))
     }
 
     addCachesToPipeline(graph, instructionsToCache)
@@ -649,6 +740,7 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
 
         // We have the possibility of caching all uncached nodes accessed more than once,
         // That don't depend on the sources.
+        // TODO: MUST profile all Cacher nodes!!! (to get cachedMem to be correct)
         val nodesToProfile = plan.nodes
           .filter(i => (!cached(i)) && (runs(i) > 1)) -- descendantsOfSources
 

@@ -3,8 +3,8 @@ package workflow.graph
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.scalatest.FunSuite
-import pipelines.{PipelineContext, Logging}
-import workflow.graph.AutoCacheRule.GreedyCache
+import pipelines.{Logging, PipelineContext}
+import workflow.graph.AutoCacheRule.{AggressiveCache, GreedyCache}
 
 case class TransformerPlus(plus: Int) extends Transformer[Int, Int] {
   override def apply(in: Int): Int = {
@@ -70,7 +70,27 @@ class AutoCacheRuleSuite extends FunSuite with PipelineContext with Logging {
     NodeId(5) -> Profile(20, 100, 0)
   )
 
-  // TODO: End to end test
+  test("End to end aggressive AutoCacheRule") {
+    sc = new SparkContext("local", "test")
+    val optimizer = new Optimizer {
+      protected val batches: Seq[Batch] = Batch("Auto Cache", Once, new AutoCacheRule(GreedyCache())) :: Nil
+    }
+    PipelineEnv.getOrCreate.setOptimizer(optimizer)
+    val pipe = new Pipeline[Int, Int](new GraphExecutor(getPlan(sc)), SourceId(0), SinkId(0))
+
+    assert(pipe.apply(5).get() === 168)
+  }
+
+  test("End to end greedy AutoCacheRule") {
+    sc = new SparkContext("local", "test")
+    val optimizer = new Optimizer {
+      protected val batches: Seq[Batch] = Batch("Auto Cache", Once, new AutoCacheRule(AggressiveCache)) :: Nil
+    }
+    PipelineEnv.getOrCreate.setOptimizer(optimizer)
+    val pipe = new Pipeline[Int, Int](new GraphExecutor(getPlan(sc)), SourceId(0), SinkId(0))
+
+    assert(pipe.apply(5).get() === 168)
+  }
 
   test("Aggressive cacher") {
     sc = new SparkContext("local", "test")

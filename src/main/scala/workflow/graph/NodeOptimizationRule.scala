@@ -4,7 +4,7 @@ import org.apache.spark.rdd.RDD
 import workflow.WorkflowUtils
 
 /**
- * A modified graph executor used by the NodeOptimizationRule, to keep track
+ * This class is used by the NodeOptimizationRule, to keep track
  * of the numPerPartitions and collect data samples at different parts of the graph
  *
  * Warning: Not thread-safe!
@@ -12,7 +12,7 @@ import workflow.WorkflowUtils
  * @param graph The underlying graph to execute
  * @param samplesPerPartition The number of samples to take per partition
  */
-private[graph] class NodeOptimizationRuleGraphExecutor(graph: Graph, samplesPerPartition: Int) {
+private[graph] class SampleCollector(graph: Graph, samplesPerPartition: Int) {
 
   // The mutable internal state attached to the optimized graph. Lazily computed, requires optimization.
   private val executionState: scala.collection.mutable.Map[GraphId, Expression] =
@@ -56,6 +56,16 @@ private[graph] class NodeOptimizationRuleGraphExecutor(graph: Graph, samplesPerP
   def execute(graphId: GraphId): Expression = {
     require(!sourceDependants.contains(graphId), "May not execute GraphIds that depend on unconnected sources.")
 
+    def handleDataset(node: NodeId, rdd: RDD[_]): DatasetOperator = {
+      val npp = WorkflowUtils.numPerPartition(rdd)
+      numPerPartition(node) = npp
+
+      // Sample the RDD (with a value copy to avoid serializing this class when doing mapPartitions)
+      val spp = samplesPerPartition
+      val sampledRDD = rdd.mapPartitions(_.take(spp))
+      DatasetOperator(sampledRDD)
+    }
+
     executionState.getOrElseUpdate(graphId, {
       graphId match {
         case source: SourceId => throw new IllegalArgumentException("SourceIds may not be executed.")
@@ -74,13 +84,7 @@ private[graph] class NodeOptimizationRuleGraphExecutor(graph: Graph, samplesPerP
                 // If the ExpressionOperator contains a dataset, sample the rdd and get the numPerPartition
                 case exp: DatasetExpression => {
                   val rdd = exp.get
-                  val npp = WorkflowUtils.numPerPartition(rdd)
-                  numPerPartition(node) = npp
-
-                  // Sample the RDD (with a value copy to avoid serializing this class when doing mapPartitions)
-                  val spp = samplesPerPartition
-                  val sampledRDD = rdd.mapPartitions(_.take(spp))
-                  DatasetOperator(sampledRDD)
+                  handleDataset(node, rdd)
                 }
 
                 case _ => {
@@ -90,13 +94,7 @@ private[graph] class NodeOptimizationRuleGraphExecutor(graph: Graph, samplesPerP
               }
             }
             case DatasetOperator(rdd) => {
-              val npp = WorkflowUtils.numPerPartition(rdd)
-              numPerPartition(node) = npp
-
-              // Sample the RDD (with a value copy to avoid serializing this class when doing mapPartitions)
-              val spp = samplesPerPartition
-              val sampledRDD = rdd.mapPartitions(_.take(spp))
-              DatasetOperator(sampledRDD)
+              handleDataset(node, rdd)
             }
             case op: DatumOperator => {
               numPerPartition(node) = Map(0 -> 1)
@@ -111,6 +109,7 @@ private[graph] class NodeOptimizationRuleGraphExecutor(graph: Graph, samplesPerP
               op
             }
             case op: DelegatingOperator => {
+              // Get the numPerPartition from the first rdd input (the second dependency)
               numPerPartition(node) = numPerPartition(dependencies(1))
               op
             }
@@ -149,7 +148,7 @@ class NodeOptimizationRule(samplesPerPartition: Int = 3) extends Rule {
       case (descendants, source) => descendants ++ AnalysisUtils.getDescendants(graph, source) + source
     }
 
-    val executor = new NodeOptimizationRuleGraphExecutor(graph, samplesPerPartition)
+    val executor = new SampleCollector(graph, samplesPerPartition)
 
     // Get the set of nodes that we need to check for optimizations at.
     // This is any node that is Optimizable and does not depend on any source

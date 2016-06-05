@@ -3,9 +3,9 @@ package evaluation
 import breeze.linalg.DenseMatrix
 import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
-import pipelines.LocalSparkContext
+import pipelines.PipelineContext
 
-class MulticlassClassifierEvaluatorSuite extends FunSuite with LocalSparkContext {
+class MulticlassClassifierEvaluatorSuite extends FunSuite with PipelineContext {
   test("Multiclass evaluation metrics") {
     /*
      * Confusion matrix for 3-class classification with total 9 instances:

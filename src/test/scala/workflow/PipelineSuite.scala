@@ -4,9 +4,9 @@ import nodes.util.Identity
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.scalatest.FunSuite
-import pipelines.{LocalSparkContext, Logging}
+import pipelines.{PipelineContext, Logging}
 
-class PipelineSuite extends FunSuite with LocalSparkContext with Logging {
+class PipelineSuite extends FunSuite with PipelineContext with Logging {
   test("pipeline chaining") {
     sc = new SparkContext("local", "test")
 

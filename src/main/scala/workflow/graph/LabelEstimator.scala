@@ -95,6 +95,6 @@ abstract class LabelEstimator[A, B, L] extends EstimatorOperator {
    * @param labels The estimator's training labels
    * @return A new transformer
    */
-  protected def fit(data: RDD[A], labels: RDD[L]): Transformer[A, B]
+  def fit(data: RDD[A], labels: RDD[L]): Transformer[A, B]
 
 }

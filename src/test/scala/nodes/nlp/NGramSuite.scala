@@ -1,13 +1,13 @@
 package nodes.nlp
 
 import org.apache.spark.rdd.RDD
-import pipelines.LocalSparkContext
+import pipelines.PipelineContext
 
 import org.apache.spark.SparkContext
 
 import org.scalatest.FunSuite
 
-class NGramSuite extends FunSuite with LocalSparkContext {
+class NGramSuite extends FunSuite with PipelineContext {
 
   test("NGramsFeaturizer") {
     sc = new SparkContext("local[2]", "NGramSuite")

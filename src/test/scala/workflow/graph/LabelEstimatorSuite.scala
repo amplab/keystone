@@ -3,14 +3,14 @@ package workflow.graph
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.scalatest.FunSuite
-import pipelines.{LocalSparkContext, Logging}
+import pipelines.{PipelineContext, Logging}
 
-class LabelEstimatorSuite extends FunSuite with LocalSparkContext with Logging {
+class LabelEstimatorSuite extends FunSuite with PipelineContext with Logging {
   test("LabelEstimator fit RDD") {
     sc = new SparkContext("local", "test")
 
     val intEstimator = new LabelEstimator[Int, Int, String] {
-      protected def fit(data: RDD[Int], labels: RDD[String]): Transformer[Int, Int] = {
+      def fit(data: RDD[Int], labels: RDD[String]): Transformer[Int, Int] = {
         val first = data.first()
         val label = labels.first().hashCode
         Transformer(x => x + first + label)
@@ -34,7 +34,7 @@ class LabelEstimatorSuite extends FunSuite with LocalSparkContext with Logging {
     val labelTransformer = Transformer[String, String](_ + "hi")
 
     val intEstimator = new LabelEstimator[Int, Int, String] {
-      protected def fit(data: RDD[Int], labels: RDD[String]): Transformer[Int, Int] = {
+      def fit(data: RDD[Int], labels: RDD[String]): Transformer[Int, Int] = {
         val first = data.first()
         val label = labels.first().hashCode
         Transformer(x => x + first + label)

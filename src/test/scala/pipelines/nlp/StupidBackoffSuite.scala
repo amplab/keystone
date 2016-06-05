@@ -1,7 +1,7 @@
 package pipelines.nlp
 
 import nodes.nlp._
-import pipelines.LocalSparkContext
+import pipelines.PipelineContext
 
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
@@ -10,7 +10,7 @@ import org.scalatest.FunSuite
 
 import scala.collection.JavaConverters._
 
-class StupidBackoffSuite extends FunSuite with LocalSparkContext {
+class StupidBackoffSuite extends FunSuite with PipelineContext {
 
   val data = Seq("Winter is coming",
     "Finals are coming",

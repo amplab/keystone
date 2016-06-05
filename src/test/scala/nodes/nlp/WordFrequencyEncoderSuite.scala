@@ -1,12 +1,12 @@
 package nodes.nlp
 
-import pipelines.LocalSparkContext
+import pipelines.PipelineContext
 
 import org.apache.spark.SparkContext
 
 import org.scalatest.FunSuite
 
-class WordFrequencyEncoderSuite extends FunSuite with LocalSparkContext {
+class WordFrequencyEncoderSuite extends FunSuite with PipelineContext {
 
   val text = Seq("Winter coming", "Winter Winter is coming")
 

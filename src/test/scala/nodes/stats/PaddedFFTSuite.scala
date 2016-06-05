@@ -3,11 +3,11 @@ package nodes.stats
 import breeze.linalg._
 import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
-import pipelines.{LocalSparkContext, Logging}
+import pipelines.{PipelineContext, Logging}
 import utils.Stats
 
 
-class PaddedFFTSuite extends FunSuite with LocalSparkContext with Logging {
+class PaddedFFTSuite extends FunSuite with PipelineContext with Logging {
   test("Test PaddedFFT node") {
     sc = new SparkContext("local", "test")
 

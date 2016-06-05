@@ -10,7 +10,7 @@ import pipelines._
 import utils.{TestUtils, Stats, MatrixUtils}
 import workflow.WorkflowUtils
 
-class PCASuite extends FunSuite with LocalSparkContext with Logging {
+class PCASuite extends FunSuite with PipelineContext with Logging {
 
   test("PCA matrix transformation") {
     sc = new SparkContext("local", "test")

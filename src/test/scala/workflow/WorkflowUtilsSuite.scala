@@ -3,9 +3,9 @@ package workflow
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.scalatest.FunSuite
-import pipelines.{LocalSparkContext, Logging}
+import pipelines.{PipelineContext, Logging}
 
-class WorkflowUtilsSuite extends FunSuite with LocalSparkContext with Logging {
+class WorkflowUtilsSuite extends FunSuite with PipelineContext with Logging {
   val doubleTransformer = new Transformer[Int, Int] {
     override def apply(in: Int): Int = in * 2
     override val label = "x * 2"

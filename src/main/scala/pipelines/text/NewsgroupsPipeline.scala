@@ -1,5 +1,6 @@
 package pipelines.text
 
+import breeze.linalg.SparseVector
 import evaluation.MulticlassClassifierEvaluator
 import loaders.NewsgroupsDataLoader
 import nodes.learning.NaiveBayesEstimator
@@ -26,8 +27,8 @@ object NewsgroupsPipeline extends Logging {
         Tokenizer() andThen
         NGramsFeaturizer(1 to conf.nGrams) andThen
         TermFrequency(x => 1) andThen
-        (CommonSparseFeatures(conf.commonFeatures), trainData.data) andThen
-        (NaiveBayesEstimator(numClasses), trainData.data, trainData.labels) andThen
+        (CommonSparseFeatures[Seq[String]](conf.commonFeatures), trainData.data) andThen
+        (NaiveBayesEstimator[SparseVector[Double]](numClasses), trainData.data, trainData.labels) andThen
         MaxClassifier
 
     // Evaluate the classifier

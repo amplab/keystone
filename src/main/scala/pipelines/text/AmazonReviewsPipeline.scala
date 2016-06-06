@@ -1,5 +1,6 @@
 package pipelines.text
 
+import breeze.linalg.SparseVector
 import evaluation.BinaryClassifierEvaluator
 import loaders.{AmazonReviewsDataLoader, LabeledData}
 import nodes.learning.LogisticRegressionEstimator
@@ -27,15 +28,15 @@ object AmazonReviewsPipeline extends Logging {
         Tokenizer() andThen
         NGramsFeaturizer(1 to conf.nGrams) andThen
         TermFrequency(x => 1) andThen
-        (CommonSparseFeatures(conf.commonFeatures), training) andThen
-        (LogisticRegressionEstimator(numClasses = 2, numIters = conf.numIters), training, labels)
+        (CommonSparseFeatures[Seq[String]](conf.commonFeatures), training) andThen
+        (LogisticRegressionEstimator[SparseVector[Double]](numClasses = 2, numIters = conf.numIters), training, labels)
 
     // Evaluate the classifier
     val amazonTestData = AmazonReviewsDataLoader(sc, conf.testLocation, conf.threshold).labeledData
     val testData = LabeledData(amazonTestData.repartition(conf.numParts).cache())
     val testLabels = testData.labels
     val testResults = predictor(testData.data)
-    val eval = BinaryClassifierEvaluator(testResults.map(_ > 0), testLabels.map(_ > 0))
+    val eval = BinaryClassifierEvaluator(testResults.get.map(_ > 0), testLabels.map(_ > 0))
 
     logInfo("\n" + eval.summary())
     predictor

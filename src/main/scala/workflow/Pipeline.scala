@@ -24,7 +24,7 @@ class Pipeline[A, B] private[workflow] (
   private[workflow] val source: SourceId,
   private[workflow] val sink: SinkId) extends Chainable[A, B] {
 
-  private[workflow] def toPipeline: Pipeline[A, B] = this
+  def toPipeline: Pipeline[A, B] = this
 
   /**
    * Fit all Estimators in this pipeline to produce a [[FittedPipeline]].

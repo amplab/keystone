@@ -1,5 +1,7 @@
 package evaluation
 
+import workflow.PipelineDataset
+
 import scala.reflect.ClassTag
 import breeze.linalg._
 import breeze.numerics._

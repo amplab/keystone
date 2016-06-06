@@ -16,7 +16,7 @@ import scala.reflect.ClassTag
  * @tparam B output item type the transformer produces
  */
 abstract class Transformer[A, B : ClassTag] extends TransformerOperator with Chainable[A, B] {
-  private[workflow] override def toPipeline: Pipeline[A, B] = new Pipeline(
+  override def toPipeline: Pipeline[A, B] = new Pipeline(
     executor = new GraphExecutor(Graph(
       sources = Set(SourceId(0)),
       sinkDependencies = Map(SinkId(0) -> NodeId(0)),

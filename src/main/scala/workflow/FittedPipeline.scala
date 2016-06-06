@@ -24,7 +24,7 @@ class FittedPipeline[A, B] private[workflow] (
   /**
    * Converts this FittedPipeline back into a Pipeline.
    */
-  private[workflow] override def toPipeline: Pipeline[A, B] = new Pipeline(
+  override def toPipeline: Pipeline[A, B] = new Pipeline(
     new GraphExecutor(transformerGraph.toGraph, optimize = false),
     source,
     sink)

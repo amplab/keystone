@@ -15,7 +15,7 @@ trait Chainable[A, B] {
    * A method that converts this object into a Pipeline.
    * Must be implemented by anything that extends Chainable.
    */
-  private[workflow] def toPipeline: Pipeline[A, B]
+  def toPipeline: Pipeline[A, B]
 
   /**
    * Chains a pipeline onto the end of this one, producing a new pipeline.

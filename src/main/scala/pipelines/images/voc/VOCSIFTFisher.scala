@@ -50,11 +50,13 @@ object VOCSIFTFisher extends Serializable with Logging {
       case Some(fname) =>
         siftExtractor andThen new BatchPCATransformer(convert(csvread(new File(fname)), Float).t)
       case None =>
-        val pca = siftExtractor andThen
-            ColumnSampler(numPCASamplesPerImage) andThen
-            (ColumnPCAEstimator(conf.descDim), trainingData)
+        //val pca = siftExtractor andThen
+        //    ColumnSampler(numPCASamplesPerImage) andThen
+        //    (ColumnPCAEstimator(conf.descDim), trainingData)
+        val sampler = ColumnSampler(numPCASamplesPerImage).toPipeline
+        val pca = ColumnPCAEstimator(conf.descDim).withData(sampler(siftExtractor(trainingData)))
+        siftExtractor andThen pca
 
-        siftExtractor andThen pca.fittedTransformer
     }) andThen new Cacher
 
     // Part 2a: If necessary, compute a GMM based on the dimensionality-reduced features, or load from disk.
@@ -67,10 +69,9 @@ object VOCSIFTFisher extends Serializable with Logging {
           csvread(new File(conf.gmmWtsFile.get)).toDenseVector)
         pcaFeaturizer andThen FisherVector(gmm)
       case None =>
-        val fisherVector = pcaFeaturizer andThen
-            ColumnSampler(numGMMSamplesPerImage) andThen
-            (GMMFisherVectorEstimator(conf.vocabSize), trainingData)
-        pcaFeaturizer andThen fisherVector.fittedTransformer
+        val sampler = ColumnSampler(numGMMSamplesPerImage).toPipeline
+        val fisherVector = GMMFisherVectorEstimator(conf.vocabSize) withData (sampler(pcaFeaturizer(trainingData)))
+        pcaFeaturizer
     }) andThen
         FloatToDouble andThen
         MatrixVectorizer andThen
@@ -99,7 +100,7 @@ object VOCSIFTFisher extends Serializable with Logging {
 
     val predictions = predictor(testData)
 
-    val map = MeanAveragePrecisionEvaluator(testActuals, predictions, VOCLoader.NUM_CLASSES)
+    val map = MeanAveragePrecisionEvaluator(testActuals, predictions.get, VOCLoader.NUM_CLASSES)
     logInfo(s"TEST APs are: ${map.toArray.mkString(",")}")
     logInfo(s"TEST MAP is: ${mean(map)}")
 

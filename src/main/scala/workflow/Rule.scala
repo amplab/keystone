@@ -1,4 +1,4 @@
-package workflow.graph
+package workflow
 
 /**
  * Represents a DAG transformation rule: A transformation from one DAG

@@ -1,4 +1,4 @@
-package workflow.graph
+package workflow
 
 /**
  * To represent our Keystone workloads under the hood at the lowest level, we use a dataflow-esque DAG-like structure.
@@ -29,7 +29,7 @@ package workflow.graph
  * @param operators  A map of [[NodeId]] to the operator contained within that node
  * @param dependencies  A map of [[NodeId]] to the node's ordered dependencies
  */
-private[graph] case class Graph(
+private[workflow] case class Graph(
     sources: Set[SourceId],
     sinkDependencies: Map[SinkId, NodeOrSourceId],
     operators: Map[NodeId, Operator],

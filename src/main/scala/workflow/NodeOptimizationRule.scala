@@ -1,7 +1,6 @@
-package workflow.graph
+package workflow
 
 import org.apache.spark.rdd.RDD
-import workflow.WorkflowUtils
 
 /**
  * This class is used by the NodeOptimizationRule, to keep track
@@ -12,7 +11,7 @@ import workflow.WorkflowUtils
  * @param graph The underlying graph to execute
  * @param samplesPerPartition The number of samples to take per partition
  */
-private[graph] class SampleCollector(graph: Graph, samplesPerPartition: Int) {
+private[workflow] class SampleCollector(graph: Graph, samplesPerPartition: Int) {
 
   // The mutable internal state attached to the optimized graph. Lazily computed, requires optimization.
   private val executionState: scala.collection.mutable.Map[GraphId, Expression] =

@@ -1,4 +1,4 @@
-package workflow.graph
+package workflow
 
 import org.apache.spark.rdd.RDD
 
@@ -7,13 +7,13 @@ import org.apache.spark.rdd.RDD
  *
  * Under the hood, it extends [[PipelineResult]] and keeps track of the necessary execution plan.
  */
-class PipelineDataset[T] private[graph](executor: GraphExecutor, sink: SinkId)
+class PipelineDataset[T] private[workflow](executor: GraphExecutor, sink: SinkId)
   extends PipelineResult[RDD[T]](
     executor,
     sink)
 
 object PipelineDataset {
-  private[graph] def apply[T](rdd: RDD[T]): PipelineDataset[T] = {
+  private[workflow] def apply[T](rdd: RDD[T]): PipelineDataset[T] = {
     val emptyGraph = Graph(Set(), Map(), Map(), Map())
     val (graphWithDataset, nodeId) = emptyGraph.addNode(new DatasetOperator(rdd), Seq())
     val (graph, sinkId) = graphWithDataset.addSink(nodeId)

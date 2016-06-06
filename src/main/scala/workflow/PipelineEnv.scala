@@ -1,4 +1,4 @@
-package workflow.graph
+package workflow
 
 /**
  * PipelineEnv is an environment shared by multiple [[Pipeline]]s, containing variables
@@ -10,7 +10,7 @@ class PipelineEnv {
    * It is a mutable hashmap of logical prefix to the executed result at that prefix.
    * It is not currently thread-safe.
    */
-  private[graph] val state: scala.collection.mutable.Map[Prefix, Expression] = scala.collection.mutable.Map()
+  private[workflow] val state: scala.collection.mutable.Map[Prefix, Expression] = scala.collection.mutable.Map()
 
   /**
    * The internally stored optimizer used for all Pipeline execution. Accessible using getter and setter.

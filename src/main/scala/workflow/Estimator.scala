@@ -1,4 +1,4 @@
-package workflow.graph
+package workflow
 
 import org.apache.spark.rdd.RDD
 
@@ -48,7 +48,7 @@ abstract class Estimator[A, B] extends EstimatorOperator {
   /**
    * The non-type-safe `fitRDDs` method of [[EstimatorOperator]] that is being overridden by the Estimator API.
    */
-  final override private[graph] def fitRDDs(inputs: Seq[DatasetExpression]): TransformerOperator = {
+  final override private[workflow] def fitRDDs(inputs: Seq[DatasetExpression]): TransformerOperator = {
     fit(inputs.head.get.asInstanceOf[RDD[A]])
   }
 

@@ -1,4 +1,4 @@
-package workflow.graph
+package workflow
 
 /**
  * Extract the prefixes of all Nodes whose state we want to save for reuse by other Pipeline apply and fit calls.

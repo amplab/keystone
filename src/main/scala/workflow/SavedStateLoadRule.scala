@@ -1,4 +1,4 @@
-package workflow.graph
+package workflow
 
 /**
  * A rule to load any saved state for the [[PipelineEnv.state]] prefix state table

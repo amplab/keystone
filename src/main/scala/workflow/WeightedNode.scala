@@ -1,4 +1,4 @@
-package workflow.old
+package workflow
 
 /**
  * A mix-in that attaches a weight to a node that represents how often it must iterate

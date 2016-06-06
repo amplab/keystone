@@ -1,4 +1,4 @@
-package workflow.graph
+package workflow
 
 /**
  * A PipelineResult is a lazy wrapper around the result of applying a [[Pipeline]] to data.
@@ -10,9 +10,9 @@ package workflow.graph
  * @param sink The Pipeline's sink
  * @tparam T The type of the result.
  */
-abstract class PipelineResult[T] private[graph] (
-    private[graph] val executor: GraphExecutor,
-    private[graph] val sink: SinkId
+abstract class PipelineResult[T] private[workflow] (
+    private[workflow] val executor: GraphExecutor,
+    private[workflow] val sink: SinkId
   ) {
 
   private lazy val result: T = executor.execute(sink).get.asInstanceOf[T]

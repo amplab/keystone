@@ -1,4 +1,4 @@
-package workflow.graph
+package workflow
 
 import org.apache.spark.rdd.RDD
 
@@ -16,7 +16,7 @@ import scala.reflect.ClassTag
  * @tparam B output item type the transformer produces
  */
 abstract class Transformer[A, B : ClassTag] extends TransformerOperator with Chainable[A, B] {
-  private[graph] override def toPipeline: Pipeline[A, B] = new Pipeline(
+  private[workflow] override def toPipeline: Pipeline[A, B] = new Pipeline(
     executor = new GraphExecutor(Graph(
       sources = Set(SourceId(0)),
       sinkDependencies = Map(SinkId(0) -> NodeId(0)),
@@ -45,11 +45,11 @@ abstract class Transformer[A, B : ClassTag] extends TransformerOperator with Cha
    */
   def apply(in: RDD[A]): RDD[B] = in.map(apply)
 
-  final override private[graph] def singleTransform(inputs: Seq[DatumExpression]): Any = {
+  final override private[workflow] def singleTransform(inputs: Seq[DatumExpression]): Any = {
     apply(inputs.head.get.asInstanceOf[A])
   }
 
-  final override private[graph] def batchTransform(inputs: Seq[DatasetExpression]): RDD[_] = {
+  final override private[workflow] def batchTransform(inputs: Seq[DatasetExpression]): RDD[_] = {
     apply(inputs.head.get.asInstanceOf[RDD[A]])
   }
 }

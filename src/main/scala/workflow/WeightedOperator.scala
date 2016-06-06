@@ -1,4 +1,4 @@
-package workflow.graph
+package workflow
 
 /**
  * A mix-in that attaches a weight to an operator that represents how often it must iterate

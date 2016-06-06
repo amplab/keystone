@@ -1,4 +1,4 @@
-package workflow.graph
+package workflow
 
 import pipelines.Logging
 

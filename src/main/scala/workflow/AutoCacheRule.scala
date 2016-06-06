@@ -1,12 +1,12 @@
-package workflow.graph
+package workflow
 
 import breeze.linalg.{DenseMatrix, DenseVector, max}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.util.SparkUtilWrapper
 import pipelines.Logging
-import workflow.WorkflowUtils
-import workflow.graph.AutoCacheRule.{AggressiveCache, CachingStrategy, GreedyCache}
+
+import workflow.AutoCacheRule.{AggressiveCache, CachingStrategy, GreedyCache}
 
 case class Profile(ns: Long, rddMem: Long, driverMem: Long) {
   def +(p: Profile) = Profile(this.ns + p.ns, this.rddMem + p.rddMem, this.driverMem + p.driverMem)

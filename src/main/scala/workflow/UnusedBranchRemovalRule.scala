@@ -1,4 +1,4 @@
-package workflow.graph
+package workflow
 
 /**
  * A rule to remove all nodes & sources in a graph that don't lead to any sink,

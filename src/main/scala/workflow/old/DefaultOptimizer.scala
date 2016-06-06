@@ -1,6 +1,6 @@
-package workflow
+package workflow.old
 
-import workflow.AutoCacheRule.GreedyCache
+import workflow.old.AutoCacheRule.GreedyCache
 
 /**
  * Optimizes a Pipeline DAG

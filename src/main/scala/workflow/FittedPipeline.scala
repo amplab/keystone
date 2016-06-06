@@ -1,4 +1,4 @@
-package workflow.graph
+package workflow
 
 import org.apache.spark.rdd.RDD
 
@@ -15,16 +15,16 @@ import org.apache.spark.rdd.RDD
  * @tparam A type of the data this FittedPipeline expects as input
  * @tparam B type of the data this FittedPipeline outputs
  */
-class FittedPipeline[A, B] private[graph] (
-    private[graph] val transformerGraph: TransformerGraph,
-    private[graph] val source: SourceId,
-    private[graph] val sink: SinkId
+class FittedPipeline[A, B] private[workflow] (
+    private[workflow] val transformerGraph: TransformerGraph,
+    private[workflow] val source: SourceId,
+    private[workflow] val sink: SinkId
   ) extends Chainable[A, B] with Serializable {
 
   /**
    * Converts this FittedPipeline back into a Pipeline.
    */
-  private[graph] override def toPipeline: Pipeline[A, B] = new Pipeline(
+  private[workflow] override def toPipeline: Pipeline[A, B] = new Pipeline(
     new GraphExecutor(transformerGraph.toGraph, optimize = false),
     source,
     sink)

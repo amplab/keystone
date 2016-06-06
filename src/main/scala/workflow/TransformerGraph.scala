@@ -1,4 +1,4 @@
-package workflow.graph
+package workflow
 
 /**
  * TransformerGraphs are similar to [[Graph]]s, but unlike normal Graphs they may only contain
@@ -9,7 +9,7 @@ package workflow.graph
  * @param operators  A map of [[NodeId]] to the operator contained within that node
  * @param dependencies  A map of [[NodeId]] to the node's ordered dependencies
  */
-private[graph] case class TransformerGraph(
+private[workflow] case class TransformerGraph(
   sources: Set[SourceId],
   sinkDependencies: Map[SinkId, NodeOrSourceId],
   operators: Map[NodeId, TransformerOperator],
@@ -19,7 +19,7 @@ private[graph] case class TransformerGraph(
   /**
    * Convert this TransformerGraph into a standard [[Graph]]
    */
-  private[graph] def toGraph: Graph = {
+  private[workflow] def toGraph: Graph = {
     Graph(
       sources = sources,
       sinkDependencies = sinkDependencies,

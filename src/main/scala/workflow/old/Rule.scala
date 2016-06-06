@@ -1,4 +1,4 @@
-package workflow
+package workflow.old
 
 /**
  * Represents a pipeline transformation rule: A transformation from one pipeline

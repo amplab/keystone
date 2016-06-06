@@ -1,4 +1,4 @@
-package workflow.graph
+package workflow
 
 /**
  * A rule to merge equivalent nodes in the DAG.

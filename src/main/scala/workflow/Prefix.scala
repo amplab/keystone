@@ -1,7 +1,7 @@
-package workflow.graph
+package workflow
 
 
-private[graph] object Prefix {
+private[workflow] object Prefix {
   /**
    * Given a graph and a node, output the prefix of the id.
    * Will error if provided a node with a source in the dependencies.
@@ -27,4 +27,4 @@ private[graph] object Prefix {
  * @param operator The operator stored at the node
  * @param deps The prefixes of the operator's dependencies
  */
-private[graph] case class Prefix(operator: Operator, deps: Seq[Prefix])
+private[workflow] case class Prefix(operator: Operator, deps: Seq[Prefix])

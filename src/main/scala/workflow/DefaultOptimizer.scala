@@ -1,6 +1,6 @@
-package workflow.graph
+package workflow
 
-import workflow.graph.AutoCacheRule.GreedyCache
+import workflow.AutoCacheRule.GreedyCache
 
 /**
  * The default Pipeline optimizer used when executing pipelines.

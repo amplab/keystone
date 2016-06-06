@@ -1,7 +1,8 @@
-package workflow
+package nodes.util
 
 import org.apache.spark.rdd.RDD
 import pipelines.Logging
+import workflow.Transformer
 
 import scala.reflect.ClassTag
 

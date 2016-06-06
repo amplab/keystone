@@ -1,6 +1,7 @@
 package workflow
 
 import breeze.linalg.{DenseMatrix, DenseVector, max}
+import nodes.util.Cacher
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.util.SparkUtilWrapper

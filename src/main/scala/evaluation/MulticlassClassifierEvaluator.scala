@@ -100,7 +100,7 @@ case class MulticlassMetrics(confusionMatrix: DenseMatrix[Double]) {
   /**
    * Encodes an Int in base 26 (using chars 'a' - 'z')
    * Used to make the column headers in the pretty-printed confusion matrix (Styled after Mahout)
- *
+   *
    * @param i the Int to encode
    * @return The base 26 encoded Int as a String
    */

@@ -9,20 +9,20 @@ import workflow._
 import scala.reflect._
 
 /**
-  * A least squares solver that is optimized to use a fast algorithm, based on characteristics of the
-  * workload and cost models.
-  *
-  * Currently selects between Dense LBFGS, Sparse LBFGS, Exact Distributed Solve, and Approximate Block Solve.
-  *
-  * The default weights were determined empirically via results run on a 16 r3.4xlarge node cluster.
-  *
-  * @param lambda  The L2 regularization parameter to use, defaults to 0
-  * @param numMachines
-  * @param cpuWeight
-  * @param memWeight
-  * @param networkWeight
-  * @tparam T
-  */
+ * A least squares solver that is optimized to use a fast algorithm, based on characteristics of the
+ * workload and cost models.
+ *
+ * Currently selects between Dense LBFGS, Sparse LBFGS, Exact Distributed Solve, and Approximate Block Solve.
+ *
+ * The default weights were determined empirically via results run on a 16 r3.4xlarge node cluster.
+ *
+ * @param lambda  The L2 regularization parameter to use, defaults to 0
+ * @param numMachines
+ * @param cpuWeight
+ * @param memWeight
+ * @param networkWeight
+ * @tparam T
+ */
 class LeastSquaresEstimator[T <: Vector[Double]: ClassTag](
     lambda: Double = 0,
     numMachines: Option[Int] = None,

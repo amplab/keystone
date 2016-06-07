@@ -53,7 +53,7 @@ case class LocalColumnPCAEstimator(dims: Int) extends Estimator[DenseMatrix[Floa
 
   val pcaEstimator = new PCAEstimator(dims)
 
-  protected def fit(data: RDD[DenseMatrix[Float]]): Transformer[DenseMatrix[Float], DenseMatrix[Float]] = {
+  def fit(data: RDD[DenseMatrix[Float]]): Transformer[DenseMatrix[Float], DenseMatrix[Float]] = {
     val singleTransformer = pcaEstimator.fit(data.flatMap(x => MatrixUtils.matrixToColArray(x)))
     BatchPCATransformer(singleTransformer.pcaMat)
   }
@@ -83,7 +83,7 @@ case class DistributedColumnPCAEstimator(dims: Int) extends Estimator[DenseMatri
 
   val pcaEstimator = new DistributedPCAEstimator(dims)
 
-  protected def fit(data: RDD[DenseMatrix[Float]]): Transformer[DenseMatrix[Float], DenseMatrix[Float]] = {
+  def fit(data: RDD[DenseMatrix[Float]]): Transformer[DenseMatrix[Float], DenseMatrix[Float]] = {
     val singleTransformer = pcaEstimator.fit(data.flatMap(x => MatrixUtils.matrixToColArray(x)))
     BatchPCATransformer(singleTransformer.pcaMat)
   }
@@ -126,8 +126,8 @@ case class ColumnPCAEstimator(
   val distributedEstimator = new DistributedColumnPCAEstimator(dims)
   val default = distributedEstimator
 
-  override def optimize(sample: RDD[DenseMatrix[Float]], numPerPartition: Map[Int, Int])
-  : RDD[DenseMatrix[Float]] => Pipeline[DenseMatrix[Float], DenseMatrix[Float]] = {
+  def optimize(sample: RDD[DenseMatrix[Float]], numPerPartition: Map[Int, Int])
+  : Estimator[DenseMatrix[Float], DenseMatrix[Float]] = {
     val numColsPerMatrix: Double = sample.map(_.cols.toDouble).sum() / sample.count()
     val n = (numColsPerMatrix * numPerPartition.values.sum).toInt
     val d = sample.first().rows
@@ -148,9 +148,9 @@ case class ColumnPCAEstimator(
     )
 
     if (localCost < distributedCost) {
-      localEstimator.withData(_)
+      localEstimator
     } else {
-      distributedEstimator.withData(_)
+      distributedEstimator
     }
   }
 }

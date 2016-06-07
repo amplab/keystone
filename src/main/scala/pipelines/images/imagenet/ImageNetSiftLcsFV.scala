@@ -45,12 +45,12 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
     // Part 2: Compute dimensionality-reduced PCA features.
     val pcaTransformer = pcaFile match {
       case Some(fname) =>
-        new BatchPCATransformer(convert(csvread(new File(fname)), Float).t)
+        new BatchPCATransformer(convert(csvread(new File(fname)), Float).t).toPipeline
       case None =>
         val sampler = ColumnSampler(numColSamplesPerImage).toPipeline
         val pca = ColumnPCAEstimator(numPCADesc) withData (sampler(prefix(trainingData)))
 
-        pca
+        pca.toPipeline
     }
 
     // Part 2a: If necessary, compute a GMM based on the dimensionality-reduced features, or load from disk.

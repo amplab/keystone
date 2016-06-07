@@ -4,7 +4,7 @@ import breeze.linalg.{DenseVector, SparseVector}
 import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
 import pipelines._
-import workflow.{PipelineContext, WorkflowUtils}
+import workflow.{TransformerLabelEstimatorChain, PipelineContext, WorkflowUtils}
 
 class LeastSquaresEstimatorSuite extends FunSuite with PipelineContext with Logging {
 
@@ -25,7 +25,12 @@ class LeastSquaresEstimatorSuite extends FunSuite with PipelineContext with Logg
     val optimizedSolver = solver.optimize(data, labels, numPerPartition)
 
     val isLinearMapEstimator = optimizedSolver match {
-      case _: LinearMapEstimator => true
+      case t: TransformerLabelEstimatorChain[_,_,_,_] => {
+        t.second match {
+          case _: LinearMapEstimator => true
+          case _ => false
+        }
+      }
       case _ => false
     }
     assert(isLinearMapEstimator, "Expected exact distributed solver")
@@ -48,7 +53,12 @@ class LeastSquaresEstimatorSuite extends FunSuite with PipelineContext with Logg
     val optimizedSolver = solver.optimize(data, labels, numPerPartition)
 
     val isBlockSolver = optimizedSolver match {
-      case _: BlockLeastSquaresEstimator => true
+      case t: TransformerLabelEstimatorChain[_,_,_,_] => {
+        t.second match {
+          case _: BlockLeastSquaresEstimator => true
+          case _ => false
+        }
+      }
       case _ => false
     }
 
@@ -80,7 +90,12 @@ class LeastSquaresEstimatorSuite extends FunSuite with PipelineContext with Logg
     val optimizedSolver = solver.optimize(data, labels, numPerPartition)
 
     val isSparseLBFGS = optimizedSolver match {
-      case _: SparseLBFGSwithL2 => true
+      case t: TransformerLabelEstimatorChain[_,_,_,_] => {
+        t.second match {
+          case _: SparseLBFGSwithL2 => true
+          case _ => false
+        }
+      }
       case _ => false
     }
 

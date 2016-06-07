@@ -5,7 +5,8 @@ import org.apache.spark.SparkContext
 import org.mockito.Mockito._
 import org.scalatest.FunSuite
 import org.scalatest.mock.MockitoSugar
-import pipelines.{PipelineContext, Logging}
+import pipelines.Logging
+import workflow.PipelineContext
 
 class NERSuite extends FunSuite
   with PipelineContext with Logging with MockitoSugar {

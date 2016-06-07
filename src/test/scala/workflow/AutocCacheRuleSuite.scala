@@ -1,10 +1,11 @@
-package workflow.graph
+package workflow
 
+import nodes.util.Cacher
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.scalatest.FunSuite
-import pipelines.{Logging, PipelineContext}
-import workflow.graph.AutoCacheRule.{AggressiveCache, GreedyCache}
+import pipelines.Logging
+import workflow.AutoCacheRule.{AggressiveCache, GreedyCache}
 
 case class TransformerPlus(plus: Int) extends Transformer[Int, Int] {
   override def apply(in: Int): Int = {

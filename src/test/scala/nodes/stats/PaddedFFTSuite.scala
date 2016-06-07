@@ -3,8 +3,9 @@ package nodes.stats
 import breeze.linalg._
 import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
-import pipelines.{PipelineContext, Logging}
+import pipelines.Logging
 import utils.Stats
+import workflow.PipelineContext
 
 
 class PaddedFFTSuite extends FunSuite with PipelineContext with Logging {

@@ -2,10 +2,9 @@ package evaluation
 
 import breeze.linalg.DenseVector
 import org.scalatest.FunSuite
-
-import pipelines.PipelineContext
 import org.apache.spark.SparkContext
 import utils.Stats
+import workflow.PipelineContext
 
 class MeanAveragePrecisionSuite extends FunSuite with PipelineContext {
 

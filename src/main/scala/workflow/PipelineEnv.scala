@@ -34,7 +34,7 @@ class PipelineEnv {
   /**
    * Reset this PipelineEnv (clear state and set the Optimizer to the DefaultOptimizer)
    */
-  def reset(): Unit = {
+  private [workflow] def reset(): Unit = {
     state.clear()
     setOptimizer(DefaultOptimizer)
   }

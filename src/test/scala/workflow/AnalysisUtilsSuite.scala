@@ -1,7 +1,7 @@
-package workflow.graph
+package workflow
 
 import org.scalatest.FunSuite
-import pipelines.{PipelineContext, Logging}
+import pipelines.Logging
 
 class AnalysisUtilsSuite extends FunSuite with PipelineContext with Logging {
   val graph = Graph(

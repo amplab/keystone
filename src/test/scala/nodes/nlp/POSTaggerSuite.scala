@@ -6,7 +6,8 @@ import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
 import org.scalatest.mock.MockitoSugar
 import org.mockito.Mockito._
-import pipelines.{PipelineContext, Logging}
+import pipelines.Logging
+import workflow.PipelineContext
 
 class POSTaggerSuite extends FunSuite
    with PipelineContext with Logging with MockitoSugar {

@@ -1,12 +1,13 @@
-package workflow.graph
+package workflow
 
 import java.io._
 import java.util.concurrent.atomic.AtomicInteger
 
+import nodes.util.Cacher
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.scalatest.FunSuite
-import pipelines.{PipelineContext, Logging}
+import pipelines.Logging
 
 class PipelineSuite extends FunSuite with PipelineContext with Logging {
   test("pipeline chaining") {

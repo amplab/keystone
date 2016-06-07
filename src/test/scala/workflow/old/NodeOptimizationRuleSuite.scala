@@ -1,11 +1,12 @@
-package workflow
+package workflow.old
 
 import NodeOptimizationRuleSuite._
 
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.scalatest.FunSuite
-import pipelines.{PipelineContext, Logging}
+import pipelines.Logging
+import workflow.PipelineContext
 
 import scala.util.Random
 

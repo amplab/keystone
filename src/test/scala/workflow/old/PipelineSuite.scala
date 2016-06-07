@@ -1,10 +1,10 @@
-package workflow
+package workflow.old
 
-import nodes.util.Identity
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.scalatest.FunSuite
-import pipelines.{PipelineContext, Logging}
+import pipelines.Logging
+import workflow.PipelineContext
 
 class PipelineSuite extends FunSuite with PipelineContext with Logging {
   test("pipeline chaining") {

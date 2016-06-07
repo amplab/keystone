@@ -8,6 +8,7 @@ import breeze.stats._
 import org.apache.spark.SparkContext
 
 import pipelines._
+import workflow.PipelineContext
 
 class MatrixUtilsSuite extends FunSuite with PipelineContext {
 

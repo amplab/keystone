@@ -1,11 +1,11 @@
-package workflow.graph
+package workflow
 
 import java.util.concurrent.atomic.AtomicInteger
 
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.scalatest.FunSuite
-import pipelines.{PipelineContext, Logging}
+import pipelines.Logging
 
 class OperatorSuite extends FunSuite with PipelineContext with Logging {
   test("DatumOperator") {
@@ -32,12 +32,12 @@ class OperatorSuite extends FunSuite with PipelineContext with Logging {
     val inputDatumOutputs = inputs.map(i => new DatumExpression(i))
 
     val transformer = new TransformerOperator {
-      override private[graph] def singleTransform(dataDependencies: Seq[DatumExpression]): Any = {
+      override private[workflow] def singleTransform(dataDependencies: Seq[DatumExpression]): Any = {
         val sum = dataDependencies.map(_.get.asInstanceOf[Int]).sum
         globalInt.addAndGet(sum)
         sum
       }
-      override private[graph] def batchTransform(dataDependencies: Seq[DatasetExpression]): RDD[_] = ???
+      override private[workflow] def batchTransform(dataDependencies: Seq[DatasetExpression]): RDD[_] = ???
     }
 
     // Test laziness of execution
@@ -71,8 +71,8 @@ class OperatorSuite extends FunSuite with PipelineContext with Logging {
     val dataset3 = sc.parallelize(Seq(1, 2))
 
     val transformer = new TransformerOperator {
-      override private[graph] def singleTransform(dataDependencies: Seq[DatumExpression]): Any = ???
-      override private[graph] def batchTransform(dataDependencies: Seq[DatasetExpression]): RDD[_] = {
+      override private[workflow] def singleTransform(dataDependencies: Seq[DatumExpression]): Any = ???
+      override private[workflow] def batchTransform(dataDependencies: Seq[DatasetExpression]): RDD[_] = {
         val rdds = dataDependencies.map(_.get.asInstanceOf[RDD[Int]])
         globalInt.addAndGet(rdds.map(_.sum.toInt).sum)
         rdds.head
@@ -107,8 +107,8 @@ class OperatorSuite extends FunSuite with PipelineContext with Logging {
     val dataset = sc.parallelize(Seq(datum))
 
     val transformer = new TransformerOperator {
-      override private[graph] def singleTransform(dataDependencies: Seq[DatumExpression]): Any = datum
-      override private[graph] def batchTransform(dataDependencies: Seq[DatasetExpression]): RDD[_] = dataset
+      override private[workflow] def singleTransform(dataDependencies: Seq[DatumExpression]): Any = datum
+      override private[workflow] def batchTransform(dataDependencies: Seq[DatasetExpression]): RDD[_] = dataset
     }
 
     // Expects exception to be returned when deps are not (all DatasetOutput or all DatumOutput)
@@ -131,12 +131,12 @@ class OperatorSuite extends FunSuite with PipelineContext with Logging {
     val dataset3 = sc.parallelize(Seq(1, 2))
 
     val dummyTransformer = new TransformerOperator {
-      override private[graph] def singleTransform(dataDependencies: Seq[DatumExpression]): Any = ???
-      override private[graph] def batchTransform(dataDependencies: Seq[DatasetExpression]): RDD[_] = ???
+      override private[workflow] def singleTransform(dataDependencies: Seq[DatumExpression]): Any = ???
+      override private[workflow] def batchTransform(dataDependencies: Seq[DatasetExpression]): RDD[_] = ???
     }
 
     val estimator = new EstimatorOperator {
-      override private[graph] def fitRDDs(inputs: Seq[DatasetExpression]): TransformerOperator = {
+      override private[workflow] def fitRDDs(inputs: Seq[DatasetExpression]): TransformerOperator = {
         val rdds = inputs.map(_.get.asInstanceOf[RDD[Int]])
         globalInt.addAndGet(rdds.map(_.sum.toInt).sum)
         dummyTransformer
@@ -174,12 +174,12 @@ class OperatorSuite extends FunSuite with PipelineContext with Logging {
 
     val op = new DelegatingOperator
     val transformer = new TransformerExpression(new TransformerOperator {
-      override private[graph] def singleTransform(dataDependencies: Seq[DatumExpression]): Any = {
+      override private[workflow] def singleTransform(dataDependencies: Seq[DatumExpression]): Any = {
         val sum = dataDependencies.map(_.get.asInstanceOf[Int]).sum
         globalInt.addAndGet(sum)
         sum
       }
-      override private[graph] def batchTransform(dataDependencies: Seq[DatasetExpression]): RDD[_] = ???
+      override private[workflow] def batchTransform(dataDependencies: Seq[DatasetExpression]): RDD[_] = ???
     })
 
     // Test laziness of execution
@@ -214,8 +214,8 @@ class OperatorSuite extends FunSuite with PipelineContext with Logging {
 
     val op = new DelegatingOperator
     val transformer = new TransformerExpression(new TransformerOperator {
-      override private[graph] def singleTransform(dataDependencies: Seq[DatumExpression]): Any = ???
-      override private[graph] def batchTransform(dataDependencies: Seq[DatasetExpression]): RDD[_] = {
+      override private[workflow] def singleTransform(dataDependencies: Seq[DatumExpression]): Any = ???
+      override private[workflow] def batchTransform(dataDependencies: Seq[DatasetExpression]): RDD[_] = {
         val rdds = dataDependencies.map(_.get.asInstanceOf[RDD[Int]])
         globalInt.addAndGet(rdds.map(_.sum.toInt).sum)
         rdds.head
@@ -251,8 +251,8 @@ class OperatorSuite extends FunSuite with PipelineContext with Logging {
 
     val op = new DelegatingOperator
     val transformer = new TransformerExpression(new TransformerOperator {
-      override private[graph] def singleTransform(dataDependencies: Seq[DatumExpression]): Any = datum
-      override private[graph] def batchTransform(dataDependencies: Seq[DatasetExpression]): RDD[_] = dataset
+      override private[workflow] def singleTransform(dataDependencies: Seq[DatumExpression]): Any = datum
+      override private[workflow] def batchTransform(dataDependencies: Seq[DatasetExpression]): RDD[_] = dataset
     })
 
     // Expects exception to be returned when deps are not (all DatasetOutput or all DatumOutput)

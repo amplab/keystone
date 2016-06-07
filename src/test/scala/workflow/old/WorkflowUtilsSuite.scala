@@ -1,9 +1,10 @@
-package workflow
+package workflow.old
 
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.scalatest.FunSuite
-import pipelines.{PipelineContext, Logging}
+import pipelines.Logging
+import workflow.PipelineContext
 
 class WorkflowUtilsSuite extends FunSuite with PipelineContext with Logging {
   val doubleTransformer = new Transformer[Int, Int] {

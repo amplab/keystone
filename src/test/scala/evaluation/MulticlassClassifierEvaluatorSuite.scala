@@ -3,7 +3,7 @@ package evaluation
 import breeze.linalg.DenseMatrix
 import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
-import pipelines.PipelineContext
+import workflow.PipelineContext
 
 class MulticlassClassifierEvaluatorSuite extends FunSuite with PipelineContext {
   test("Multiclass evaluation metrics") {

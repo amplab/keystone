@@ -1,7 +1,7 @@
 package nodes.nlp
 
 import org.scalatest.FunSuite
-import pipelines.PipelineContext
+import workflow.PipelineContext
 
 class NGramsHashingTFSuite extends FunSuite with PipelineContext {
 

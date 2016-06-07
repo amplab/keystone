@@ -2,9 +2,8 @@ package loaders
 
 import org.scalatest.FunSuite
 import org.apache.spark.SparkContext
-
-import pipelines.PipelineContext
 import utils.TestUtils
+import workflow.PipelineContext
 
 class VOCLoaderSuite extends FunSuite with PipelineContext {
   test("load a sample of VOC data") {

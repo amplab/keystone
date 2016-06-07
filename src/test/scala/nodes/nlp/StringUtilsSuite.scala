@@ -2,7 +2,7 @@ package nodes.nlp
 
 import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
-import pipelines.PipelineContext
+import workflow.PipelineContext
 
 class StringUtilsSuite extends FunSuite with PipelineContext {
   val stringToManip = Array("  The quick BROWN fo.X ", " ! !.,)JumpeD. ovER the LAZy DOG.. ! ")

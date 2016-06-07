@@ -3,8 +3,8 @@ package nodes.learning
 import breeze.linalg.DenseVector
 import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
-import pipelines.PipelineContext
 import utils.{MLlibUtils, Stats}
+import workflow.PipelineContext
 
 import scala.util.Random
 import scala.util.control.Breaks._

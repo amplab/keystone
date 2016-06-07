@@ -2,8 +2,8 @@ package evaluation
 
 import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
-import pipelines.PipelineContext
 import utils.Stats
+import workflow.PipelineContext
 
 class BinaryClassifierEvaluatorSuite extends FunSuite with PipelineContext {
   test("Multiclass evaluation metrics") {

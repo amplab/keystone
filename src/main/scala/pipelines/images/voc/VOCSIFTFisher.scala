@@ -50,11 +50,8 @@ object VOCSIFTFisher extends Serializable with Logging {
       case Some(fname) =>
         siftExtractor andThen new BatchPCATransformer(convert(csvread(new File(fname)), Float).t)
       case None =>
-        //val pca = siftExtractor andThen
-        //    ColumnSampler(numPCASamplesPerImage) andThen
-        //    (ColumnPCAEstimator(conf.descDim), trainingData)
         val sampler = ColumnSampler(numPCASamplesPerImage).toPipeline
-        val pca = ColumnPCAEstimator(conf.descDim).withData(sampler(siftExtractor(trainingData)))
+        val pca = ColumnPCAEstimator(conf.descDim) withData (sampler(siftExtractor(trainingData)))
         siftExtractor andThen pca
 
     }) andThen new Cacher
@@ -71,7 +68,7 @@ object VOCSIFTFisher extends Serializable with Logging {
       case None =>
         val sampler = ColumnSampler(numGMMSamplesPerImage).toPipeline
         val fisherVector = GMMFisherVectorEstimator(conf.vocabSize) withData (sampler(pcaFeaturizer(trainingData)))
-        pcaFeaturizer
+        pcaFeaturizer andThen fisherVector
     }) andThen
         FloatToDouble andThen
         MatrixVectorizer andThen

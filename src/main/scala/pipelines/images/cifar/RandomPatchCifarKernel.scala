@@ -63,7 +63,7 @@ object RandomPatchCifarKernel extends Serializable with Logging {
         new Cacher[DenseVector[Double]] andThen
         (new StandardScaler, trainImages) andThen
         (new KernelRidgeRegression(
-            new GaussianKernelGenerator(conf.gamma),
+            new GaussianKernelGenerator(conf.gamma, conf.cacheKernel),
             conf.lambda.getOrElse(0.0),
             4096, // blockSize
             1), // numEpochs
@@ -99,6 +99,7 @@ object RandomPatchCifarKernel extends Serializable with Logging {
       poolStride: Int = 13,
       alpha: Double = 0.25,
       gamma: Double = 2e-4,
+      cacheKernel: Boolean = true,
       lambda: Option[Double] = None,
       sampleFrac: Option[Double] = None)
 
@@ -114,6 +115,7 @@ object RandomPatchCifarKernel extends Serializable with Logging {
     opt[Int]("poolSize") action { (x,c) => c.copy(poolSize=x) }
     opt[Double]("alpha") action { (x,c) => c.copy(alpha=x) }
     opt[Double]("gamma") action { (x,c) => c.copy(gamma=x) }
+    opt[Boolean]("cacheKernel") action { (x,c) => c.copy(cacheKernel=x) }
     opt[Double]("lambda") action { (x,c) => c.copy(lambda=Some(x)) }
     opt[Double]("sampleFrac") action { (x,c) => c.copy(sampleFrac=Some(x)) }
   }.parse(args, RandomCifarConfig()).get

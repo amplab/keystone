@@ -2,6 +2,7 @@ package nodes.learning
 
 import scala.reflect.ClassTag
 import scala.util.Random
+import scala.collection.mutable.ListBuffer
 
 import breeze.linalg._
 import breeze.math._
@@ -10,8 +11,8 @@ import breeze.numerics._
 import edu.berkeley.cs.amplab.mlmatrix.RowPartitionedMatrix
 import edu.berkeley.cs.amplab.mlmatrix.util.{Utils => MLMatrixUtils}
 
-import org.apache.spark.rdd.RDD
 import org.apache.spark.broadcast.Broadcast
+import org.apache.spark.rdd.RDD
 
 import pipelines.Logging
 import workflow.LabelEstimator
@@ -27,7 +28,7 @@ class KernelRidgeRegression[T: ClassTag](
 
   override def fit(
       data: RDD[T],
-      labels: RDD[DenseVector[Double]]): KernelBlockModel[T] = {
+      labels: RDD[DenseVector[Double]]): KernelBlockLinearMapper[T] = {
     val kernelTransformer = kernelGenerator.fit(data)
     val trainKernelMat = kernelTransformer(data)
     val nTrain = data.count
@@ -40,7 +41,7 @@ class KernelRidgeRegression[T: ClassTag](
       numEpochs,
       blockPermuter)
     
-    new KernelBlockModel(wLocals, blockSize, kernelTransformer, nTrain)
+    new KernelBlockLinearMapper(wLocals, blockSize, kernelTransformer, nTrain)
   }
 }
 
@@ -75,7 +76,7 @@ object KernelRidgeRegression extends Logging {
 
     // Currently we only support one lambda but the code
     // but the code is structured to support multiple lambdas
-    val lambdas = Array(lambda)
+    val lambdas = IndexedSeq(lambda)
     val numBlocks = math.ceil(nTrain.toDouble/blockSize).toInt
 
     val preFixLengths = labels.mapPartitions { part =>
@@ -107,7 +108,7 @@ object KernelRidgeRegression extends Logging {
     val wLocals = lambdas.map { l =>
       (0 until numBlocks).map { x =>
         DenseMatrix.zeros[Double](blockSize, nClasses)
-      }.toArray
+      }.to[ListBuffer]
     }
     val blockShuffler = blockPermuter.map(seed => new Random(seed))
 
@@ -139,7 +140,7 @@ object KernelRidgeRegression extends Logging {
             // this is a b * n1 times n1 * k
             x._1.t * y
           }
-        }, addMatrixArrays, depth=depth)
+        }, MatrixUtils.addMatrices, depth=depth)
 
         // This is b*k
         val y_bb = labelsRPM(blockIdxs, ::).collect()
@@ -191,14 +192,15 @@ object KernelRidgeRegression extends Logging {
       }
     }
     labelsMat.unpersist(true)
+    preFixLengthsBC.unpersist(true)
     wLocals(0)
   }
 
   def updateModel(
-      model: RDD[Array[DenseMatrix[Double]]],
+      model: RDD[IndexedSeq[DenseMatrix[Double]]],
       wBlockNewBC: Seq[Broadcast[DenseMatrix[Double]]],
       blockIdxsBC: Broadcast[Array[Int]],
-      preFixLengthsBC: Broadcast[Array[Int]]): RDD[Array[DenseMatrix[Double]]] = {
+      preFixLengthsBC: Broadcast[Array[Int]]): RDD[IndexedSeq[DenseMatrix[Double]]] = {
     val newModel = model.mapPartitionsWithIndex { case (idx, part) =>
       // note that prefix length is *not* cumsum (so the first entry is 0)
       val partBegin = preFixLengthsBC.value(idx) 
@@ -227,14 +229,5 @@ object KernelRidgeRegression extends Logging {
       Iterator.single(wParts)
     }
     newModel
-  }
-
-  def addMatrixArrays(a: Array[DenseMatrix[Double]], b: Array[DenseMatrix[Double]]) = {
-    var i = 0
-    while (i < a.length) {
-      a(i) += b(i)
-      i = i + 1
-    }
-    a
   }
 }

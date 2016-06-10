@@ -192,4 +192,14 @@ object MatrixUtils extends Serializable {
     out
   }
 
+  // Add two sequence of matrices by updating the first argument in place
+  def addMatrices(a: IndexedSeq[DenseMatrix[Double]], b: IndexedSeq[DenseMatrix[Double]]) = {
+    var i = 0
+    while (i < a.length) {
+      a(i) += b(i)
+      i = i + 1
+    }
+    a
+  }
+
 }

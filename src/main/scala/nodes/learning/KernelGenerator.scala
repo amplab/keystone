@@ -96,6 +96,8 @@ class GaussianKernelTransformer(
       (trainRow.t * trainRow).toDouble
     }.collect())
 
+    dataBC.unpersist(true)
+
     xyt *= (-2.0)
     xyt += dataNorm 
     xyt += trainDataNorms 

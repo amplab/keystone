@@ -18,12 +18,29 @@ import pipelines.Logging
 import workflow.LabelEstimator
 import utils._
 
+/**
+ * Solves a kernel ridge regression problem of the form
+ * (K(x, x) + \lambda * I) * W = Y
+ * using Gauss-Seidel based Block Coordinate Descent.
+ *
+ * The function K is specified by the kernel generator and this class
+ * uses the dual formulation of the ridge regression objective to improve
+ * numerical stability.
+ *
+ * @param kernelGenerator kernel function to apply to create kernel matrix
+ * @param lambda L2 regularization value
+ * @param blockSize number of columns in each block of BCD
+ * @param numEpochs number of epochs of BCD to run
+ * @param blockPermuter seed used for permuting column blocks in BCD
+ * @param blocksBeforeCheckpoint frequency at which intermediate data should be checkpointed
+ */
 class KernelRidgeRegression[T: ClassTag](
     kernelGenerator: KernelGenerator[T],
     lambda: Double,
     blockSize: Int,
     numEpochs: Int,
-    blockPermuter: Option[Long] = None)
+    blockPermuter: Option[Long] = None,
+    blocksBeforeCheckpoint: Int = 25)
   extends LabelEstimator[T, DenseVector[Double], DenseVector[Double]] {
 
   override def fit(
@@ -39,9 +56,11 @@ class KernelRidgeRegression[T: ClassTag](
       lambda,
       blockSize,
       numEpochs,
-      blockPermuter)
-    
-    new KernelBlockLinearMapper(wLocals, blockSize, kernelTransformer, nTrain)
+      blockPermuter,
+      blocksBeforeCheckpoint)
+
+    new KernelBlockLinearMapper(wLocals, blockSize, kernelTransformer, nTrain,
+      blocksBeforeCheckpoint)
   }
 }
 
@@ -50,16 +69,17 @@ object KernelRidgeRegression extends Logging {
    * Solves a linear system of the form (K + \lambda * I) * W = Y
    * using Gauss-Seidel based Block Coordinate Descent as described in
    * http://arxiv.org/abs/1602.05310
-   * 
+   *
    * K is assumed to be a symmetric kernel matrix generated using a kernel
    * generator.
-   * 
-   * @param data the kernel matrix to use 
+   *
+   * @param data the kernel matrix to use
    * @param labels training labels RDD
    * @param lambda L2 regularization parameter
    * @param blockSize number of columns per block of Gauss-Seidel solve
    * @param numEpochs number of passes of co-ordinate descent to run
    * @param blockPermuter seed to use for permuting column blocks
+   * @param blocksBeforeCheckpoint frequency at which intermediate data should be checkpointed
    *
    * @return a model that can be applied on test data.
    */
@@ -69,7 +89,8 @@ object KernelRidgeRegression extends Logging {
       lambda: Double,
       blockSize: Int,
       numEpochs: Int,
-      blockPermuter: Option[Long]): Seq[DenseMatrix[Double]] = {
+      blockPermuter: Option[Long],
+      blocksBeforeCheckpoint: Int = 25): Seq[DenseMatrix[Double]] = {
 
     val nTrain = labels.count.toInt
     val nClasses = labels.first.length
@@ -124,7 +145,7 @@ object KernelRidgeRegression extends Logging {
         val blockIdxsBC = labelsMat.context.broadcast(blockIdxsSeq)
 
         val kernelBlockMat = trainKernelMat(blockIdxsSeq).cache()
-        val kernelBlockBlockMat = DenseMatrix.vertcat(trainKernelMat(blockIdxsSeq, blockIdxsSeq).collect():_*) 
+        val kernelBlockBlockMat = DenseMatrix.vertcat(trainKernelMat(blockIdxsSeq, blockIdxsSeq).collect():_*)
 
         // Build up the residual
         val treeBranchingFactor = labels.context.getConf.getInt(
@@ -168,7 +189,8 @@ object KernelRidgeRegression extends Logging {
         var newModel = updateModel(
           model, wBlockBCs.map(_._2), blockIdxsBC, preFixLengthsBC).cache()
         // This is to truncate the lineage every 50 blocks
-        if (labels.context.getCheckpointDir.isDefined && block % 50 == 49) {
+        if (labels.context.getCheckpointDir.isDefined &&
+            block % blocksBeforeCheckpoint == (blocksBeforeCheckpoint - 1)) {
           newModel = MatrixUtils.truncateLineage(newModel, false)
         }
 
@@ -178,7 +200,7 @@ object KernelRidgeRegression extends Logging {
         model.unpersist(true)
         model = newModel
 
-        logInfo(s"EPOCH_${pass}_BLOCK_${block} took " + 
+        logInfo(s"EPOCH_${pass}_BLOCK_${block} took " +
           ((System.nanoTime - blockBegin)/1e9) + " seconds")
 
         // Unpersist the kernel block as we are done with it
@@ -203,7 +225,7 @@ object KernelRidgeRegression extends Logging {
       preFixLengthsBC: Broadcast[Array[Int]]): RDD[IndexedSeq[DenseMatrix[Double]]] = {
     val newModel = model.mapPartitionsWithIndex { case (idx, part) =>
       // note that prefix length is *not* cumsum (so the first entry is 0)
-      val partBegin = preFixLengthsBC.value(idx) 
+      val partBegin = preFixLengthsBC.value(idx)
       val wParts = part.next
       assert(part.isEmpty)
       wParts.zipWithIndex.foreach { case (wPart, idx) =>
@@ -217,8 +239,8 @@ object KernelRidgeRegression extends Logging {
         // intersect them, and then map the intersection back the delta model
         // index space and partition index space.
         val responsibleRange = (partBegin until (partBegin + partLength)).toSet
-        val inds = blockIdxsBC.value.zipWithIndex.filter { case (choice, _) => 
-          responsibleRange.contains(choice) 
+        val inds = blockIdxsBC.value.zipWithIndex.filter { case (choice, _) =>
+          responsibleRange.contains(choice)
         }
         val partInds = inds.map(x => x._1 - partBegin).toSeq
         val blockInds = inds.map(x => x._2).toSeq

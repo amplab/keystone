@@ -23,12 +23,14 @@ import workflow.{Transformer, LabelEstimator}
  * @param blockSize blockSize to split data before applying transformations
  * @param kernelTransformer the kernel generator
  * @param nTrain number of training examples
+ * @param blocksBeforeCheckpoint frequency at which intermediate data should be checkpointed
  */
 class KernelBlockLinearMapper[T: ClassTag](
     val model: Seq[DenseMatrix[Double]],
     blockSize: Int,
     kernelTransformer: KernelTransformer[T],
-    nTrain: Long)
+    nTrain: Long,
+    blocksBeforeCheckpoint: Int = 25)
   extends Transformer[T, DenseVector[Double]] {
 
   val numClasses = model(0).cols
@@ -60,7 +62,8 @@ class KernelBlockLinearMapper[T: ClassTag](
       }
 
       // If we are checkpointing update our cache
-      if (in.context.getCheckpointDir.isDefined && block % 25 == 24) {
+      if (in.context.getCheckpointDir.isDefined &&
+          block % blocksBeforeCheckpoint == (blocksBeforeCheckpoint - 1)) {
         predictionsNew = MatrixUtils.truncateLineage(predictionsNew, true)
         predictionsNew.count
 

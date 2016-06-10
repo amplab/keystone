@@ -2,6 +2,7 @@ package nodes.learning
 
 import breeze.linalg.{DenseVector, DenseMatrix}
 import breeze.stats.distributions.Rand
+import workflow.PipelineContext
 import scala.collection.mutable.ArrayBuffer
 
 import org.scalatest.FunSuite

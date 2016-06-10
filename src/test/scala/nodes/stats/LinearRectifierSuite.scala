@@ -6,6 +6,7 @@ import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
 import pipelines._
 import utils.{TestUtils, MatrixUtils}
+import workflow.PipelineContext
 
 class LinearRectifierSuite extends FunSuite with PipelineContext with Logging {
 

@@ -5,8 +5,9 @@ import edu.berkeley.cs.amplab.mlmatrix.RowPartitionedMatrix
 import nodes.stats.StandardScaler
 import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
-import pipelines.{PipelineContext, Logging}
+import pipelines.Logging
 import utils.{TestUtils, MatrixUtils, Stats}
+import workflow.PipelineContext
 
 class LinearMapperSuite extends FunSuite with PipelineContext with Logging {
   test("Solve and apply a linear system") {

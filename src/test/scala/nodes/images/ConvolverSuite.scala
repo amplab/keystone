@@ -6,11 +6,12 @@ import breeze.linalg._
 import breeze.stats._
 import org.scalatest.FunSuite
 
-import pipelines.{Logging, PipelineContext}
+import pipelines.Logging
 import utils._
 import org.apache.spark.SparkContext
 import utils.ChannelMajorArrayVectorizedImage
 import utils.ImageMetadata
+import workflow.PipelineContext
 
 class ConvolverSuite extends FunSuite with PipelineContext with Logging {
 

@@ -5,6 +5,7 @@ import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
 import pipelines._
 import utils.{TestUtils, MatrixUtils, Stats}
+import workflow.PipelineContext
 
 class GaussianMixtureModelSuite extends FunSuite with PipelineContext with Logging {
 

@@ -3,6 +3,7 @@ package evaluation
 import breeze.linalg.{*, sum, DenseMatrix}
 import org.apache.spark.rdd.RDD
 import pipelines.text.NewsgroupsPipeline._
+import workflow.PipelineDataset
 
 /**
  * Contains the confusion matrix for a multiclass classifier,
@@ -99,6 +100,7 @@ case class MulticlassMetrics(confusionMatrix: DenseMatrix[Double]) {
   /**
    * Encodes an Int in base 26 (using chars 'a' - 'z')
    * Used to make the column headers in the pretty-printed confusion matrix (Styled after Mahout)
+   *
    * @param i the Int to encode
    * @return The base 26 encoded Int as a String
    */
@@ -149,5 +151,17 @@ object MulticlassClassifierEvaluator {
     }
 
     predictions.zip(actuals).aggregate(new DenseMatrix[Double](numClasses, numClasses))(incrementCount, _ + _)
+  }
+
+  /**
+    * Provides a [[PipelineDataset]] interface to the classifier evaluator.
+    *
+    * @param predictions A PipelineDataset of predicted class lables. Must range from 0 until numClasses
+    * @param actuals An RDD of the true class labels. Must range from 0 until numClasses
+    * @param numClasses The number of classes being classified among
+    * @return Common multiclass classifier metrics for this data
+    */
+  def apply(predictions: PipelineDataset[Int], actuals: RDD[Int], numClasses: Int): MulticlassMetrics = {
+    apply(predictions.get, actuals, numClasses)
   }
 }

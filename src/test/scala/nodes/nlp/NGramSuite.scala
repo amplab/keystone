@@ -1,11 +1,11 @@
 package nodes.nlp
 
 import org.apache.spark.rdd.RDD
-import pipelines.PipelineContext
 
 import org.apache.spark.SparkContext
 
 import org.scalatest.FunSuite
+import workflow.PipelineContext
 
 class NGramSuite extends FunSuite with PipelineContext {
 
@@ -16,7 +16,7 @@ class NGramSuite extends FunSuite with PipelineContext {
     def run(orders: Seq[Int]) = {
       val pipeline = Tokenizer() andThen NGramsFeaturizer[String](orders)
 
-      pipeline.apply(rdd)
+      pipeline.apply(rdd).get
         .collect()
         .toSeq // for comparison
     }
@@ -43,7 +43,7 @@ class NGramSuite extends FunSuite with PipelineContext {
     def run(orders: Seq[Int]) = {
       val featurizer = Tokenizer() andThen NGramsFeaturizer[String](orders)
 
-      def pipeline(rdd: RDD[String]) = NGramsCounts[String]().apply(featurizer(rdd))
+      def pipeline(rdd: RDD[String]) = NGramsCounts[String]().apply(featurizer(rdd).get)
 
       pipeline(rdd).collect().toSet
     }
@@ -82,7 +82,7 @@ class NGramSuite extends FunSuite with PipelineContext {
       val featurizer = Tokenizer() andThen NGramsFeaturizer[String](orders)
 
       def pipeline(rdd: RDD[String]) = NGramsCounts[String](NGramsCountsMode.NoAdd)
-        .apply(featurizer(rdd))
+        .apply(featurizer(rdd).get)
 
       pipeline(rdd).collect().toSeq.sortBy(_._1)
     }

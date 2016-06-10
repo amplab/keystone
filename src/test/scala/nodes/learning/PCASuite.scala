@@ -8,7 +8,7 @@ import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
 import pipelines._
 import utils.{TestUtils, Stats, MatrixUtils}
-import workflow.WorkflowUtils
+import workflow.{PipelineContext, WorkflowUtils}
 
 class PCASuite extends FunSuite with PipelineContext with Logging {
 
@@ -243,10 +243,9 @@ class PCASuite extends FunSuite with PipelineContext with Logging {
     val numPerPartition = WorkflowUtils.numPerPartition(data).mapValues(x => n / (numColsPerMatrix * numParts))
 
     val solver = new ColumnPCAEstimator(dims = k, numMachines = Some(numMachines))
-    val optimizedSolver = solver.optimize(data, numPerPartition).apply(data)
+    val optimizedSolver = solver.optimize(data, numPerPartition)
 
-    val instructions = WorkflowUtils.pipelineToInstructions(optimizedSolver)
-    val isLocalColumnPCAEstimator = instructions.exists {
+    val isLocalColumnPCAEstimator = optimizedSolver match {
       case _: LocalColumnPCAEstimator => true
       case _ => false
     }
@@ -269,10 +268,9 @@ class PCASuite extends FunSuite with PipelineContext with Logging {
     val numPerPartition = WorkflowUtils.numPerPartition(data).mapValues(x => n / (numColsPerMatrix * numParts))
 
     val solver = new ColumnPCAEstimator(dims = k, numMachines = Some(numMachines))
-    val optimizedSolver = solver.optimize(data, numPerPartition).apply(data)
+    val optimizedSolver = solver.optimize(data, numPerPartition)
 
-    val instructions = WorkflowUtils.pipelineToInstructions(optimizedSolver)
-    val isDistributedColumnPCAEstimator = instructions.exists {
+    val isDistributedColumnPCAEstimator = optimizedSolver match {
       case _: DistributedColumnPCAEstimator => true
       case _ => false
     }

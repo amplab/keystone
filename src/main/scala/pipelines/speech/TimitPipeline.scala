@@ -77,14 +77,14 @@ object TimitPipeline extends Logging {
             numCosineFeatures,
             conf.gamma,
             new CauchyDistribution(0, 1),
-            randomSource.uniform)
+            randomSource.uniform).toPipeline
         } else {
           CosineRandomFeatures(
             TimitFeaturesDataLoader.timitDimension,
             numCosineFeatures,
             conf.gamma,
             randomSource.gaussian,
-            randomSource.uniform)
+            randomSource.uniform).toPipeline
         }
       }
     } andThen VectorCombiner()

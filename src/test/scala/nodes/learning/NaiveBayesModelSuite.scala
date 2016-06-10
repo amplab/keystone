@@ -4,7 +4,7 @@ import breeze.linalg.{DenseVector, Vector, argmax}
 import breeze.stats.distributions.Multinomial
 import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
-import pipelines.PipelineContext
+import workflow.PipelineContext
 
 import scala.util.Random
 

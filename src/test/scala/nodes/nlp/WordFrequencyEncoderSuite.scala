@@ -1,10 +1,9 @@
 package nodes.nlp
 
-import pipelines.PipelineContext
-
 import org.apache.spark.SparkContext
 
 import org.scalatest.FunSuite
+import workflow.PipelineContext
 
 class WordFrequencyEncoderSuite extends FunSuite with PipelineContext {
 

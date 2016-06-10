@@ -1,54 +1,62 @@
 package workflow
 
-import java.io.Serializable
-
 import org.apache.spark.rdd.RDD
 
-import scala.reflect.ClassTag
-
 /**
- * An estimator has a `fit` method which takes an input and emits a [[Transformer]]
+ * An estimator has a `fitRDD` method which takes an input and emits a [[Transformer]]
  * @tparam A The type of input this estimator (and the resulting Transformer) takes
- * @tparam B The output type of the node this estimator produces when being fit
+ * @tparam B The output type of the Transformer this estimator produces when being fit
  */
-abstract class Estimator[A, B] extends EstimatorNode  {
+abstract class Estimator[A, B] extends EstimatorOperator {
   /**
-   * An estimator has a `fit` method which emits a [[Transformer]].
-   * @param data Input data.
-   * @return A [[Transformer]] which can be called on new data.
-   */
-  protected def fit(data: RDD[A]): Transformer[A, B]
-
-  private[workflow] final def fitRDDs(dependencies: Iterator[RDD[_]]): TransformerNode = {
-    fit(dependencies.next().asInstanceOf[RDD[A]])
-  }
-
-  /**
-   * Constructs a pipeline from a single estimator and training data.
-   * Equivalent to `Pipeline() andThen (estimator, data)`
+   * Constructs a pipeline that fits this estimator to training data,
+   * then applies the resultant transformer to the Pipeline input.
    *
    * @param data The training data
+   * @return A pipeline that fits this estimator and applies the result to inputs.
    */
-  def withData(data: RDD[A]): Pipeline[A, B] = {
-    val nodes: Seq[Node] = Seq(SourceNode(data), this, new DelegatingTransformerNode(this.label + ".fit"))
-    val dataDeps = Seq(Seq(), Seq(0), Seq(Pipeline.SOURCE))
-    val fitDeps = Seq(None, None, Some(1))
-    val sink = nodes.size - 1
-
-    Pipeline[A, B](nodes, dataDeps, fitDeps, sink)
+  final def withData(data: RDD[A]): Pipeline[A, B] = {
+    withData(PipelineDataset(data))
   }
-}
 
-object Estimator extends Serializable {
   /**
-   * This constructor takes a function and returns an estimator. The function must itself return a [[Transformer]].
+   * Constructs a pipeline that fits this estimator to training data,
+   * then applies the resultant transformer to the Pipeline input.
    *
-   * @param node An estimator function. It must return a function.
-   * @tparam I Input type of the estimator and the transformer it produces.
-   * @tparam O Output type of the estimator and the transformer it produces.
-   * @return An Estimator which can be applied to new data.
+   * @param data The training data
+   * @return A pipeline that fits this estimator and applies the result to inputs.
    */
-  def apply[I, O](node: RDD[I] => Transformer[I, O]): Estimator[I, O] = new Estimator[I, O] {
-    override def fit(rdd: RDD[I]): Transformer[I, O] = node.apply(rdd)
+  final def withData(data: PipelineDataset[A]): Pipeline[A, B] = {
+    // Remove the data sink,
+    // Then insert this estimator into the graph with the data as the input
+    val curSink = data.executor.graph.getSinkDependency(data.sink)
+    val (estGraph, estId) = data.executor.graph.removeSink(data.sink).addNode(this, Seq(curSink))
+
+    // Now that the estimator is attached to the data, we need to build a pipeline DAG
+    // that applies the fit output of the estimator. We do this by creating a new Source in the DAG,
+    val (estGraphWithNewSource, sourceId) = estGraph.addSource()
+
+    // Adding a delegating transformer that depends on the source and the label estimator,
+    val (almostFinalGraph, delegatingId) = estGraphWithNewSource.addNode(new DelegatingOperator, Seq(estId, sourceId))
+
+    // And finally adding a sink that connects to the delegating transformer.
+    val (newGraph, sinkId) = almostFinalGraph.addSink(delegatingId)
+
+    new Pipeline(new GraphExecutor(newGraph), sourceId, sinkId)
   }
+
+  /**
+   * The non-type-safe `fitRDDs` method of [[EstimatorOperator]] that is being overridden by the Estimator API.
+   */
+  final override private[workflow] def fitRDDs(inputs: Seq[DatasetExpression]): TransformerOperator = {
+    fit(inputs.head.get.asInstanceOf[RDD[A]])
+  }
+
+  /**
+   * The type-safe method that ML developers need to implement when writing new Estimators.
+   *
+   * @param data The estimator's training data.
+   * @return A new transformer
+   */
+  def fit(data: RDD[A]): Transformer[A, B]
 }

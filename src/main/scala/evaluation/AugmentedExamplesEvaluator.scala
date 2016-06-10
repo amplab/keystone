@@ -1,11 +1,10 @@
 package evaluation
 
-import scala.reflect.ClassTag
 import breeze.linalg._
-import breeze.numerics._
-
-import org.apache.spark.rdd.RDD
 import nodes.util.MaxClassifier
+import org.apache.spark.rdd.RDD
+
+import scala.reflect.ClassTag
 
 object AugmentedExamplesEvaluator extends Serializable {
 

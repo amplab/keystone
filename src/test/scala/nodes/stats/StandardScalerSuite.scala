@@ -5,8 +5,8 @@ import org.apache.spark.SparkContext
 import org.apache.spark.mllib.stat.{MultivariateOnlineSummarizer, MultivariateStatisticalSummary}
 import org.apache.spark.rdd.RDD
 import org.scalatest.FunSuite
-import pipelines.PipelineContext
 import utils.{MLlibUtils, Stats}
+import workflow.PipelineContext
 
 class StandardScalerSuite extends FunSuite with PipelineContext {
 

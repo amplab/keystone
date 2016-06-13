@@ -69,7 +69,7 @@ object RandomPatchCifarAugmentedKernel extends Serializable with Logging {
 
     val labelExtractor = LabelExtractor andThen ClassLabelIndicatorsFromIntLabels(numClasses)
     val trainLabels = labelExtractor(trainData)
-    val trainLabelsAugmented = new LabelAugmenter(conf.numRandomImagesAugment).apply(trainLabels)
+    val trainLabelsAugmented = new LabelAugmenter(conf.numRandomImagesAugment).apply(trainLabels.get)
 
     val predictionPipeline =
       new Convolver(filters, augmentImgSize, augmentImgSize, numChannels, Some(whitener), true) andThen
@@ -104,7 +104,7 @@ object RandomPatchCifarAugmentedKernel extends Serializable with Logging {
     val testPredictions = predictionPipeline(testImagesAugmented)
 
     val testEval = AugmentedExamplesEvaluator(
-      testImageIdsAugmented, testPredictions, testLabelsAugmented, numClasses)
+      testImageIdsAugmented, testPredictions.get, testLabelsAugmented, numClasses)
     logInfo(s"Test error is: ${testEval.totalError}")
 
     predictionPipeline

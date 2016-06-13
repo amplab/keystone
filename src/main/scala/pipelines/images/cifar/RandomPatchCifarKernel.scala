@@ -65,8 +65,9 @@ object RandomPatchCifarKernel extends Serializable with Logging {
         (new KernelRidgeRegression(
             new GaussianKernelGenerator(conf.gamma, conf.cacheKernel),
             conf.lambda.getOrElse(0.0),
-            4096, // blockSize
-            1), // numEpochs
+            conf.blockSize, // blockSize
+            conf.numEpochs, // numEpochs
+            conf.seed), // blockPermuter
           trainImages, trainLabels) andThen
         MaxClassifier andThen
         new Cacher[Int]
@@ -100,6 +101,9 @@ object RandomPatchCifarKernel extends Serializable with Logging {
       alpha: Double = 0.25,
       gamma: Double = 2e-4,
       cacheKernel: Boolean = true,
+      blockSize: Int = 5000,
+      numEpochs: Int = 1,
+      seed: Option[Long] = None,
       lambda: Option[Double] = None,
       sampleFrac: Option[Double] = None)
 
@@ -116,7 +120,10 @@ object RandomPatchCifarKernel extends Serializable with Logging {
     opt[Double]("alpha") action { (x,c) => c.copy(alpha=x) }
     opt[Double]("gamma") action { (x,c) => c.copy(gamma=x) }
     opt[Boolean]("cacheKernel") action { (x,c) => c.copy(cacheKernel=x) }
+    opt[Int]("blockSize") action { (x,c) => c.copy(blockSize=x) }
+    opt[Int]("numEpochs") action { (x,c) => c.copy(numEpochs=x) }
     opt[Double]("lambda") action { (x,c) => c.copy(lambda=Some(x)) }
+    opt[Long]("seed") action { (x,c) => c.copy(seed=Some(x)) }
     opt[Double]("sampleFrac") action { (x,c) => c.copy(sampleFrac=Some(x)) }
   }.parse(args, RandomCifarConfig()).get
 

@@ -144,8 +144,19 @@ object KernelRidgeRegression extends Logging {
         val blockIdxsSeq = blockIdxs.toArray
         val blockIdxsBC = labelsMat.context.broadcast(blockIdxsSeq)
 
-        val kernelBlockMat = trainKernelMat(blockIdxsSeq).cache()
-        val kernelBlockBlockMat = DenseMatrix.vertcat(trainKernelMat(blockIdxsSeq, blockIdxsSeq).collect():_*)
+        val kernelBlockMat = trainKernelMat(blockIdxsSeq)
+
+        // If the kernel block is not already cached, cache it.
+        // This helps us compute the kernel only once per block.
+        val kernelCached = kernelBlockMat.getStorageLevel.useMemory
+        if (!kernelCached) {
+          kernelBlockMat.cache()
+        }
+
+        val kernelBlockRPM = RowPartitionedMatrix.fromMatrix(kernelBlockMat)
+        val kernelBlockBlockMat = kernelBlockRPM(blockIdxs, ::).collect()
+
+        val kernelGenEnd = System.nanoTime
 
         // Build up the residual
         val treeBranchingFactor = labels.context.getConf.getInt(
@@ -163,8 +174,12 @@ object KernelRidgeRegression extends Logging {
           }
         }, MatrixUtils.addMatrices, depth=depth)
 
+        val residualEnd = System.nanoTime
+
         // This is b*k
         val y_bb = labelsRPM(blockIdxs, ::).collect()
+
+        val collectEnd = System.nanoTime
 
         // This is a tuple of (oldBlockBC, newBlockBC)
         val wBlockBCs = (0 until lambdas.length).map { l =>
@@ -186,6 +201,8 @@ object KernelRidgeRegression extends Logging {
           (wBlockOldBC, wBlockNewBC)
         }
 
+        val localSolveEnd = System.nanoTime
+
         var newModel = updateModel(
           model, wBlockBCs.map(_._2), blockIdxsBC, preFixLengthsBC).cache()
         // This is to truncate the lineage every 50 blocks
@@ -200,11 +217,22 @@ object KernelRidgeRegression extends Logging {
         model.unpersist(true)
         model = newModel
 
+        val updateEnd = System.nanoTime
+
         logInfo(s"EPOCH_${pass}_BLOCK_${block} took " +
           ((System.nanoTime - blockBegin)/1e9) + " seconds")
 
-        // Unpersist the kernel block as we are done with it
-        kernelBlockMat.unpersist(true)
+        logInfo(s"EPOCH_${pass}_BLOCK_${block} " +
+          s"kernelGen: ${(kernelGenEnd - blockBegin)/1e9} " +
+          s"residual: ${(residualEnd - kernelGenEnd)/1e9} " +
+          s"collect: ${(collectEnd - residualEnd)/1e9} " +
+          s"localSolve: ${(localSolveEnd - collectEnd)/1e9} " +
+          s"modelUpdate: ${(updateEnd - localSolveEnd)/1e9}")
+
+        // If we cached the kernel in KRR then unpersist it
+        if (!kernelCached) {
+          kernelBlockMat.unpersist()
+        }
 
         wBlockBCs.map { case (wBlockOldBC, wBlockNewBC) =>
           wBlockOldBC.unpersist(true)

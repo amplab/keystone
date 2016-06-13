@@ -8,8 +8,9 @@ import breeze.stats._
 import org.apache.spark.SparkContext
 
 import pipelines._
+import workflow.PipelineContext
 
-class MatrixUtilsSuite extends FunSuite with LocalSparkContext {
+class MatrixUtilsSuite extends FunSuite with PipelineContext {
 
   test("computeMean works correctly") {
     val numRows = 1000

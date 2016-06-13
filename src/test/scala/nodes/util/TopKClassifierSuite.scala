@@ -3,9 +3,9 @@ package nodes.util
 import breeze.linalg.DenseVector
 import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
-import pipelines.LocalSparkContext
+import workflow.PipelineContext
 
-class TopKClassifierSuite extends FunSuite with LocalSparkContext {
+class TopKClassifierSuite extends FunSuite with PipelineContext {
   test("top k classifier, k <= vector size") {
     sc = new SparkContext("local", "test")
 

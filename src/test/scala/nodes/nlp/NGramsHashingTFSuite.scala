@@ -1,9 +1,9 @@
 package nodes.nlp
 
 import org.scalatest.FunSuite
-import pipelines.LocalSparkContext
+import workflow.PipelineContext
 
-class NGramsHashingTFSuite extends FunSuite with LocalSparkContext {
+class NGramsHashingTFSuite extends FunSuite with PipelineContext {
 
   test("NGramsHashingTF 1 to 1") {
     val dims = 40000

@@ -1,4 +1,4 @@
-package workflow.graph
+package workflow
 
 import org.apache.spark.rdd.RDD
 
@@ -6,7 +6,9 @@ import org.apache.spark.rdd.RDD
  * Output is a trait extended by everything that may be output by an [[Operator]].
  * It is intended to add some extra type checking to the internal operator execution.
  */
-private[graph] sealed trait Expression
+private[workflow] sealed trait Expression {
+  def get: Any
+}
 
 /**
  * This is an output that wraps around an [[RDD]]. It wraps the RDD as call-by-name, so the RDD
@@ -15,8 +17,8 @@ private[graph] sealed trait Expression
  * The first time the contained value is accessed using `get`, it will be computed. Every time after
  * that it will already be stored, and will not be computed.
  */
-private[graph] class DatasetExpression(compute: => RDD[_]) extends Expression {
-  lazy val get: RDD[_] = compute
+private[workflow] class DatasetExpression(compute: => RDD[_]) extends Expression {
+  lazy override val get: RDD[_] = compute
 }
 
 /**
@@ -26,8 +28,8 @@ private[graph] class DatasetExpression(compute: => RDD[_]) extends Expression {
  * The first time the contained value is accessed using `get`, it will be computed. Every time after
  * that it will already be stored, and will not be computed.
  */
-private[graph] class DatumExpression(compute: => Any) extends Expression {
-  lazy val get: Any = compute
+private[workflow] class DatumExpression(compute: => Any) extends Expression {
+  lazy override val get: Any = compute
 }
 
 /**
@@ -37,6 +39,6 @@ private[graph] class DatumExpression(compute: => Any) extends Expression {
  * The first time the contained value is accessed using `get`, it will be computed. Every time after
  * that it will already be stored, and will not be computed.
  */
-private[graph] class TransformerExpression(compute: => TransformerOperator) extends Expression {
-  lazy val get: TransformerOperator = compute
+private[workflow] class TransformerExpression(compute: => TransformerOperator) extends Expression {
+  lazy override val get: TransformerOperator = compute
 }

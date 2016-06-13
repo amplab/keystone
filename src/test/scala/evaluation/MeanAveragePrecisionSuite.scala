@@ -2,12 +2,11 @@ package evaluation
 
 import breeze.linalg.DenseVector
 import org.scalatest.FunSuite
-
-import pipelines.LocalSparkContext
 import org.apache.spark.SparkContext
 import utils.Stats
+import workflow.PipelineContext
 
-class MeanAveragePrecisionSuite extends FunSuite with LocalSparkContext {
+class MeanAveragePrecisionSuite extends FunSuite with PipelineContext {
 
   test("random map test") {
     sc = new SparkContext("local", "test")

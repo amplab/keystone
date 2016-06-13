@@ -45,12 +45,12 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
     // Part 2: Compute dimensionality-reduced PCA features.
     val pcaTransformer = pcaFile match {
       case Some(fname) =>
-        new BatchPCATransformer(convert(csvread(new File(fname)), Float).t)
+        new BatchPCATransformer(convert(csvread(new File(fname)), Float).t).toPipeline
       case None =>
-        val pca = sampledColumns andThen
-            (ColumnPCAEstimator(numPCADesc), trainingData)
+        val sampler = ColumnSampler(numColSamplesPerImage).toPipeline
+        val pca = ColumnPCAEstimator(numPCADesc) withData (sampler(prefix(trainingData)))
 
-        pca.fittedTransformer
+        pca.toPipeline
     }
 
     // Part 2a: If necessary, compute a GMM based on the dimensionality-reduced features, or load from disk.
@@ -63,10 +63,10 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
           csvread(new File(gmmWtsFile.get)).toDenseVector)
         FisherVector(gmm)
       case None =>
-        val fisherVector = sampledColumns andThen
-            pcaTransformer andThen
-            (GMMFisherVectorEstimator(gmmVocabSize), trainingData)
-        fisherVector.fittedTransformer
+        val sampler = ColumnSampler(numColSamplesPerImage).toPipeline
+        val fisherVector = GMMFisherVectorEstimator(gmmVocabSize) withData (pcaTransformer(sampler(prefix(trainingData))))
+
+        fisherVector
     }
 
     prefix andThen
@@ -90,7 +90,7 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
       ClassLabelIndicatorsFromIntLabels(ImageNetLoader.NUM_CLASSES) andThen
       new Cacher[DenseVector[Double]]
     val trainingLabels = labelGrabber(parsedRDD)
-    val numTrainingImgs = trainingLabels.count()
+    val numTrainingImgs = trainingLabels.get.count()
 
     // Load test data and get actual labels
     val testParsedRDD = ImageNetLoader(
@@ -119,7 +119,7 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
       conf.descDim, conf.vocabSize)
 
     // Get LCS + FV feature branch
-    val lcsBranchPrefix = new LCSExtractor(conf.lcsStride, conf.lcsBorder, conf.lcsPatch)
+    val lcsBranchPrefix = new LCSExtractor(conf.lcsStride, conf.lcsBorder, conf.lcsPatch).toPipeline
     val lcsBranch = computePCAandFisherBranch(
       lcsBranchPrefix,
       trainParsedImgs,
@@ -143,9 +143,9 @@ object ImageNetSiftLcsFV extends Serializable with Logging {
         TopKClassifier(5)
 
     // Apply the model to test data and compute test error
-    val numTestImgs = testActual.count()
+    val numTestImgs = testActual.get.count()
     val testPredicted = predictor(testParsedImgs)
-    logInfo("TEST Error is " + Stats.getErrPercent(testPredicted, testActual, numTestImgs) + "%")
+    logInfo("TEST Error is " + Stats.getErrPercent(testPredicted.get, testActual.get, numTestImgs) + "%")
 
     predictor
   }

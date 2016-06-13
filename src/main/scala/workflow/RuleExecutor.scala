@@ -26,8 +26,8 @@ abstract class RuleExecutor extends Logging {
    * Executes the batches of rules defined by the subclass. The batches are executed serially
    * using the defined execution strategy. Within each batch, rules are also executed serially.
    */
-  def execute[A, B](plan: Pipeline[A, B]): Pipeline[A, B] = {
-    var curPlan = plan
+  def execute(plan: Graph, prefixes: Map[NodeId, Prefix]): (Graph, Map[NodeId, Prefix]) = {
+    var curPlan = (plan, prefixes)
 
     batches.foreach { batch =>
       val batchStartPlan = curPlan
@@ -39,13 +39,13 @@ abstract class RuleExecutor extends Logging {
       while (continue) {
         curPlan = batch.rules.foldLeft(curPlan) {
           case (prevPlan, rule) =>
-            val result = rule(prevPlan)
+            val result = rule(prevPlan._1, prevPlan._2)
             if (!(result == prevPlan)) {
               logTrace(
                 s"""
                    |=== Applying Rule ${rule.ruleName} ===
-                   |${prevPlan.toDOTString}
-                   |${result.toDOTString}
+                   |${prevPlan._1.toDOTString}
+                   |${result._1.toDOTString}
                 """.stripMargin)
             }
 
@@ -60,7 +60,7 @@ abstract class RuleExecutor extends Logging {
           continue = false
         }
 
-        if (curPlan planEquals lastPlan) {
+        if (curPlan == lastPlan) {
           logTrace(
             s"Fixed point reached for batch ${batch.name} after ${iteration - 1} iterations.")
           continue = false
@@ -68,12 +68,12 @@ abstract class RuleExecutor extends Logging {
         lastPlan = curPlan
       }
 
-      if (!(batchStartPlan planEquals curPlan)) {
+      if (!(batchStartPlan == curPlan)) {
         logDebug(
           s"""
              |=== Result of Batch ${batch.name} ===
              |${plan.toDOTString}
-             |${curPlan.toDOTString}
+             |${curPlan._1.toDOTString}
         """.stripMargin)
       } else {
         logTrace(s"Batch ${batch.name} has no effect.")

@@ -4,7 +4,7 @@ import breeze.linalg._
 import nodes.util.{Densify, Sparsify}
 import org.apache.spark.rdd.RDD
 import pipelines.Logging
-import workflow.{Pipeline, WeightedNode, LabelEstimator, OptimizableLabelEstimator}
+import workflow._
 
 import scala.reflect._
 
@@ -33,22 +33,22 @@ class LeastSquaresEstimator[T <: Vector[Double]: ClassTag](
     with WeightedNode
     with Logging {
 
-  val options: Seq[(CostModel, (RDD[T], RDD[DenseVector[Double]]) => Pipeline[T, DenseVector[Double]])] = Seq(
+  val options: Seq[(CostModel, LabelEstimator[T, DenseVector[Double], DenseVector[Double]])] = Seq(
     {
       val solver = new DenseLBFGSwithL2[T](new LeastSquaresDenseGradient, regParam = lambda, numIterations = 20)
-      (solver, solver.withData(_, _))
+      (solver, solver)
     },
     {
       val solver = new SparseLBFGSwithL2(new LeastSquaresSparseGradient, regParam = lambda, numIterations = 20)
-      (solver, Sparsify() andThen (solver, _, _))
+      (solver, TransformerLabelEstimatorChain(Sparsify(), solver))
     },
     {
       val solver = new BlockLeastSquaresEstimator(1000, 3, lambda = lambda)
-      (solver, Densify() andThen (solver, _, _))
+      (solver, TransformerLabelEstimatorChain(Densify(), solver))
     },
     {
       val solver = new LinearMapEstimator(Some(lambda))
-      (solver, Densify() andThen (solver, _, _))
+      (solver, TransformerLabelEstimatorChain(Densify(), solver))
     }
   )
 
@@ -57,10 +57,10 @@ class LeastSquaresEstimator[T <: Vector[Double]: ClassTag](
   }
 
   override def optimize(
-    sample: RDD[T],
-    sampleLabels: RDD[DenseVector[Double]],
-    numPerPartition: Map[Int, Int])
-  : (RDD[T], RDD[DenseVector[Double]]) => Pipeline[T, DenseVector[Double]] = {
+      sample: RDD[T],
+      sampleLabels: RDD[DenseVector[Double]],
+      numPerPartition: Map[Int, Int])
+  : LabelEstimator[T, DenseVector[Double], DenseVector[Double]] = {
     val n = numPerPartition.values.map(_.toLong).sum
     val d = sample.first().length
     val k = sampleLabels.first().length

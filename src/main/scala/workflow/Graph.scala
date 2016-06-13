@@ -1,4 +1,4 @@
-package workflow.graph
+package workflow
 
 /**
  * To represent our Keystone workloads under the hood at the lowest level, we use a dataflow-esque DAG-like structure.
@@ -29,7 +29,7 @@ package workflow.graph
  * @param operators  A map of [[NodeId]] to the operator contained within that node
  * @param dependencies  A map of [[NodeId]] to the node's ordered dependencies
  */
-private[graph] case class Graph(
+private[workflow] case class Graph(
     sources: Set[SourceId],
     sinkDependencies: Map[SinkId, NodeOrSourceId],
     operators: Map[NodeId, Operator],
@@ -277,16 +277,17 @@ private[graph] case class Graph(
   /**
    * Immutably attaches an entire other graph onto this one, without splicing together any Sinks or
    * Sources. The Sink, Source, and Node ids of the other graph may be reassigned to prevent
-   * collisions with existing ids. So, this method makes sure to return mappings of old Sink and
-   * Source ids in the graph being added to their newly assigned Sink and Source ids.
+   * collisions with existing ids. So, this method makes sure to return mappings of old Sink, Node, and
+   * Source ids in the graph being added to their newly assigned Sink, Node, and Source ids.
    *
    * @param graph  The graph to add into this graph
-   * @return  A triple containing:
+   * @return  A tuple containing:
    *          - The new graph
    *          - A map of old id to new id for sources in the graph being added
+   *          - A map of old id to new id for nodes in the graph being added
    *          - A map of old id to new id for sinks in the graph being added
    */
-  def addGraph(graph: Graph): (Graph, Map[SourceId, SourceId], Map[SinkId, SinkId]) = {
+  def addGraph(graph: Graph): (Graph, Map[SourceId, SourceId], Map[NodeId, NodeId], Map[SinkId, SinkId]) = {
     // Generate the new ids and mappings of old to new ids
     val newSourceIds = nextSourceIds(graph.sources.size)
     val newNodeIds = nextNodeIds(graph.nodes.size)
@@ -315,14 +316,14 @@ private[graph] case class Graph(
     }
     val newGraph = Graph(newSources, newSinkDependencies, newOperators, newDependencies)
 
-    (newGraph, otherSourceIdMap, otherSinkIdMap)
+    (newGraph, otherSourceIdMap, otherNodeIdMap, otherSinkIdMap)
   }
 
   /**
    * Immutably attaches an entire other graph onto this one, splicing Sinks of this graph to Sources of
    * the graph being added. The unspliced Sink, Source, and Node ids of the other graph may be reassigned
-   * to prevent collisions with existing ids. So, this method makes sure to return mappings of old Sink and
-   * Source ids in the graph being added to their newly assigned Sink and Source ids.
+   * to prevent collisions with existing ids. So, this method makes sure to return mappings of old Sink, Node, and
+   * Source ids in the graph being added to their newly assigned Sink, Node, and Source ids.
    *
    * All Sources and Sinks being spliced are removed from the newly created graph.
    *
@@ -330,21 +331,22 @@ private[graph] case class Graph(
    * @param spliceMap A map that specifies how to splice the Sources and Sinks.
    *                  Keys are Sources in the graph being added, and
    *                  Values are the Sinks in the existing graph to splice them to.
-   * @return  A triple containing:
+   * @return  A tuple containing:
    *          - The new graph
    *          - A map of old id to new id for sources in the graph being added
+   *          - A map of old id to new id for nodes in the graph being added
    *          - A map of old id to new id for sinks in the graph being added
    */
   def connectGraph(
       graph: Graph,
       spliceMap: Map[SourceId, SinkId]
-    ): (Graph, Map[SourceId, SourceId], Map[SinkId, SinkId]) = {
+    ): (Graph, Map[SourceId, SourceId], Map[NodeId, NodeId], Map[SinkId, SinkId]) = {
     require(spliceMap.keys.forall(source => graph.sources.contains(source)),
       "Must connect to sources that exist in the other graph")
     require(spliceMap.values.forall(sink => sinks.contains(sink)),
       "Must connect to sinks that exist in this graph")
 
-    val (addedGraph, otherSourceIdMap, otherSinkIdMap) = addGraph(graph)
+    val (addedGraph, otherSourceIdMap, otherNodeIdMap, otherSinkIdMap) = addGraph(graph)
 
     val connectedGraph = spliceMap.foldLeft(addedGraph) {
       case (curGraph, (oldOtherSource, sink)) =>
@@ -358,7 +360,7 @@ private[graph] case class Graph(
       case (curGraph, sink) => curGraph.removeSink(sink)
     }
 
-    (newGraph, otherSourceIdMap -- spliceMap.keySet, otherSinkIdMap)
+    (newGraph, otherSourceIdMap -- spliceMap.keySet, otherNodeIdMap, otherSinkIdMap)
   }
 
   /**
@@ -399,7 +401,7 @@ private[graph] case class Graph(
     }
 
     // Add the replacement, without connecting sinks or sources yet
-    val (graphWithReplacement, replacementSourceIdMap, replacementSinkIdMap) = withNodesRemoved.addGraph(replacement)
+    val (graphWithReplacement, replacementSourceIdMap, _, replacementSinkIdMap) = withNodesRemoved.addGraph(replacement)
 
     // Connect the sources of the replacement to the existing graph
     val graphWithReplacementAndSourceConnections = replacementSourceSplice.foldLeft(graphWithReplacement) {
@@ -427,4 +429,29 @@ private[graph] case class Graph(
       case (graph, sink) => graph.removeSink(sink)
     }
   }
+
+  /**
+   * @return Generate a graphviz dot representation of this graph
+   */
+  def toDOTString: String = {
+    val idToString: GraphId => String = {
+      case SourceId(id) => s"Source_$id"
+      case NodeId(id) => s"Node_$id"
+      case SinkId(id) => s"Sink_$id"
+    }
+
+    val vertexLabels: Seq[String] = sources.toSeq.map(id => idToString(id) + " [label=\"" + id + "\" shape=\"Msquare\"]") ++
+      nodes.toSeq.map(id => idToString(id) + s"[label=${'"' + getOperator(id).label + '"'}]") ++
+      sinks.toSeq.map(id => idToString(id) + " [label=\"" + id + "\" shape=\"Msquare\"]")
+
+    val dataEdges: Seq[String] = dependencies.toSeq.flatMap {
+      case (id, deps) => deps.map(x => s"${idToString(x)} -> ${idToString(id)}")
+    } ++ sinkDependencies.toSeq.map {
+      case (id, dep) => s"${idToString(dep)} -> ${idToString(id)}"
+    }
+
+    val lines = vertexLabels ++ dataEdges
+    lines.mkString("digraph pipeline {\n  rankdir=LR;\n  ", "\n  ", "\n}")
+  }
+
 }

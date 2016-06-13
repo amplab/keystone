@@ -6,8 +6,9 @@ import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
 import pipelines._
 import utils.{TestUtils, MatrixUtils}
+import workflow.PipelineContext
 
-class LinearRectifierSuite extends FunSuite with LocalSparkContext with Logging {
+class LinearRectifierSuite extends FunSuite with PipelineContext with Logging {
 
   test("Test MaxVal") {
     sc = new SparkContext("local", "test")

@@ -2,9 +2,10 @@ package nodes.nlp
 
 import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
-import pipelines.{LocalSparkContext, Logging}
+import pipelines.Logging
+import workflow.PipelineContext
 
-class CoreNLPFeatureExtractorSuite extends FunSuite with LocalSparkContext with Logging {
+class CoreNLPFeatureExtractorSuite extends FunSuite with PipelineContext with Logging {
   test("lemmatization") {
     sc = new SparkContext("local", "test")
 

@@ -4,7 +4,7 @@ import breeze.linalg.{DenseVector, Vector, argmax}
 import breeze.stats.distributions.Multinomial
 import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
-import pipelines.LocalSparkContext
+import workflow.PipelineContext
 
 import scala.util.Random
 
@@ -60,7 +60,7 @@ object NaiveBayesModelSuite {
     pi = Array(0.2, 0.8), theta = Array(Array(0.1, 0.3, 0.6), Array(0.2, 0.4, 0.4)))
 }
 
-class NaiveBayesModelSuite extends FunSuite with LocalSparkContext {
+class NaiveBayesModelSuite extends FunSuite with PipelineContext {
 
   def validatePrediction(predictions: Seq[Int], input: Seq[(Int, DenseVector[Double])]) {
     val numOfPredictions = predictions.zip(input).count {

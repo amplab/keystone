@@ -2,6 +2,7 @@ package nodes.learning
 
 import breeze.linalg.{DenseVector, DenseMatrix}
 import breeze.stats.distributions.Rand
+import workflow.PipelineContext
 import scala.collection.mutable.ArrayBuffer
 
 import org.scalatest.FunSuite
@@ -12,7 +13,7 @@ import org.apache.spark.rdd.RDD
 import pipelines._
 import utils.Stats
 
-class BlockLinearMapperSuite extends FunSuite with LocalSparkContext with Logging {
+class BlockLinearMapperSuite extends FunSuite with PipelineContext with Logging {
 
   test("BlockLinearMapper transformation") {
     sc = new SparkContext("local", "test")

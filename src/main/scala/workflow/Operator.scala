@@ -1,4 +1,4 @@
-package workflow.graph
+package workflow
 
 import org.apache.spark.rdd.RDD
 
@@ -7,7 +7,7 @@ import org.apache.spark.rdd.RDD
  * One is stored internally inside each node of a [[Graph]], which represents how data
  * is intended to flow through the operators.
  */
-private[graph] sealed trait Operator {
+private[workflow] sealed trait Operator {
   def label: String = {
     val className = getClass.getSimpleName
     if (className endsWith "$") className.dropRight(1) else className
@@ -22,7 +22,7 @@ private[graph] sealed trait Operator {
  *
  * @param rdd The RDD to always output
  */
-private[graph] case class DatasetOperator(rdd: RDD[_]) extends Operator {
+private[workflow] case class DatasetOperator(rdd: RDD[_]) extends Operator {
   override def label: String = "%s[%d]".format(
     Option(rdd.name).map(_ + " ").getOrElse(""), rdd.id)
 
@@ -38,7 +38,7 @@ private[graph] case class DatasetOperator(rdd: RDD[_]) extends Operator {
  *
  * @param datum The datum to always output
  */
-private[graph] case class DatumOperator(datum: Any) extends Operator {
+private[workflow] case class DatumOperator(datum: Any) extends Operator {
   override def label: String = {
     val className = datum.getClass.getSimpleName
     val datumName = if (className endsWith "$") className.dropRight(1) else className
@@ -63,16 +63,16 @@ private[graph] case class DatumOperator(datum: Any) extends Operator {
  * The operator is lazy, meaning that nothing will be executed until the
  * value of the [[Expression]] is accessed using `Output.get`.
  */
-private[graph] abstract class TransformerOperator extends Operator with Serializable {
+private[workflow] abstract class TransformerOperator extends Operator with Serializable {
   /**
    * The single datum transformation, to go from a sequence of datums to a new single item.
    */
-  private[graph] def singleTransform(inputs: Seq[DatumExpression]): Any
+  private[workflow] def singleTransform(inputs: Seq[DatumExpression]): Any
 
   /**
    * The batch dataset transformation, to go from a sequence of datasets to a new dataset.
    */
-  private[graph] def batchTransform(inputs: Seq[DatasetExpression]): RDD[_]
+  private[workflow] def batchTransform(inputs: Seq[DatasetExpression]): RDD[_]
 
   override def execute(deps: Seq[Expression]): Expression = {
     require(deps.nonEmpty, "Transformer dependencies may not be empty")
@@ -109,8 +109,8 @@ private[graph] abstract class TransformerOperator extends Operator with Serializ
  * The operator is lazy, meaning that nothing will be executed until the
  * value of the [[Expression]] is accessed using `Output.get`.
  */
-private[graph] abstract class EstimatorOperator extends Operator with Serializable {
-  private[graph] def fitRDDs(inputs: Seq[DatasetExpression]): TransformerOperator
+private[workflow] abstract class EstimatorOperator extends Operator with Serializable {
+  private[workflow] def fitRDDs(inputs: Seq[DatasetExpression]): TransformerOperator
 
   override def execute(deps: Seq[Expression]): TransformerExpression = {
     val rdds = deps.collect {
@@ -132,7 +132,7 @@ private[graph] abstract class EstimatorOperator extends Operator with Serializab
  * The operator is lazy, meaning that nothing will be executed until the
  * value of the [[Expression]] is accessed using `Output.get`.
  */
-private[graph] class DelegatingOperator extends Operator with Serializable {
+private[workflow] class DelegatingOperator extends Operator with Serializable {
   override def execute(deps: Seq[Expression]): Expression = {
     require(deps.nonEmpty, "DelegatingOperator dependencies may not be empty")
     require(deps.tail.nonEmpty, "Transformer dependencies may not be empty")
@@ -160,5 +160,18 @@ private[graph] class DelegatingOperator extends Operator with Serializable {
       // meaning singleTransform will only be called when the output is used
       new DatumExpression(transformer.get.singleTransform(depsAsDatum))
     }
+  }
+}
+
+/**
+ * An operator initialized with an [[Expression]], which takes no inputs and always outputs
+ * that expression, regardless of the inputs.
+ *
+ * @param expression The expression to always output
+ */
+private[workflow] class ExpressionOperator(expression: Expression) extends Operator {
+  override def execute(deps: Seq[Expression]): Expression = {
+    require(deps.isEmpty, "ExpressionOperator does not take any inputs")
+    expression
   }
 }

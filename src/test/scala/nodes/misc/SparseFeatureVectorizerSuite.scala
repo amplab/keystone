@@ -3,9 +3,10 @@ package nodes.misc
 import nodes.util.{SparseFeatureVectorizer, AllSparseFeatures, CommonSparseFeatures}
 import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
-import pipelines.{LocalSparkContext, Logging}
+import pipelines.Logging
+import workflow.PipelineContext
 
-class SparseFeatureVectorizerSuite extends FunSuite with LocalSparkContext with Logging {
+class SparseFeatureVectorizerSuite extends FunSuite with PipelineContext with Logging {
   test("sparse feature vectorization") {
     sc = new SparkContext("local", "test")
 

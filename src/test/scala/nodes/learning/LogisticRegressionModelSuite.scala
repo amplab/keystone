@@ -3,8 +3,8 @@ package nodes.learning
 import breeze.linalg.DenseVector
 import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
-import pipelines.LocalSparkContext
 import utils.{MLlibUtils, Stats}
+import workflow.PipelineContext
 
 import scala.util.Random
 import scala.util.control.Breaks._
@@ -123,7 +123,7 @@ object LogisticRegressionModelSuite {
 }
 
 
-class LogisticRegressionModelSuite extends FunSuite with LocalSparkContext {
+class LogisticRegressionModelSuite extends FunSuite with PipelineContext {
   def validatePrediction(
       predictions: Seq[Double],
       input: Seq[Double],

@@ -1,7 +1,7 @@
 package nodes.images.external
 
 import org.scalatest.FunSuite
-import pipelines.{Logging, LocalSparkContext}
+import pipelines.Logging
 import utils.{ImageUtils, TestUtils}
 
 class SIFTExtractorSuite extends FunSuite with Logging {

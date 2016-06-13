@@ -5,8 +5,9 @@ import breeze.numerics._
 import breeze.stats.distributions._
 import org.scalatest.FunSuite
 import pipelines._
+import workflow.PipelineContext
 
-class ZCAWhiteningSuite extends FunSuite with LocalSparkContext with Logging {
+class ZCAWhiteningSuite extends FunSuite with PipelineContext with Logging {
 
   val nrows = 10000
   val ndim = 10

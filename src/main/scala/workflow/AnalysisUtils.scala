@@ -1,6 +1,6 @@
-package workflow.graph
+package workflow
 
-private[graph] object AnalysisUtils {
+private[workflow] object AnalysisUtils {
 
   /**
    * Given a graph and a source/sink/node, output the set of all sources/sinks/nodes

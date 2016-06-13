@@ -5,10 +5,11 @@ import breeze.stats.distributions.{Multinomial, Uniform, Gaussian}
 import nodes.stats.StandardScaler
 import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
-import pipelines.{LocalSparkContext, Logging}
+import pipelines.Logging
 import utils.{TestUtils, MatrixUtils, Stats}
+import workflow.PipelineContext
 
-class LinearDiscriminantAnalysisSuite extends FunSuite with LocalSparkContext with Logging {
+class LinearDiscriminantAnalysisSuite extends FunSuite with PipelineContext with Logging {
   test("Solve Linear Discriminant Analysis on the Iris Dataset") {
     sc = new SparkContext("local", "test")
 

@@ -1,9 +1,9 @@
 package nodes.nlp
 
 import org.scalatest.FunSuite
-import pipelines.LocalSparkContext
+import workflow.PipelineContext
 
-class HashingTFSuite extends FunSuite with LocalSparkContext {
+class HashingTFSuite extends FunSuite with PipelineContext {
 
   test("HashingTF with no collisions") {
     val dims = 4000

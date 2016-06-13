@@ -2,10 +2,10 @@ package evaluation
 
 import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
-import pipelines.LocalSparkContext
 import utils.Stats
+import workflow.PipelineContext
 
-class BinaryClassifierEvaluatorSuite extends FunSuite with LocalSparkContext {
+class BinaryClassifierEvaluatorSuite extends FunSuite with PipelineContext {
   test("Multiclass evaluation metrics") {
     /*
      * Contingency table for binary classification with total 12 instances:

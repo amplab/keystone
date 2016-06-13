@@ -1,16 +1,16 @@
 package pipelines.nlp
 
 import nodes.nlp._
-import pipelines.LocalSparkContext
 
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 
 import org.scalatest.FunSuite
+import workflow.PipelineContext
 
 import scala.collection.JavaConverters._
 
-class StupidBackoffSuite extends FunSuite with LocalSparkContext {
+class StupidBackoffSuite extends FunSuite with PipelineContext {
 
   val data = Seq("Winter is coming",
     "Finals are coming",
@@ -19,7 +19,7 @@ class StupidBackoffSuite extends FunSuite with LocalSparkContext {
   def featurizer(orders: Seq[Int], mode: NGramsCountsMode.Value = NGramsCountsMode.Default) = {
     def feat(data: RDD[String]) = {
       NGramsCounts[String](mode).apply(
-        (Tokenizer() andThen NGramsFeaturizer[String](orders)).apply(data))
+        (Tokenizer() andThen NGramsFeaturizer[String](orders)).apply(data).get)
     }
     feat _
   }

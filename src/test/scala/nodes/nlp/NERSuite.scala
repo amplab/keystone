@@ -5,10 +5,11 @@ import org.apache.spark.SparkContext
 import org.mockito.Mockito._
 import org.scalatest.FunSuite
 import org.scalatest.mock.MockitoSugar
-import pipelines.{LocalSparkContext, Logging}
+import pipelines.Logging
+import workflow.PipelineContext
 
 class NERSuite extends FunSuite
-  with LocalSparkContext with Logging with MockitoSugar {
+  with PipelineContext with Logging with MockitoSugar {
 
   val SENTENCE = "Hello my name is Nikolsky and I live in Quebec City".split(" ")
   val EMPTY_ANNOTATED_SENTENCE = Segmentation(IndexedSeq(), IndexedSeq())

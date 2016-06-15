@@ -53,19 +53,19 @@ class BlockKernelMatrix[T: ClassTag](
     val cacheKernel: Boolean)
   extends KernelMatrix {
 
-  val colBlockCache = HashMap.empty[Seq[Int], RDD[DenseVector[Double]]]
+  val colBlockCache = HashMap.empty[Seq[Int], RDD[DenseMatrix[Double]]]
   val diagBlockCache = HashMap.empty[Seq[Int], DenseMatrix[Double]]
 
   def apply(colIdxs: Seq[Int]): RDD[DenseMatrix[Double]] = {
     if (colBlockCache.contains(colIdxs)) {
-      MatrixUtils.rowsToMatrix(colBlockCache(colIdxs))
+      colBlockCache(colIdxs)
     } else {
       val (kBlock, diagBlock) = kernelGen.computeKernel(data, colIdxs)
       if (cacheKernel) {
         colBlockCache += (colIdxs -> kBlock)
         diagBlockCache += (colIdxs -> diagBlock)
       }
-      MatrixUtils.rowsToMatrix(kBlock)
+      kBlock
     }
   }
 

@@ -30,7 +30,7 @@ trait KernelGenerator[T] {
 
 
 /**
- * Gaussian (RBF) kernel generator. The RBF kernel on two samples x, y is 
+ * Gaussian (RBF) kernel generator. The RBF kernel on two samples x, y is
  * K(x, y) = exp(-||x - y||^2 * gamma)
  */
 class GaussianKernelGenerator(gamma: Double, cacheKernel: Boolean = false)
@@ -50,9 +50,9 @@ trait KernelTransformer[T] {
 
   /**
    * Perform kernel transformation of a given dataset.
-   * If the kernel function is \phi, this computes \phi(x, y) for all 
+   * If the kernel function is \phi, this computes \phi(x, y) for all
    * rows in the given dataset.
-   * 
+   *
    * @param data input data to compute kernel on.
    * @return a kernel matrix containing the output of the transformation
    */
@@ -66,12 +66,19 @@ trait KernelTransformer[T] {
    */
   def apply(data: T): DenseVector[Double]
 
-  // Internal function used to lazily populate the kernel matrix.
-  // NOTE: This function returns a *cached* RDD and the caller is responsible
-  // for managing its life cycle.
+  /**
+   * Internal function used to lazily populate the kernel matrix.
+   *
+   * NOTE: This function returns a *cached* RDD and the caller is responsible
+   * for managing its life cycle.
+   *
+   * @param data RDD to compute kernel on
+   * @param idxs column indexes to use for computation
+   * @return a pair containing the RDD for the column block and the diagonal block
+   */
   private[learning] def computeKernel(
     data: RDD[T],
-    idxs: Seq[Int]): (RDD[DenseVector[Double]], DenseMatrix[Double])
+    idxs: Seq[Int]): (RDD[DenseMatrix[Double]], DenseMatrix[Double])
 }
 
 class GaussianKernelTransformer(
@@ -88,7 +95,7 @@ class GaussianKernelTransformer(
     // Compute data * trainData.t by doing an outer product and then summation
     // trainData is nxd and data is dx1 so the output here is a nx1 vector
     val dataBC = trainData.context.broadcast(data)
-    val xyt = DenseVector(trainData.map { trainRow => 
+    val xyt = DenseVector(trainData.map { trainRow =>
       (trainRow.t * dataBC.value).toDouble
     }.collect())
 
@@ -103,8 +110,8 @@ class GaussianKernelTransformer(
     dataBC.unpersist(true)
 
     xyt *= (-2.0)
-    xyt += dataNorm 
-    xyt += trainDataNorms 
+    xyt += dataNorm
+    xyt += trainDataNorms
 
     xyt *= -gamma
     exp.inPlace(xyt)
@@ -114,10 +121,10 @@ class GaussianKernelTransformer(
   def computeKernel(
       data: RDD[DenseVector[Double]],
       blockIdxs: Seq[Int])
-    : (RDD[DenseVector[Double]], DenseMatrix[Double]) = {
+    : (RDD[DenseMatrix[Double]], DenseMatrix[Double]) = {
 
     // Dot product of rows of X with each other
-    val dataDotProd = if (data.id == trainData.id) { 
+    val dataDotProd = if (data.id == trainData.id) {
       trainDotProd
     } else {
       data.map(x => (x.t * x).toDouble)
@@ -158,8 +165,10 @@ class GaussianKernelTransformer(
       }
     }
 
-    kBlock.cache()
-    kBlock.count
+    val kBlockMat = MatrixUtils.rowsToMatrix(kBlock)
+
+    kBlockMat.cache()
+    kBlockMat.count
 
     trainBlockBC.unpersist(true)
     trainBlockDotProdBC.unpersist(true)
@@ -169,17 +178,19 @@ class GaussianKernelTransformer(
       val kBlockBlock = trainBlock * trainBlock.t
       kBlockBlock :*= (-2.0)
       kBlockBlock(::, *) :+= trainBlockDotProd
-      kBlockBlock(*, ::) :+= trainBlockDotProd 
+      kBlockBlock(*, ::) :+= trainBlockDotProd
       kBlockBlock *= -gamma
       exp.inPlace(kBlockBlock)
       kBlockBlock
     } else {
       // For test data extract the diagonal block from the cached block
-      MatrixUtils.rowsToMatrix(kBlock.zipWithIndex.filter { case (vec, idx) =>
+      MatrixUtils.rowsToMatrix(kBlockMat.flatMap { x =>
+        MatrixUtils.matrixToRowArray(x)
+      }.zipWithIndex.filter { case (vec, idx) =>
         blockIdxSet.contains(idx.toInt)
       }.map(x => x._1).collect().iterator)
     }
 
-    (kBlock, diagBlock) 
+    (kBlockMat, diagBlock)
   }
 }

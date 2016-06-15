@@ -145,16 +145,7 @@ object KernelRidgeRegression extends Logging {
         val blockIdxsBC = labelsMat.context.broadcast(blockIdxsSeq)
 
         val kernelBlockMat = trainKernelMat(blockIdxsSeq)
-
-        // If the kernel block is not already cached, cache it.
-        // This helps us compute the kernel only once per block.
-        val kernelCached = kernelBlockMat.getStorageLevel.useMemory
-        if (!kernelCached) {
-          kernelBlockMat.cache()
-        }
-
-        val kernelBlockRPM = RowPartitionedMatrix.fromMatrix(kernelBlockMat)
-        val kernelBlockBlockMat = kernelBlockRPM(blockIdxs, ::).collect()
+        val kernelBlockBlockMat = trainKernelMat.diagBlock(blockIdxsSeq)
 
         val kernelGenEnd = System.nanoTime
 
@@ -229,10 +220,7 @@ object KernelRidgeRegression extends Logging {
           s"localSolve: ${(localSolveEnd - collectEnd)/1e9} " +
           s"modelUpdate: ${(updateEnd - localSolveEnd)/1e9}")
 
-        // If we cached the kernel in KRR then unpersist it
-        if (!kernelCached) {
-          kernelBlockMat.unpersist()
-        }
+        trainKernelMat.unpersist(blockIdxsSeq)
 
         wBlockBCs.map { case (wBlockOldBC, wBlockNewBC) =>
           wBlockOldBC.unpersist(true)

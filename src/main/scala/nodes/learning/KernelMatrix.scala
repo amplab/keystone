@@ -18,11 +18,28 @@ trait KernelMatrix {
 
   /**
    * Extract specified columns from the kernel matrix. 
+   * NOTE: This returns a *cached* RDD and unpersist should
+   * be called at the end of a block.
    *
    * @param colIdxs the column indexes to extract
    * @return A sub-matrix of size n x idxs.size as an RDD.
    */
   def apply(colIdxs: Seq[Int]): RDD[DenseMatrix[Double]]
+
+  /**
+   * Extract a diagonal block from the kernel matrix.
+   *
+   * @param idxs the column, row indexes to extract
+   * @return A local matrix of size idxs.size x idxs.size
+   */
+  def diagBlock(idxs: Seq[Int]): DenseMatrix[Double]
+
+  /**
+   * Clean up resources associated with a kernel block.
+   *
+   * @param colIdxs column indexes corresponding to the block.
+   */
+  def unpersist(colIdxs: Seq[Int]): Unit
 }
 
 /**
@@ -36,18 +53,36 @@ class BlockKernelMatrix[T: ClassTag](
     val cacheKernel: Boolean)
   extends KernelMatrix {
 
-  val cache = HashMap.empty[Seq[Int], RDD[DenseMatrix[Double]]]
+  val colBlockCache = HashMap.empty[Seq[Int], RDD[DenseVector[Double]]]
+  val diagBlockCache = HashMap.empty[Seq[Int], DenseMatrix[Double]]
 
   def apply(colIdxs: Seq[Int]): RDD[DenseMatrix[Double]] = {
-    if (cache.contains(colIdxs)) {
-      cache(colIdxs)
+    if (colBlockCache.contains(colIdxs)) {
+      MatrixUtils.rowsToMatrix(colBlockCache(colIdxs))
     } else {
-      val kBlock = MatrixUtils.rowsToMatrix(kernelGen.computeKernel(data, colIdxs))
+      val (kBlock, diagBlock) = kernelGen.computeKernel(data, colIdxs)
       if (cacheKernel) {
-        kBlock.cache()
-        cache += (colIdxs -> kBlock)
+        colBlockCache += (colIdxs -> kBlock)
+        diagBlockCache += (colIdxs -> diagBlock)
       }
-      kBlock
+      MatrixUtils.rowsToMatrix(kBlock)
     }
+  }
+
+  def unpersist(colIdxs: Seq[Int]): Unit = {
+    if (colBlockCache.contains(colIdxs) && !cacheKernel) {
+      colBlockCache(colIdxs).unpersist(true)
+    }
+  }
+
+  def diagBlock(idxs: Seq[Int]): DenseMatrix[Double] = {
+    if (!diagBlockCache.contains(idxs)) {
+      val (kBlock, diagBlock) = kernelGen.computeKernel(data, idxs)
+      if (cacheKernel) {
+        colBlockCache += (idxs -> kBlock)
+        diagBlockCache += (idxs -> diagBlock)
+      }
+    }
+    diagBlockCache(idxs)
   }
 }

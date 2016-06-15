@@ -67,7 +67,11 @@ trait KernelTransformer[T] {
   def apply(data: T): DenseVector[Double]
 
   // Internal function used to lazily populate the kernel matrix.
-  private[learning] def computeKernel(data: RDD[T], idxs: Seq[Int]): RDD[DenseVector[Double]]
+  // NOTE: This function returns a *cached* RDD and the caller is responsible
+  // for managing its life cycle.
+  private[learning] def computeKernel(
+    data: RDD[T],
+    idxs: Seq[Int]): (RDD[DenseVector[Double]], DenseMatrix[Double])
 }
 
 class GaussianKernelTransformer(
@@ -110,7 +114,7 @@ class GaussianKernelTransformer(
   def computeKernel(
       data: RDD[DenseVector[Double]],
       blockIdxs: Seq[Int])
-    : RDD[DenseVector[Double]] = {
+    : (RDD[DenseVector[Double]], DenseMatrix[Double]) = {
 
     // Dot product of rows of X with each other
     val dataDotProd = if (data.id == trainData.id) { 
@@ -122,19 +126,19 @@ class GaussianKernelTransformer(
     // Extract a b x d block of training data
     val blockIdxSet = blockIdxs.toSet
 
-    val blockDataArray = trainData.zipWithIndex.filter { case (vec, idx) =>
+    val trainBlockArray = trainData.zipWithIndex.filter { case (vec, idx) =>
       blockIdxSet.contains(idx.toInt)
     }.map(x => x._1).collect()
 
-    val blockData = MatrixUtils.rowsToMatrix(blockDataArray)
-    assert(blockData.rows == blockIdxs.length)
-    val blockDataBC = data.context.broadcast(blockData)
+    val trainBlock = MatrixUtils.rowsToMatrix(trainBlockArray)
+    assert(trainBlock.rows == blockIdxs.length)
+    val trainBlockBC = data.context.broadcast(trainBlock)
 
     // <xi,xj> for i in [nTest], j in blockIdxs
     val blockXXT = data.mapPartitions { itr  =>
-      val bd = blockDataBC.value
+      val bd = trainBlockBC.value
       val vecMat = MatrixUtils.rowsToMatrix(itr)
-      Iterator.single(vecMat*bd.t)
+      Iterator.single(vecMat * bd.t)
     }
 
     val trainBlockDotProd = DenseVector(trainDotProd.zipWithIndex.filter { case (vec, idx) =>
@@ -142,24 +146,40 @@ class GaussianKernelTransformer(
     }.map(x => x._1).collect())
     val trainBlockDotProdBC = data.context.broadcast(trainBlockDotProd)
 
-    val kBlock = blockXXT.zipPartitions(dataDotProd) { case (iterXXT, iterTestDotProds) =>
+    val kBlock = blockXXT.zipPartitions(dataDotProd) { case (iterXXT, iterDataDotProds) =>
       val xxt = iterXXT.next()
       assert(iterXXT.isEmpty)
-      iterTestDotProds.zipWithIndex.map { case (testDotProd, idx) =>
+      iterDataDotProds.zipWithIndex.map { case (dataDotProdVal, idx) =>
         val term1 = xxt(idx, ::).t * (-2.0)
-        val term2 = DenseVector.fill(xxt.cols){testDotProd}
+        val term2 = DenseVector.fill(xxt.cols)(dataDotProdVal)
         val term3 = trainBlockDotProdBC.value
         val term4 = (term1 + term2 + term3) * (-gamma)
         exp(term4)
       }
     }
 
-    // TODO: We can't unpersist these broadcast variables until we have cached the
-    // kernel block matrices ?
-    // We could introduce a new clean up method here ?
+    kBlock.cache()
+    kBlock.count
 
-    // blockDataBC.unpersist()
-    // trainBlockDotProdBC.unpersist()
-    kBlock
+    trainBlockBC.unpersist(true)
+    trainBlockDotProdBC.unpersist(true)
+
+    val diagBlock = if (data.id == trainData.id) {
+      // For train data use locally available data to compute diagonal block
+      val kBlockBlock = trainBlock * trainBlock.t
+      kBlockBlock :*= (-2.0)
+      kBlockBlock(::, *) :+= trainBlockDotProd
+      kBlockBlock(*, ::) :+= trainBlockDotProd 
+      kBlockBlock *= -gamma
+      exp.inPlace(kBlockBlock)
+      kBlockBlock
+    } else {
+      // For test data extract the diagonal block from the cached block
+      MatrixUtils.rowsToMatrix(kBlock.zipWithIndex.filter { case (vec, idx) =>
+        blockIdxSet.contains(idx.toInt)
+      }.map(x => x._1).collect())
+    }
+
+    (kBlock, diagBlock) 
   }
 }

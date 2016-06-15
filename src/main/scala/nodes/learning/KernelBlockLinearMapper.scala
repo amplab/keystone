@@ -61,20 +61,20 @@ class KernelBlockLinearMapper[T: ClassTag](
         pred :+ (testKernelBB * modelBlockBC.value)
       }
 
+      predictionsNew.cache()
+      predictionsNew.count()
+      predictions.unpersist(true)
+
+      testKernelMat.unpersist(blockIdxs.toSeq)
+      modelBlockBC.unpersist(true)
+
       // If we are checkpointing update our cache
       if (in.context.getCheckpointDir.isDefined &&
           block % blocksBeforeCheckpoint == (blocksBeforeCheckpoint - 1)) {
-        predictionsNew = MatrixUtils.truncateLineage(predictionsNew, true)
-        predictionsNew.count
-
-        predictions.unpersist(true)
-        predictions = predictionsNew
-      } else {
-        predictions = predictionsNew
+        predictionsNew = MatrixUtils.truncateLineage(predictionsNew, false)
       }
+      predictions = predictionsNew
     }
-    // TODO: We need to cache, count the predictions if we want to unpersist
-    // the broadcast variables here ?
     predictions.flatMap(x => MatrixUtils.matrixToRowArray(x))
   }
 

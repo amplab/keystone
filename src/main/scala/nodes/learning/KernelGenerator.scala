@@ -177,7 +177,7 @@ class GaussianKernelTransformer(
       // For test data extract the diagonal block from the cached block
       MatrixUtils.rowsToMatrix(kBlock.zipWithIndex.filter { case (vec, idx) =>
         blockIdxSet.contains(idx.toInt)
-      }.map(x => x._1).collect())
+      }.map(x => x._1).collect().iterator)
     }
 
     (kBlock, diagBlock) 

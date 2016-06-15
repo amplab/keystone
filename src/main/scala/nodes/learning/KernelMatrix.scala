@@ -82,7 +82,9 @@ class BlockKernelMatrix[T: ClassTag](
         colBlockCache += (idxs -> kBlock)
         diagBlockCache += (idxs -> diagBlock)
       }
+      diagBlock
+    } else {
+      diagBlockCache(idxs)
     }
-    diagBlockCache(idxs)
   }
 }

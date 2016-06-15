@@ -5,10 +5,10 @@ import breeze.linalg._
 import org.apache.spark.SparkContext
 import org.scalatest.FunSuite
 
-import pipelines.{LocalSparkContext, Logging}
+import workflow.PipelineContext
 import utils.{MatrixUtils, Stats}
 
-class KernelModelSuite extends FunSuite with LocalSparkContext with Logging {
+class KernelModelSuite extends FunSuite with PipelineContext {
 
   test("KernelModel XOR test") {
     sc = new SparkContext("local", "test")

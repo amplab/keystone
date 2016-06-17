@@ -71,21 +71,27 @@ object RandomPatchCifarAugmentedKernel extends Serializable with Logging {
     val trainLabels = labelExtractor(trainData)
     val trainLabelsAugmented = new LabelAugmenter(conf.numRandomImagesAugment).apply(trainLabels.get)
 
+    val trainImageLabelsShuffled = (new Shuffler[(Image, DenseVector[Double])] andThen
+      new Cacher[(Image, DenseVector[Double])](Some("shuffled"))).apply(
+      trainImagesAugmented.zip(trainLabelsAugmented))
+
+    val trainImagesShuffled = trainImageLabelsShuffled.get.map(_._1)
+    val trainLabelsShuffled = trainImageLabelsShuffled.get.map(_._2)
+
     val predictionPipeline =
       new Convolver(filters, augmentImgSize, augmentImgSize, numChannels, Some(whitener), true) andThen
         SymmetricRectifier(alpha=conf.alpha) andThen
         new Pooler(conf.poolStride, conf.poolSize, identity, sum(_)) andThen
         ImageVectorizer andThen
         new Cacher[DenseVector[Double]](Some("features")) andThen
-        (new StandardScaler, trainImagesAugmented) andThen
-        (new Shuffler()) andThen
+        (new StandardScaler, trainImagesShuffled) andThen
         (new KernelRidgeRegression(
             new GaussianKernelGenerator(conf.gamma, conf.cacheKernel),
             conf.lambda.getOrElse(0.0),
             conf.blockSize, // blockSize
             conf.numEpochs, // numEpochs
             conf.seed), // blockPermuter
-          trainImagesAugmented, trainLabelsAugmented) andThen
+          trainImagesShuffled, trainLabelsShuffled) andThen
         new Cacher[DenseVector[Double]]
 
     // Do testing.

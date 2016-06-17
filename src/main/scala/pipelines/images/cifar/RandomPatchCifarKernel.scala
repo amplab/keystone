@@ -11,7 +11,7 @@ import nodes.util.{Cacher, ClassLabelIndicatorsFromIntLabels, MaxClassifier, Shu
 import org.apache.spark.{SparkConf, SparkContext}
 import pipelines.Logging
 import scopt.OptionParser
-import utils.{Image, MatrixUtils, Stats}
+import utils.{Image, MatrixUtils, Stats, LabeledImage}
 import workflow.Pipeline
 
 object RandomPatchCifarKernel extends Serializable with Logging {
@@ -29,13 +29,16 @@ object RandomPatchCifarKernel extends Serializable with Logging {
       case Some(f) => CifarLoader(sc, conf.trainLocation).sample(false, f).cache
       case None => CifarLoader(sc, conf.trainLocation).cache
     }
-    val trainImages = ImageExtractor(trainData)
+
+    val trainDataShuffled = (new Shuffler[LabeledImage] andThen
+      new Cacher[LabeledImage]).apply(trainData).get
+    val trainImages = ImageExtractor(trainDataShuffled)
 
     val labelExtractor = LabelExtractor andThen
       ClassLabelIndicatorsFromIntLabels(numClasses) andThen
       new Cacher[DenseVector[Double]]
 
-    val trainLabels = labelExtractor(trainData)
+    val trainLabels = labelExtractor(trainDataShuffled)
 
     val patchExtractor = new Windower(conf.patchSteps, conf.patchSize)
       .andThen(ImageVectorizer.apply)
@@ -62,7 +65,6 @@ object RandomPatchCifarKernel extends Serializable with Logging {
         ImageVectorizer andThen
         new Cacher[DenseVector[Double]] andThen
         (new StandardScaler, trainImages) andThen
-        new Shuffler andThen
         (new KernelRidgeRegression(
             new GaussianKernelGenerator(conf.gamma, conf.cacheKernel),
             conf.lambda.getOrElse(0.0),

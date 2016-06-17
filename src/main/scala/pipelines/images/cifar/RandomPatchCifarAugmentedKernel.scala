@@ -16,7 +16,7 @@ import loaders.CifarLoader
 import nodes.images._
 import nodes.learning.{GaussianKernelGenerator, KernelRidgeRegression, ZCAWhitener, ZCAWhitenerEstimator}
 import nodes.stats.{StandardScaler, Sampler}
-import nodes.util.{Cacher, ClassLabelIndicatorsFromIntLabels}
+import nodes.util.{Cacher, ClassLabelIndicatorsFromIntLabels, Shuffler}
 
 import pipelines.FunctionNode
 import pipelines.Logging
@@ -78,6 +78,7 @@ object RandomPatchCifarAugmentedKernel extends Serializable with Logging {
         ImageVectorizer andThen
         new Cacher[DenseVector[Double]](Some("features")) andThen
         (new StandardScaler, trainImagesAugmented) andThen
+        (new Shuffler()) andThen
         (new KernelRidgeRegression(
             new GaussianKernelGenerator(conf.gamma, conf.cacheKernel),
             conf.lambda.getOrElse(0.0),

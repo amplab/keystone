@@ -7,7 +7,7 @@ import loaders.CifarLoader
 import nodes.images._
 import nodes.learning.{GaussianKernelGenerator, KernelRidgeRegression, ZCAWhitener, ZCAWhitenerEstimator}
 import nodes.stats.{Sampler, StandardScaler}
-import nodes.util.{Cacher, ClassLabelIndicatorsFromIntLabels, MaxClassifier}
+import nodes.util.{Cacher, ClassLabelIndicatorsFromIntLabels, MaxClassifier, Shuffler}
 import org.apache.spark.{SparkConf, SparkContext}
 import pipelines.Logging
 import scopt.OptionParser
@@ -62,6 +62,7 @@ object RandomPatchCifarKernel extends Serializable with Logging {
         ImageVectorizer andThen
         new Cacher[DenseVector[Double]] andThen
         (new StandardScaler, trainImages) andThen
+        new Shuffler andThen
         (new KernelRidgeRegression(
             new GaussianKernelGenerator(conf.gamma, conf.cacheKernel),
             conf.lambda.getOrElse(0.0),

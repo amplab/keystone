@@ -292,9 +292,7 @@ class BlockWeightedLeastSquaresSuite extends FunSuite with Logging with Pipeline
     val gradient = computeGradient(aProcessed, bProcessed, lambda, mixtureWeight, finalPcsModel,
       pcs.bOpt.get)
 
-    // TODO(shivaram): Gradient seems to be pretty-high here ?
-    // But we dropped an entire class ?
-    println("norm of PCWLS gradient is " + norm(gradient.toDenseVector))
+    assert(Stats.aboutEq(norm(gradient.toDenseVector), 0, 1e-1))
   }
 
 }

@@ -252,4 +252,47 @@ class BlockWeightedLeastSquaresSuite extends FunSuite with Logging with Pipeline
     assert(Stats.aboutEq(norm(gradient.toDenseVector), 0, 1e-2))
   }
 
+  test("PerClass WeightedLeastSquares should work with empty partitions") {
+    val blockSize = 4
+    val numIter = 10
+    val lambda = 0.1
+    val mixtureWeight = 0.3
+    val numParts = 3
+    val nClasses = 3
+
+    sc = new SparkContext("local", "test")
+
+    val (fullARDD, bRDD) = loadMatrixRDDs("aMat.csv", "bMat.csv", numParts, sc)
+    // Throw away a partition in both features and labels
+    val partitionToEmpty = 1
+    val aProcessed = fullARDD.mapPartitionsWithIndex { case (idx, iter) =>
+      if (idx == partitionToEmpty) {
+        Iterator.empty
+      } else {
+        iter
+      }
+    }
+    // Also drop one column of labels corresponding to partition we are dropping
+    val bProcessed = bRDD.mapPartitionsWithIndex { case (idx, iter) =>
+      if (idx == partitionToEmpty) {
+        Iterator.empty
+      } else {
+        val colsToKeep = (0 until nClasses).toSet - partitionToEmpty
+        iter.map(x => x(colsToKeep.toSeq).toDenseVector)
+      }
+    }
+
+    val pcs = new PerClassWeightedLeastSquaresEstimator(blockSize, numIter, lambda,
+      mixtureWeight).fit(aProcessed, bProcessed)
+    val finalPcsModel = pcs.xs.reduceLeft { (a, b) =>
+      DenseMatrix.vertcat(a, b)
+    }
+
+    // norm(gradient) should be close to zero
+    val gradient = computeGradient(aProcessed, bProcessed, lambda, mixtureWeight, finalPcsModel,
+      pcs.bOpt.get)
+
+    assert(Stats.aboutEq(norm(gradient.toDenseVector), 0, 1e-1))
+  }
+
 }

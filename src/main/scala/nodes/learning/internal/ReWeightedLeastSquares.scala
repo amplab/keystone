@@ -47,10 +47,14 @@ object ReWeightedLeastSquaresSolver extends Logging {
     : (Seq[DenseMatrix[Double]], RDD[DenseMatrix[Double]]) = {
 
     val labelsZmMat = labelsZm.mapPartitions { iter =>
-      Iterator.single(MatrixUtils.rowsToMatrix(iter))
+      MatrixUtils.rowsToMatrixIter(iter)
     }
     val weightsMat = weights.mapPartitions { iter =>
-      Iterator.single(DenseVector(iter.toArray))
+      if (iter.hasNext) {
+        Iterator.single(DenseVector(iter.toArray))
+      } else {
+        Iterator.empty
+      }
     }
 
     var residual = labelsZmMat.map { l =>
@@ -76,8 +80,10 @@ object ReWeightedLeastSquaresSolver extends Logging {
         val featureMeanBlock = featureMean(
           block * blockSize until min((block+1) * blockSize, numFeatures))
         val aPartMatZm = aPart.mapPartitions { iter =>
-          val mat = MatrixUtils.rowsToMatrix(iter)
-          Iterator.single( (mat(*, ::) - featureMeanBlock) )
+          val matIter = MatrixUtils.rowsToMatrixIter(iter)
+          matIter.map { mat =>
+            (mat(*, ::) - featureMeanBlock)
+          }
         }.cache().setName("aPartMatZm")
         aPartMatZm.count
       

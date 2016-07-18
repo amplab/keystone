@@ -144,8 +144,12 @@ class GaussianKernelTransformer(
     // <xi,xj> for i in [nTest], j in blockIdxs
     val blockXXT = data.mapPartitions { itr  =>
       val bd = trainBlockBC.value
-      val vecMat = MatrixUtils.rowsToMatrix(itr)
-      Iterator.single(vecMat * bd.t)
+      if (itr.hasNext) {
+        val vecMat = MatrixUtils.rowsToMatrix(itr)
+        Iterator.single(vecMat * bd.t)
+      } else {
+        Iterator.empty
+      }
     }
 
     val trainBlockDotProd = DenseVector(trainDotProd.zipWithIndex.filter { case (vec, idx) =>
@@ -154,14 +158,18 @@ class GaussianKernelTransformer(
     val trainBlockDotProdBC = data.context.broadcast(trainBlockDotProd)
 
     val kBlock = blockXXT.zipPartitions(dataDotProd) { case (iterXXT, iterDataDotProds) =>
-      val xxt = iterXXT.next()
-      assert(iterXXT.isEmpty)
-      iterDataDotProds.zipWithIndex.map { case (dataDotProdVal, idx) =>
-        val term1 = xxt(idx, ::).t * (-2.0)
-        val term2 = DenseVector.fill(xxt.cols)(dataDotProdVal)
-        val term3 = trainBlockDotProdBC.value
-        val term4 = (term1 + term2 + term3) * (-gamma)
-        exp(term4)
+      if (iterXXT.hasNext) {
+        val xxt = iterXXT.next()
+        assert(iterXXT.isEmpty)
+        iterDataDotProds.zipWithIndex.map { case (dataDotProdVal, idx) =>
+          val term1 = xxt(idx, ::).t * (-2.0)
+          val term2 = DenseVector.fill(xxt.cols)(dataDotProdVal)
+          val term3 = trainBlockDotProdBC.value
+          val term4 = (term1 + term2 + term3) * (-gamma)
+          exp(term4)
+        }
+      } else {
+        Iterator.empty
       }
     }
 

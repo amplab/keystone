@@ -157,11 +157,13 @@ class GaussianKernelTransformer(
       val xxt = iterXXT.next()
       assert(iterXXT.isEmpty)
       iterDataDotProds.zipWithIndex.map { case (dataDotProdVal, idx) =>
-        val term1 = xxt(idx, ::).t * (-2.0)
-        val term2 = DenseVector.fill(xxt.cols)(dataDotProdVal)
+        // To compute |X_i - X_j|^2 we break it down into three terms
+        // X_i^2 - 2*X_i*X_j + X_j^2
+        val term1 = DenseVector.fill(xxt.cols)(dataDotProdVal)
+        val term2 = xxt(idx, ::).t * (-2.0)
         val term3 = trainBlockDotProdBC.value
-        val term4 = (term1 + term2 + term3) * (-gamma)
-        exp(term4)
+        val sum = (term1 + term2 + term3) * (-gamma)
+        exp(sum)
       }
     }
 

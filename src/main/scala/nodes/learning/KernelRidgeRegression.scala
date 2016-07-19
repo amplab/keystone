@@ -242,29 +242,33 @@ object KernelRidgeRegression extends Logging {
     val newModel = model.mapPartitionsWithIndex { case (idx, part) =>
       // note that prefix length is *not* cumsum (so the first entry is 0)
       val partBegin = preFixLengthsBC.value(idx)
-      val wParts = part.next
-      assert(part.isEmpty)
-      wParts.zipWithIndex.foreach { case (wPart, idx) =>
-        val partLength = wPart.rows
+      if (part.hasNext) {
+        val wParts = part.next
+        assert(part.isEmpty)
+        wParts.zipWithIndex.foreach { case (wPart, idx) =>
+          val partLength = wPart.rows
 
-        // [partBegin, partBegin + partLength)
-        // [blockIdxs[0], blockIdxs[-1]]
-        //
-        // To compute which indices of the model to update, we take two
-        // ranges, map them both to example space ([nTrain]) so that we can
-        // intersect them, and then map the intersection back the delta model
-        // index space and partition index space.
-        val responsibleRange = (partBegin until (partBegin + partLength)).toSet
-        val inds = blockIdxsBC.value.zipWithIndex.filter { case (choice, _) =>
-          responsibleRange.contains(choice)
+          // [partBegin, partBegin + partLength)
+          // [blockIdxs[0], blockIdxs[-1]]
+          //
+          // To compute which indices of the model to update, we take two
+          // ranges, map them both to example space ([nTrain]) so that we can
+          // intersect them, and then map the intersection back the delta model
+          // index space and partition index space.
+          val responsibleRange = (partBegin until (partBegin + partLength)).toSet
+          val inds = blockIdxsBC.value.zipWithIndex.filter { case (choice, _) =>
+            responsibleRange.contains(choice)
+          }
+          val partInds = inds.map(x => x._1 - partBegin).toSeq
+          val blockInds = inds.map(x => x._2).toSeq
+
+          val wBlockNewBCvalue = wBlockNewBC(idx).value
+          wPart(partInds, ::) := wBlockNewBCvalue(blockInds, ::)
         }
-        val partInds = inds.map(x => x._1 - partBegin).toSeq
-        val blockInds = inds.map(x => x._2).toSeq
-
-        val wBlockNewBCvalue = wBlockNewBC(idx).value
-        wPart(partInds, ::) := wBlockNewBCvalue(blockInds, ::)
+        Iterator.single(wParts)
+      } else {
+        Iterator.empty
       }
-      Iterator.single(wParts)
     }
     newModel
   }

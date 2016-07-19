@@ -134,7 +134,8 @@ object RandomPatchCifarAugmentedKernel extends Serializable with Logging {
       seed: Option[Long] = None,
       lambda: Option[Double] = None,
       sampleFrac: Option[Double] = None,
-      numRandomImagesAugment: Int = 10)
+      numRandomImagesAugment: Int = 10,
+      checkpointDir: Option[String] = None)
 
   def parse(args: Array[String]): RandomPatchCifarAugmentedKernelConfig = {
     new OptionParser[RandomPatchCifarAugmentedKernelConfig](appName) {
@@ -156,6 +157,7 @@ object RandomPatchCifarAugmentedKernel extends Serializable with Logging {
       opt[Long]("seed") action { (x,c) => c.copy(seed=Some(x)) }
       opt[Double]("lambda") action { (x,c) => c.copy(lambda=Some(x)) }
       opt[Double]("sampleFrac") action { (x,c) => c.copy(sampleFrac=Some(x)) }
+      opt[String]("checkpointDir") action { (x,c) => c.copy(checkpointDir=Some(x)) }
     }.parse(args, RandomPatchCifarAugmentedKernelConfig()).get
   }
 
@@ -171,6 +173,7 @@ object RandomPatchCifarAugmentedKernel extends Serializable with Logging {
     // NOTE: ONLY APPLICABLE IF YOU CAN DONE COPY-DIR
     conf.remove("spark.jars")
     val sc = new SparkContext(conf)
+    appConfig.checkpointDir.foreach(dir => sc.setCheckpointDir(dir))
     run(sc, appConfig)
 
     sc.stop()

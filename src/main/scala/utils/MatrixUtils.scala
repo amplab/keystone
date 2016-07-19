@@ -2,10 +2,10 @@ package utils
 
 import java.io.File
 
-import breeze.linalg._
-
 import scala.reflect.ClassTag
 import scala.util.Random
+
+import breeze.linalg._
 
 import org.apache.spark.rdd.RDD
 
@@ -93,6 +93,20 @@ object MatrixUtils extends Serializable {
   }
 
   /**
+   * Converts a RDD of DenseVector to a RDD of DenseMatrix such that vectors in each partition
+   * are stacked into a rows to make a DenseMatrix.
+   *
+   * @param in RDD of DenseVectors (row)
+   * @return RDD containing dense matrices
+   */
+  def rowsToMatrix[T: ClassTag] (in: RDD[DenseVector[T]]) : RDD[DenseMatrix[T]]= {
+    in.mapPartitions { part =>
+      rowsToMatrixIter(part)
+    }
+  }
+
+
+  /**
    * Draw samples rows from a matrix.
    *
    * @param in Input matrix.
@@ -129,6 +143,63 @@ object MatrixUtils extends Serializable {
     })
 
     sumCount._1 /= sumCount._2.toDouble
+  }
+
+  /**
+   * Check if a given sequence is sorted.
+   *
+   * @param s Sequence that needs to be checked.
+   * @return true if the squence is sorted. false otherwise
+   */
+  def isSorted[T](s: Seq[T])(implicit cmp: Ordering[T]): Boolean = {
+    if (s.isEmpty) {
+      true 
+    } else {
+      var i = 1
+      while (i < s.size) {
+        if (cmp.gt(s(i - 1), s(i)))
+          return false
+        i += 1
+      }
+      true
+    }
+  }
+
+  // Truncates the lineage of an RDD and returns a new RDD
+  // that is in memory and has truncated lineage
+  def truncateLineage[T: ClassTag](in: RDD[T], cache: Boolean): RDD[T] = {
+    // What we are doing here is:
+    // cache the input before checkpoint as it triggers a job
+    if (cache) {
+      in.cache()
+    }
+    in.checkpoint()
+    // Run a count to trigger the checkpoint
+    in.count
+
+    // Now "in" has HDFS preferred locations which is bothersome
+    // when we zip it next time. So do a identity map & get an RDD
+    // that is in memory, but has no preferred locs
+    val out = in.map(x => x).cache()
+    // This stage will run as NODE_LOCAL ?
+    out.count
+
+    // Now out is in memory, we can get rid of "in" and then
+    // return out
+    if (cache) {
+      in.unpersist(true)
+    }
+    out
+  }
+
+  // Add two sequence of matrices by updating the first argument in place
+  def addMatrices(a: IndexedSeq[DenseMatrix[Double]], b: IndexedSeq[DenseMatrix[Double]]) = {
+    var i = 0
+    while (i < a.length) {
+      a(i) += b(i)
+      i = i + 1
+    }
+    a
   }
 
 }

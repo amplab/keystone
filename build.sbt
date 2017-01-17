@@ -12,7 +12,7 @@ licenses := Seq("Apache 2.0" -> url("https://raw.githubusercontent.com/amplab/ke
 
 homepage := Some(url("http://keystone-ml.org"))
 
-scalaVersion := "2.10.4"
+scalaVersion := "2.11.8"
 
 parallelExecution in Test := false
 
@@ -25,7 +25,7 @@ libraryDependencies ++= Seq(
   "org.mockito" % "mockito-core" % "1.8.5",
   "org.apache.commons" % "commons-compress" % "1.7",
   "commons-io" % "commons-io" % "2.4",
-  "org.scalanlp" % "breeze_2.10" % "0.11.2",
+  "org.scalanlp" % "breeze_2.11" % "0.11.2",
   "com.google.guava" % "guava" % "14.0.1",
   "com.github.fommil.netlib" % "all" % "1.1.2" pomOnly(),
   "com.github.scopt" %% "scopt" % "3.3.0"
@@ -47,10 +47,10 @@ libraryDependencies ++= Seq(
   val excludeHadoop = ExclusionRule(organization = "org.apache.hadoop")
   val excludeSpark = ExclusionRule(organization = "org.apache.spark")
   libraryDependencies ++= Seq(
-    "org.apache.spark" % "spark-core_2.10" % sparkVersion excludeAll(excludeHadoop),
-    "org.apache.spark" % "spark-mllib_2.10" % sparkVersion excludeAll(excludeHadoop),
-    "org.apache.spark" % "spark-sql_2.10" % sparkVersion excludeAll(excludeHadoop),
-    "edu.berkeley.cs.amplab" % "mlmatrix_2.10" % "0.1" excludeAll(excludeHadoop, excludeSpark)
+    "org.apache.spark" % "spark-core_2.11" % sparkVersion excludeAll(excludeHadoop),
+    "org.apache.spark" % "spark-mllib_2.11" % sparkVersion excludeAll(excludeHadoop),
+    "org.apache.spark" % "spark-sql_2.11" % sparkVersion excludeAll(excludeHadoop),
+    "edu.berkeley.cs.amplab" % "mlmatrix_2.11" % "0.1" excludeAll(excludeHadoop, excludeSpark)
   )
 }
 

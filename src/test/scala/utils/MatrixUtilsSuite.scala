@@ -22,7 +22,7 @@ class MatrixUtilsSuite extends FunSuite with PipelineContext {
     val rdd = sc.parallelize(inArr, numParts).mapPartitions { iter => 
       Iterator.single(MatrixUtils.rowsToMatrix(iter))
     }
-    val expected = mean(in(::, *)).toDenseVector
+    val expected = mean(in(::, *)).t
     val actual = MatrixUtils.computeMean(rdd)
     assert(Stats.aboutEq(expected, actual, 1e-6))
   }

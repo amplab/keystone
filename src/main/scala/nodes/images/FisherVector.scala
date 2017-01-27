@@ -39,12 +39,12 @@ case class FisherVector(gmm: GaussianMixtureModel)
 
     /* here is the Fisher Vector in all of its beauty.  This is directly
     from the FV survey by Sanchez et al: */
-    val s0 = mean(q, Axis._0).toDenseVector // 1 x K, but really K x 1 because it's a dense vector
+    val s0 = mean(q, Axis._0) // 1 x K, but really K x 1 because it's a dense vector
     val s1 = (x * q) :/= nDesc // D x K
     val s2 = ((x :* x) * q) :/= nDesc // D x K
 
-    val fv1 = (s1 - gmmMeans * diag(s0)) :/ (sqrt(gmmVars) * diag(sqrt(gmmWeights)))
-    val fv2 = (s2 - (gmmMeans * 2.0 :* s1) + (((gmmMeans :* gmmMeans) - gmmVars)*diag(s0))) :/
+    val fv1 = (s1 - gmmMeans * diag(s0).t) :/ (sqrt(gmmVars) * diag(sqrt(gmmWeights)))
+    val fv2 = (s2 - (gmmMeans * 2.0 :* s1) + (((gmmMeans :* gmmMeans) - gmmVars)*diag(s0)).t) :/
         (gmmVars * diag(sqrt(gmmWeights :* 2.0)))
 
     // concatenate the two fv terms
@@ -64,7 +64,7 @@ case class FisherVector(gmm: GaussianMixtureModel)
  */
 case class ScalaGMMFisherVectorEstimator(k: Int) extends Estimator[DenseMatrix[Float], DenseMatrix[Float]] {
   def fit(data: RDD[DenseMatrix[Float]]): FisherVector = {
-    val gmmTrainingData = data.flatMap(x => convert(MatrixUtils.matrixToColArray(x), Double))
+    val gmmTrainingData = data.flatMap(x => MatrixUtils.matrixToColArray(x).map(i => convert(i, Double)))
     val gmmEst = new GaussianMixtureModelEstimator(k)
     val gmm = gmmEst.fit(gmmTrainingData)
     FisherVector(gmm)

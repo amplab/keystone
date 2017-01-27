@@ -7,6 +7,7 @@ import nodes.learning.LogisticRegressionEstimator
 import nodes.nlp._
 import nodes.stats.TermFrequency
 import nodes.util.CommonSparseFeatures
+import org.apache.spark.sql.SparkSession
 import org.apache.spark.{SparkConf, SparkContext}
 import pipelines.Logging
 import scopt.OptionParser
@@ -15,8 +16,8 @@ import workflow.Pipeline
 object AmazonReviewsPipeline extends Logging {
   val appName = "AmazonReviewsPipeline"
 
-  def run(sc: SparkContext, conf: AmazonReviewsConfig): Pipeline[String, Double] = {
-    val amazonTrainData = AmazonReviewsDataLoader(sc, conf.trainLocation, conf.threshold).labeledData
+  def run(spark: SparkSession, conf: AmazonReviewsConfig): Pipeline[String, Double] = {
+    val amazonTrainData = AmazonReviewsDataLoader(spark, conf.trainLocation, conf.threshold).labeledData
     val trainData = LabeledData(amazonTrainData.repartition(conf.numParts).cache())
 
     val training = trainData.data
@@ -32,7 +33,7 @@ object AmazonReviewsPipeline extends Logging {
         (LogisticRegressionEstimator[SparseVector[Double]](numClasses = 2, numIters = conf.numIters), training, labels)
 
     // Evaluate the classifier
-    val amazonTestData = AmazonReviewsDataLoader(sc, conf.testLocation, conf.threshold).labeledData
+    val amazonTestData = AmazonReviewsDataLoader(spark, conf.testLocation, conf.threshold).labeledData
     val testData = LabeledData(amazonTestData.repartition(conf.numParts).cache())
     val testLabels = testData.labels
     val testResults = predictor(testData.data)
@@ -71,11 +72,11 @@ object AmazonReviewsPipeline extends Logging {
     val conf = new SparkConf().setAppName(appName)
     conf.setIfMissing("spark.master", "local[2]") // This is a fallback if things aren't set via spark submit.
 
-    val sc = new SparkContext(conf)
+    val spark = SparkSession.builder.config(conf).getOrCreate()
 
     val appConfig = parse(args)
-    run(sc, appConfig)
+    run(spark, appConfig)
 
-    sc.stop()
+    spark.stop()
   }
 }

@@ -24,10 +24,10 @@ class PCASuite extends FunSuite with PipelineContext with Logging {
     val pcaTransformer = new PCATransformer(pcaMatrix)
 
     val matOne = new DenseMatrix(matOneHeight, matDims, (0 until matOneHeight*matDims).toArray.map(_.toDouble))
-    val matOneRows = convert(MatrixUtils.matrixToRowArray(matOne), Float)
+    val matOneRows = MatrixUtils.matrixToRowArray(matOne).map(r => convert(r, Float))
 
     val matTwo = new DenseMatrix(matTwoHeight, matDims, Array.fill[Double](matTwoHeight * matDims)(1))
-    val matTwoRows = convert(MatrixUtils.matrixToRowArray(matTwo), Float)
+    val matTwoRows = MatrixUtils.matrixToRowArray(matTwo).map(r => convert(r, Float))
 
     val out = pcaTransformer.apply(sc.parallelize(matOneRows ++ matTwoRows)).collect()
 

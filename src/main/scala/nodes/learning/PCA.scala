@@ -179,7 +179,7 @@ class PCAEstimator(dims: Int) extends Estimator[DenseVector[Float], DenseVector[
   def computePCA(dataMat: DenseMatrix[Float], dims: Int): DenseMatrix[Float] = {
     logDebug(s"Size of dataMat: (${dataMat.rows}, ${dataMat.cols})")
 
-    val means = (mean(dataMat(::, *))).toDenseVector
+    val means = (mean(dataMat(::, *))).t
 
     val data = dataMat(*, ::) - means
 
@@ -236,9 +236,9 @@ object PCAEstimator {
    * @return
    */
   def enforceMatlabPCASignConvention(pca: DenseMatrix[Float]): DenseMatrix[Float] = {
-    val colMaxs = max(pca(::, *)).toArray
+    val colMaxs = max(pca(::, *)).t.toArray
     val absPCA = abs(pca)
-    val absColMaxs = max(absPCA(::, *)).toArray
+    val absColMaxs = max(absPCA(::, *)).t.toArray
     val signs = colMaxs.zip(absColMaxs).map { x =>
       if (x._1 == x._2) 1.0f else -1.0f
     }

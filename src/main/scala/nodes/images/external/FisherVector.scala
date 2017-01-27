@@ -48,7 +48,7 @@ case class FisherVector(
  */
 case class EncEvalGMMFisherVectorEstimator(k: Int) extends Estimator[DenseMatrix[Float], DenseMatrix[Float]] {
   def fit(data: RDD[DenseMatrix[Float]]): FisherVector = {
-    val gmmTrainingData = data.flatMap(x => convert(MatrixUtils.matrixToColArray(x), Double))
+    val gmmTrainingData = data.flatMap(x => MatrixUtils.matrixToColArray(x).map(i => convert(i, Double)))
     val gmmEst = new GaussianMixtureModelEstimator(k)
     val gmm = gmmEst.fit(gmmTrainingData)
     FisherVector(gmm)

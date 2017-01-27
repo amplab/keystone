@@ -118,7 +118,7 @@ object PerClassWeightedLeastSquaresEstimator extends Logging {
       }
     }
     val finalFullModel = DenseMatrix.vertcat(xs:_*)
-    val finalB = jointLabelMean - sum(jfmMat.t :* finalFullModel, Axis._0).toDenseVector
+    val finalB = jointLabelMean - sum(jfmMat.t :* finalFullModel, Axis._0).t
 
     new BlockLinearMapper(xs, blockSize, Some(finalB))
   }

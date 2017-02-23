@@ -32,15 +32,6 @@ libraryDependencies ++= Seq(
 )
 
 {
-  val excludeSLF = ExclusionRule(organization = "org.slf4j")
-  libraryDependencies ++= Seq(
-    "org.scalanlp" %% "epic-parser-en-span" % "2015.2.19" excludeAll(excludeSLF),
-    "org.scalanlp" %% "epic-pos-en" % "2015.2.19" excludeAll(excludeSLF),
-    "org.scalanlp" %% "epic-ner-en-conll" % "2015.2.19" excludeAll(excludeSLF)
-  )
-}
-
-{
   val defaultSparkVersion = "2.1.0"
   val sparkVersion =
     scala.util.Properties.envOrElse("SPARK_VERSION", defaultSparkVersion)

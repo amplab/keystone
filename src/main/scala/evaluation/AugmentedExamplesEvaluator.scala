@@ -11,8 +11,11 @@ object AggregationPolicyType extends Enumeration {
   val average, borda = Value
 }
 
-class AugmentedExamplesEvaluator[T : ClassTag](names: RDD[T], numClasses: Int, policy: AggregationPolicyType.Value = AggregationPolicyType.average)
-    extends Evaluator[DenseVector[Double], Int, MulticlassMetrics] with Serializable {
+class AugmentedExamplesEvaluator[T : ClassTag](
+    names: RDD[T],
+    numClasses: Int,
+    policy: AggregationPolicyType.Value = AggregationPolicyType.average)
+  extends Evaluator[DenseVector[Double], Int, MulticlassMetrics] with Serializable {
 
   def averagePolicy(preds: Array[DenseVector[Double]]): DenseVector[Double] = {
     preds.reduce(_ + _) :/ preds.size.toDouble

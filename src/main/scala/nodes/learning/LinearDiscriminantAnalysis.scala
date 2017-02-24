@@ -38,21 +38,21 @@ class LinearDiscriminantAnalysis(numDimensions: Int) extends LabelEstimator[Dens
 
   def computeLDA(dataAndLabels: Array[(Int, DenseVector[Double])]): LinearMapper[DenseVector[Double]] = {
     val featuresByClass = dataAndLabels.groupBy(_._1).values.map(x => MatrixUtils.rowsToMatrix(x.map(_._2)))
-    val meanByClass = featuresByClass.map(f => mean(f(::, *)): DenseMatrix[Double]) // each mean is a row vector, not col
+    val meanByClass = featuresByClass.map(f => mean(f(::, *))) // each mean is a row vector, not col
 
     val sW = featuresByClass.zip(meanByClass).map(f => {
-      val featuresMinusMean: DenseMatrix[Double] = f._1(*, ::) - f._2.toDenseVector // row vector, not column
-      featuresMinusMean.t * featuresMinusMean: DenseMatrix[Double]
+      val featuresMinusMean = f._1(*, ::) - f._2.t // row vector, not column
+      featuresMinusMean.t * featuresMinusMean
     }).reduce(_+_)
 
     val numByClass = featuresByClass.map(_.rows : Double)
     val features = MatrixUtils.rowsToMatrix(dataAndLabels.map(_._2))
-    val totalMean: DenseMatrix[Double] = mean(features(::, *)) // A row-vector, not a column-vector
+    val totalMean = mean(features(::, *)) // A row-vector, not a column-vector
 
     val sB = meanByClass.zip(numByClass).map {
       case (classMean, classNum) => {
-        val m: DenseMatrix[Double] = classMean - totalMean
-        (m.t * m : DenseMatrix[Double]) :* classNum : DenseMatrix[Double]
+        val m = classMean - totalMean
+        (m.t * m) :* classNum
       }
     }.reduce(_+_)
 

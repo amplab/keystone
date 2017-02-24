@@ -7,7 +7,9 @@ import workflow.Transformer
  * Transformer that returns the indices of the largest k values of the vector, in order
  */
 class TopKClassifier(k: Int) extends Transformer[DenseVector[Double], Array[Int]] {
-  override def apply(in: DenseVector[Double]): Array[Int] = argtopk(in, k).toArray
+  override def apply(in: DenseVector[Double]): Array[Int] = {
+    in.toArray.zipWithIndex.sortBy(-_._1).take(k).map(_._2)
+  }
 }
 
 /**

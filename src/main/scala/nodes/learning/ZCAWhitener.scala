@@ -35,7 +35,7 @@ class ZCAWhitenerEstimator(val eps: Double = 0.1)
   }
 
   def fitSingle(in: DenseMatrix[Double]): ZCAWhitener = {
-    val means = (mean(in(::, *))).toDenseVector
+    val means = (mean(in(::, *))).t
 
     val whitener: DenseMatrix[Double] = {
       val inc = convert(in(*, ::) - means, Float)

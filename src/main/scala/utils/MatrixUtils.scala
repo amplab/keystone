@@ -136,7 +136,7 @@ object MatrixUtils extends Serializable {
 
   def computeMean(in: RDD[DenseMatrix[Double]]): DenseVector[Double] = {
     val sumCount = MLMatrixUtils.treeReduce(in.map { mat =>
-      (sum(mat(::, *)).toDenseVector, mat.rows)
+      (sum(mat(::, *)).t, mat.rows)
     }, (a: (DenseVector[Double], Int), b: (DenseVector[Double], Int)) => {
       a._1 += b._1
       (a._1, a._2 + b._2)

@@ -68,7 +68,7 @@ case class GaussianMixtureModelEstimator(
         // Use KMeans++ initialization to get the GMM center initializations
         val kMeansModel = KMeansPlusPlusEstimator(k, 1, seed = seed).fit(X)
         val centerAssignment = kMeansModel.apply(X)
-        val assignMass = sum(centerAssignment, Axis._0).toDenseVector
+        val assignMass = sum(centerAssignment, Axis._0).t
 
         val gmmWeights = assignMass.asDenseMatrix / numSamples.toDouble
         val gmmMeans = diag(assignMass.map(1.0 / _)) * (centerAssignment.t * X)
@@ -78,8 +78,8 @@ case class GaussianMixtureModelEstimator(
 
       case RANDOM_INITIALIZATION =>
         // Random Initialization
-        val colMin = min(X(::, *)).toDenseVector
-        val colMax = max(X(::, *)).toDenseVector
+        val colMin = min(X(::, *)).t
+        val colMax = max(X(::, *)).t
         val colRange = colMax - colMin
 
         val rand = new RandBasis(new ThreadLocalRandomGenerator(new MersenneTwister(seed)))
@@ -172,7 +172,7 @@ case class GaussianMixtureModelEstimator(
         q(::, *) :/= sum(q, Axis._1)
 
         /* M-STEP */
-        val qSum = sum(q, Axis._0).toDenseVector
+        val qSum = sum(q, Axis._0).t
         if (qSum.toArray.exists(_ < minClusterSize)) {
           logWarning("Unbalanced clustering, try less centers")
           largeEnoughClusters = false

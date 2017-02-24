@@ -1,6 +1,7 @@
 package evaluation
 
-import breeze.linalg.{*, sum, DenseMatrix}
+import breeze.linalg._
+import breeze.numerics._
 import org.apache.spark.rdd.RDD
 import pipelines.text.NewsgroupsPipeline._
 import workflow.PipelineDataset
@@ -25,8 +26,8 @@ case class MulticlassMetrics(confusionMatrix: DenseMatrix[Double]) {
   private val numClasses = confusionMatrix.rows
   val classMetrics = {
     val total = sum(confusionMatrix)
-    val actualsSums = sum(confusionMatrix(*, ::))
-    val predictedSums = sum(confusionMatrix(::, *)).t(::, 0)
+    val actualsSums = sum(confusionMatrix, Axis._1)
+    val predictedSums = sum(confusionMatrix, Axis._0)
 
     (0 until numClasses).map(clss => {
       val tp = confusionMatrix(clss, clss)

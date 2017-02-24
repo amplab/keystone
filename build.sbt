@@ -12,7 +12,7 @@ licenses := Seq("Apache 2.0" -> url("https://raw.githubusercontent.com/amplab/ke
 
 homepage := Some(url("http://keystone-ml.org"))
 
-scalaVersion := "2.10.4"
+crossScalaVersions := Seq("2.11.8", "2.10.6")
 
 parallelExecution in Test := false
 
@@ -25,32 +25,23 @@ libraryDependencies ++= Seq(
   "org.mockito" % "mockito-core" % "1.8.5",
   "org.apache.commons" % "commons-compress" % "1.7",
   "commons-io" % "commons-io" % "2.4",
-  "org.scalanlp" % "breeze_2.10" % "0.11.2",
+  "org.scalanlp" %% "breeze" % "0.12",
   "com.google.guava" % "guava" % "14.0.1",
   "com.github.fommil.netlib" % "all" % "1.1.2" pomOnly(),
   "com.github.scopt" %% "scopt" % "3.3.0"
 )
 
 {
-  val excludeSLF = ExclusionRule(organization = "org.slf4j")
-  libraryDependencies ++= Seq(
-    "org.scalanlp" %% "epic-parser-en-span" % "2015.2.19" excludeAll(excludeSLF),
-    "org.scalanlp" %% "epic-pos-en" % "2015.2.19" excludeAll(excludeSLF),
-    "org.scalanlp" %% "epic-ner-en-conll" % "2015.2.19" excludeAll(excludeSLF)
-  )
-}
-
-{
-  val defaultSparkVersion = "1.5.2"
+  val defaultSparkVersion = "2.1.0"
   val sparkVersion =
     scala.util.Properties.envOrElse("SPARK_VERSION", defaultSparkVersion)
   val excludeHadoop = ExclusionRule(organization = "org.apache.hadoop")
   val excludeSpark = ExclusionRule(organization = "org.apache.spark")
   libraryDependencies ++= Seq(
-    "org.apache.spark" % "spark-core_2.10" % sparkVersion excludeAll(excludeHadoop),
-    "org.apache.spark" % "spark-mllib_2.10" % sparkVersion excludeAll(excludeHadoop),
-    "org.apache.spark" % "spark-sql_2.10" % sparkVersion excludeAll(excludeHadoop),
-    "edu.berkeley.cs.amplab" % "mlmatrix_2.10" % "0.1" excludeAll(excludeHadoop, excludeSpark)
+    "org.apache.spark" %% "spark-core" % sparkVersion excludeAll(excludeHadoop),
+    "org.apache.spark" %% "spark-mllib" % sparkVersion excludeAll(excludeHadoop),
+    "org.apache.spark" %% "spark-sql" % sparkVersion excludeAll(excludeHadoop),
+    "edu.berkeley.cs.amplab" %% "mlmatrix" % "0.2" excludeAll(excludeHadoop, excludeSpark)
   )
 }
 

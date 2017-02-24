@@ -164,7 +164,7 @@ case class KMeansPlusPlusEstimator(
         row += 1
       }
 
-      val assignMass = sum(centerAssign, Axis._0).toDenseVector
+      val assignMass = sum(centerAssign, Axis._0).t
       kMeans = centerAssign.t * X
       kMeans(::, *) :/= assignMass
 

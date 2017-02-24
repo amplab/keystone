@@ -47,8 +47,8 @@ object LocalLeastSquaresEstimator {
     val A_local = DenseMatrix.vertcat(A_parts:_*)
     val b_local = DenseMatrix.vertcat(b_parts:_*)
 
-    val featuresMean = mean(A_local(::, *)).toDenseVector
-    val labelsMean = mean(b_local(::, *)).toDenseVector
+    val featuresMean = mean(A_local(::, *)).t
+    val labelsMean = mean(b_local(::, *)).t
 
     val A_zm = A_local(*, ::) - featuresMean
     val b_zm = b_local(*, ::) - labelsMean

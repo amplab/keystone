@@ -199,9 +199,10 @@ object BlockWeightedLeastSquaresEstimator extends Logging {
           // This is numClasses x blockSize -- So keep a RDD version of it that we can zip with each
           // partition and also a local version of it.
           val blockJointMeansRDD = blockFeaturesMat.map { mat =>
-            mean(mat(::, *)).toDenseVector * mixtureWeight + blockPopMean * (1.0 -
+            mean(mat, Axis._0).t * mixtureWeight + blockPopMean * (1.0 -
               mixtureWeight)
           }.cache().setName("jointMeans")
+
           val blockJointMeans = DenseMatrix.zeros[Double](nClasses, blockPopMean.length)
           val blockJointMeansData = blockJointMeansRDD.zip(classIdxs).collect()
           blockJointMeansData.foreach { x =>
@@ -244,7 +245,7 @@ object BlockWeightedLeastSquaresEstimator extends Logging {
           // compute the number of examples in this class
           val numPosEx = featuresLocal.rows
           // compute the mean and covariance of the features in this class
-          val classMean = mean(featuresLocal(::, *)).toDenseVector
+          val classMean = mean(featuresLocal(::, *)).t
           val classFeatures_ZM = featuresLocal(*, ::) :- classMean
           val classCov = (classFeatures_ZM.t * classFeatures_ZM) /= numPosEx.toDouble
           val classXTR = (featuresLocal.t * resLocal) /= numPosEx.toDouble
@@ -315,7 +316,7 @@ object BlockWeightedLeastSquaresEstimator extends Logging {
     val finalFullModel = DenseMatrix.vertcat(models:_*)
     val jointMeansCombined = DenseMatrix.horzcat(blockStats.map(_.get.jointMean):_*)
 
-    val finalB = jointLabelMean - sum(jointMeansCombined.t :* finalFullModel, Axis._0).toDenseVector
+    val finalB = jointLabelMean - sum(jointMeansCombined.t :* finalFullModel, Axis._0).t
     new BlockLinearMapper(models, blockSize, Some(finalB))
   }
 

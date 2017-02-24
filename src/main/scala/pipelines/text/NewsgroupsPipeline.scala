@@ -37,7 +37,7 @@ object NewsgroupsPipeline extends Logging {
     val testData = NewsgroupsDataLoader(sc, conf.testLocation)
     val testLabels = testData.labels
     val testResults = predictor(testData.data)
-    val eval = MulticlassClassifierEvaluator(testResults, testLabels, numClasses)
+    val eval = new MulticlassClassifierEvaluator(numClasses).apply(testResults, testLabels)
 
     logInfo("\n" + eval.summary(NewsgroupsDataLoader.classes))
 

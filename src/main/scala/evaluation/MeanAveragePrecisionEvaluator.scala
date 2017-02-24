@@ -7,23 +7,24 @@ import org.apache.spark.SparkContext._
 /**
  * MeanAveragePrecision (MAP) calculator based on MATLAB code
  * from the encoding eval toolkit at http://www.robots.ox.ac.uk/~vgg/software/enceval_toolkit/
+ *
+ * @param numClasses The number of classes in the dataset.
  */
-object MeanAveragePrecisionEvaluator {
+class MeanAveragePrecisionEvaluator(numClasses: Int)
+  extends Evaluator[DenseVector[Double], Array[Int], DenseVector[Double]] with Serializable {
 
   /**
    * Compute the mean average precision for multi-class classification
    * NOTE: The current implementation is only suitable when we have a 
    *       small number of classes and data items.
-   * @param testActual - For every test image, this contains list of valid labels. 
+   * @param testActual For every test image, this contains list of valid labels.
    *                     Labels are assumed to be class ids.
-   * @param testPredicted - For every test image, this contains a list of scores for each class
-   * @param numClasses - Total number of classes
+   * @param testPredicted For every test image, this contains a list of scores for each class
    * @return An array containing average precision scores for each class
    */
   def apply(
-      testActual: RDD[Array[Int]],
       testPredicted: RDD[DenseVector[Double]],
-      numClasses: Int)
+      testActual: RDD[Array[Int]])
     : DenseVector[Double] = {
 
     // TODO(shivaram): This might not work well on on large amounts of classes or data.

@@ -121,7 +121,13 @@ case class MulticlassMetrics(confusionMatrix: DenseMatrix[Double]) {
   }
 }
 
-object MulticlassClassifierEvaluator {
+/**
+  * An evaluator that produces multiclass classification metrics given predicted and actual classes,
+  * derived from computing the confusion matrix associated with these two sets of values.
+  *
+  * @param numClasses Number of classes present.
+  */
+class MulticlassClassifierEvaluator(numClasses: Int) extends Evaluator[Int, Int, MulticlassMetrics] with Serializable {
   /**
    * Builds the confusion matrix for a multiclass classifier,
    * and provides common metrics such as micro & macro precision & recall
@@ -131,10 +137,9 @@ object MulticlassClassifierEvaluator {
    *
    * @param predictions  An RDD of predicted class labels. Must range from 0 until numClasses
    * @param actuals  An RDD of the true class labels. Must range from 0 until numClasses
-   * @param numClasses  The number of classes being classified among
    * @return  Common multiclass classifier metrics for this data
    */
-  def apply(predictions: RDD[Int], actuals: RDD[Int], numClasses: Int): MulticlassMetrics = {
+  def apply(predictions: RDD[Int], actuals: RDD[Int]): MulticlassMetrics = {
     MulticlassMetrics(calculateConfusionMatrix(predictions, actuals, numClasses))
   }
 
@@ -152,17 +157,5 @@ object MulticlassClassifierEvaluator {
     }
 
     predictions.zip(actuals).aggregate(new DenseMatrix[Double](numClasses, numClasses))(incrementCount, _ + _)
-  }
-
-  /**
-    * Provides a [[PipelineDataset]] interface to the classifier evaluator.
-    *
-    * @param predictions A PipelineDataset of predicted class lables. Must range from 0 until numClasses
-    * @param actuals An RDD of the true class labels. Must range from 0 until numClasses
-    * @param numClasses The number of classes being classified among
-    * @return Common multiclass classifier metrics for this data
-    */
-  def apply(predictions: PipelineDataset[Int], actuals: RDD[Int], numClasses: Int): MulticlassMetrics = {
-    apply(predictions.get, actuals, numClasses)
   }
 }

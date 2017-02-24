@@ -56,7 +56,7 @@ case class BinaryClassificationMetrics(tp: Double, fp: Double, tn: Double, fn: D
   }
 }
 
-object BinaryClassifierEvaluator {
+object BinaryClassifierEvaluator extends Evaluator[Boolean, Boolean, BinaryClassificationMetrics] with Serializable {
   /**
    * Calculates the contingency table and binary classification metrics for a binary classifier
    * given predictions and truth labels

@@ -66,11 +66,11 @@ all: $(LDIR)/libImageFeatures.$(SOEXT)
 $(TARGET_JAR):
 	sbt/sbt assembly
 
-$(SRCDIR)/EncEval.h: $(TARGET_JAR) src/main/scala/utils/external/EncEval.scala
-	CLASSPATH=$< javah -o $@ utils.external.EncEval
+$(SRCDIR)/EncEval.h: $(TARGET_JAR) src/main/scala/keystoneml/utils/external/EncEval.scala
+	CLASSPATH=$< javah -o $@ keystoneml.utils.external.EncEval
 
-$(SRCDIR)/VLFeat.h: $(TARGET_JAR) src/main/scala/utils/external/VLFeat.scala
-	CLASSPATH=$< javah -o $@ utils.external.VLFeat
+$(SRCDIR)/VLFeat.h: $(TARGET_JAR) src/main/scala/keystoneml/utils/external/VLFeat.scala
+	CLASSPATH=$< javah -o $@ keystoneml.utils.external.VLFeat
 
 $(VLFEATDIR):
 	mkdir -p $(VLFEATDIR)

@@ -16,7 +16,7 @@
    
 #include "EncEval.h"
 
-JNIEXPORT jfloatArray JNICALL Java_utils_external_EncEval_calcAndGetFVs (
+JNIEXPORT jfloatArray JNICALL Java_keystoneml_utils_external_EncEval_calcAndGetFVs (
   	JNIEnv* env, 
   	jobject obj,
   	jfloatArray means,
@@ -119,7 +119,7 @@ JNIEXPORT jfloatArray JNICALL Java_utils_external_EncEval_calcAndGetFVs (
 }
 
 
-JNIEXPORT jfloatArray JNICALL Java_utils_external_EncEval_computeGMM (
+JNIEXPORT jfloatArray JNICALL Java_keystoneml_utils_external_EncEval_computeGMM (
   	JNIEnv * env, 
   	jobject obj, 
   	jint n_gauss, 

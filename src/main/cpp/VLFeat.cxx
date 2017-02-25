@@ -200,7 +200,7 @@ DescSet* getMultiScaleDSIFTs_f(
   return retValSet;
 }
 
-JNIEXPORT jshortArray JNICALL Java_utils_external_VLFeat_getSIFTs (
+JNIEXPORT jshortArray JNICALL Java_keystoneml_utils_external_VLFeat_getSIFTs (
     JNIEnv* env, 
     jobject obj, 
     jint width,

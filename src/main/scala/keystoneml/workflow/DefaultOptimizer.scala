@@ -3,7 +3,7 @@ package keystoneml.workflow
 import keystoneml.workflow.AutoCacheRule.GreedyCache
 
 /**
- * The default Pipeline optimizer used when executing keystoneml.pipelines.
+ * The default Pipeline optimizer used when executing pipelines.
  */
 object DefaultOptimizer extends Optimizer {
   protected val batches: Seq[Batch] =

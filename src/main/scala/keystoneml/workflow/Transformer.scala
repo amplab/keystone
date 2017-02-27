@@ -7,7 +7,7 @@ import scala.reflect.ClassTag
 /**
  * Transformers are operators that may be applied both to single input items and to RDDs of input items.
  * They may be chained together, along with [[Estimator]]s and [[LabelEstimator]]s, to produce complex
- * keystoneml.pipelines.
+ * pipelines.
  *
  * Transformer extends [[Pipeline]], meaning that its publicly exposed methods for transforming data
  * and chaining are implemented there.

@@ -114,7 +114,7 @@ object Pipeline {
    * Produces a pipeline that when given an input,
    * combines the outputs of all its branches when executed on that input into a single Seq (in order)
    *
-   * @param branches The keystoneml.pipelines whose outputs should be combined into a Seq
+   * @param branches The pipelines whose outputs should be combined into a Seq
    */
   def gather[A, B : ClassTag](branches: Seq[Pipeline[A, B]]): Pipeline[A, Seq[B]] = {
     // We initialize to an empty graph with one source

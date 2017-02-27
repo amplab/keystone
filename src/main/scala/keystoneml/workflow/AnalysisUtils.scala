@@ -3,7 +3,7 @@ package keystoneml.workflow
 private[workflow] object AnalysisUtils {
 
   /**
-   * Given a graph and a source/sink/node, output the set of all sources/sinks/keystoneml.nodes
+   * Given a graph and a source/sink/node, output the set of all sources/sinks/nodes
    * that directly depend on the source/sink/node.
    *
    * i.e. All ids with a direct dependency on this source/sink/node.
@@ -26,7 +26,7 @@ private[workflow] object AnalysisUtils {
   }
 
   /**
-   * Given a graph and a source/sink/node, output the set of all sources/sinks/keystoneml.nodes
+   * Given a graph and a source/sink/node, output the set of all sources/sinks/nodes
    * that have that source/sink/node as an ancestor.
    *
    * i.e. All ids that explicitly or implicitly depend on this source/sink/node.
@@ -43,7 +43,7 @@ private[workflow] object AnalysisUtils {
   }
 
   /**
-   * Given a graph and a source/sink/node, output the set of all keystoneml.nodes
+   * Given a graph and a source/sink/node, output the set of all nodes
    * and sources that are parents of that source/sink/node in the graph.
    *
    * i.e. All ids that source/sink/node has as a dependency
@@ -61,7 +61,7 @@ private[workflow] object AnalysisUtils {
   }
 
   /**
-   * Given a graph and a source/sink/node, output the set of all keystoneml.nodes
+   * Given a graph and a source/sink/node, output the set of all nodes
    * and sources that are ancestors of that source/sink/node in the graph.
    *
    * i.e. All ids that source/sink/node has explicit or implicit dependencies on.
@@ -102,10 +102,10 @@ private[workflow] object AnalysisUtils {
   }
 
   /**
-   * Deterministically return a topological sorting of all sources/sinks/keystoneml.nodes in a graph
+   * Deterministically return a topological sorting of all sources/sinks/nodes in a graph
    *
    * @param graph  The graph to use
-   * @return  A topologically sorted ordering of all sources/sinks/keystoneml.nodes in the graph
+   * @return  A topologically sorted ordering of all sources/sinks/nodes in the graph
    */
   def linearize(graph: Graph): Seq[GraphId] = {
     // Sort sinks by id to ensure a deterministic final ordering

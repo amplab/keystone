@@ -37,7 +37,7 @@ private[workflow] case class Graph(
   ) {
 
   /**
-   * The set of ids of all keystoneml.nodes in this graph.
+   * The set of ids of all nodes in this graph.
    */
   val nodes: Set[NodeId] = operators.keySet
 
@@ -62,7 +62,7 @@ private[workflow] case class Graph(
   def getOperator(id: NodeId): Operator = operators(id)
 
   /**
-   * Get {@param num} [[NodeId]]s that don't clash with those of existing keystoneml.nodes.
+   * Get {@param num} [[NodeId]]s that don't clash with those of existing nodes.
    */
   private def nextNodeIds(num: Int): Seq[NodeId] = {
     val maxId = if (nodes.isEmpty) {
@@ -284,7 +284,7 @@ private[workflow] case class Graph(
    * @return  A tuple containing:
    *          - The new graph
    *          - A map of old id to new id for sources in the graph being added
-   *          - A map of old id to new id for keystoneml.nodes in the graph being added
+   *          - A map of old id to new id for nodes in the graph being added
    *          - A map of old id to new id for sinks in the graph being added
    */
   def addGraph(graph: Graph): (Graph, Map[SourceId, SourceId], Map[NodeId, NodeId], Map[SinkId, SinkId]) = {
@@ -334,7 +334,7 @@ private[workflow] case class Graph(
    * @return  A tuple containing:
    *          - The new graph
    *          - A map of old id to new id for sources in the graph being added
-   *          - A map of old id to new id for keystoneml.nodes in the graph being added
+   *          - A map of old id to new id for nodes in the graph being added
    *          - A map of old id to new id for sinks in the graph being added
    */
   def connectGraph(
@@ -364,15 +364,15 @@ private[workflow] case class Graph(
   }
 
   /**
-   * Create a copy of of this graph, with a set of keystoneml.nodes and their connections replaced by a different graph,
+   * Create a copy of of this graph, with a set of nodes and their connections replaced by a different graph,
    * specifying how to connect it to the existing graph.
    *
-   * @param nodesToRemove  The set of keystoneml.nodes to remove
+   * @param nodesToRemove  The set of nodes to remove
    * @param replacement  The graph to insert in their place
    * @param replacementSourceSplice  A specification of how to connect the replacement graph to the existing graph.
    *                                 Key is a source of the replacement,
    *                                 Value is the node in the existing graph to connect the source to.
-   * @param replacementSinkSplice  A specification of how to replace dangling dependencies on the keystoneml.nodes being removed.
+   * @param replacementSinkSplice  A specification of how to replace dangling dependencies on the nodes being removed.
    *                               Key is node being removed, Value is Sink of the replacement to depend on instead.
    * @return
    */
@@ -384,18 +384,18 @@ private[workflow] case class Graph(
   ): Graph = {
     // Illegal argument checks
     require(replacementSinkSplice.values.toSet == replacement.sinks, "Must attach all of the replacement's sinks")
-    require(replacementSinkSplice.keys.forall(nodesToRemove), "May only replace dependencies on removed keystoneml.nodes")
+    require(replacementSinkSplice.keys.forall(nodesToRemove), "May only replace dependencies on removed nodes")
     require(replacementSourceSplice.keySet == replacement.sources, "Must attach all of the replacement's sources")
     require(replacementSourceSplice.values.forall {
       case id: NodeId => !nodesToRemove.contains(id)
       case _ => true
-    }, "May not connect replacement sources to keystoneml.nodes being removed")
+    }, "May not connect replacement sources to nodes being removed")
     require(replacementSourceSplice.values.forall {
       case id: NodeId => nodes.contains(id)
       case id: SourceId => sources.contains(id)
-    }, "May only connect replacement sources to existing keystoneml.nodes")
+    }, "May only connect replacement sources to existing nodes")
 
-    // Remove the keystoneml.nodes
+    // Remove the nodes
     val withNodesRemoved = nodesToRemove.foldLeft(this) {
       case (graph, node) => graph.removeNode(node)
     }
@@ -410,7 +410,7 @@ private[workflow] case class Graph(
         graph.replaceDependency(source, node).removeSource(source)
     }
 
-    // Connect the sinks from the replacement to dangling dependencies on now-removed keystoneml.nodes
+    // Connect the sinks from the replacement to dangling dependencies on now-removed nodes
     val graphWithReplacementAndConnections = replacementSinkSplice.foldLeft(graphWithReplacementAndSourceConnections) {
       case (graph, (removedNode, oldSink)) =>
         val sink = replacementSinkIdMap(oldSink)
@@ -422,7 +422,7 @@ private[workflow] case class Graph(
     require ({
       val finalDeps = graphWithReplacementAndConnections.dependencies.values.flatMap(identity).toSet
       nodesToRemove.forall(removedNode => !finalDeps.contains(removedNode))
-    }, "May not have any remaining dangling edges on the removed keystoneml.nodes")
+    }, "May not have any remaining dangling edges on the removed nodes")
 
     // Remove the sinks of the replacement
     replacementSinkIdMap.values.toSet.foldLeft(graphWithReplacementAndConnections) {

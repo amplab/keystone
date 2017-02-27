@@ -449,7 +449,7 @@ class PipelineSuite extends FunSuite with PipelineContext with Logging {
       }
     }, sc.parallelize(Seq(32, 94, 12)), sc.parallelize(Seq("10", "7", "14")))
 
-    // Execute keystoneml.pipelines 1 to 3
+    // Execute pipelines 1 to 3
     assert(numEstimations.get() === 0, "Nothing may have been fit yet")
     firstPipeline(4).get()
     secondPipeline(4).get()

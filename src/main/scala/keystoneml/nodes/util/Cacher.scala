@@ -7,7 +7,7 @@ import keystoneml.workflow.Transformer
 import scala.reflect.ClassTag
 
 /**
- * Caches an RDD at a given point within a Pipeline. Follows Spark's lazy keystoneml.evaluation conventions.
+ * Caches an RDD at a given point within a Pipeline. Follows Spark's lazy evaluation conventions.
  *
  * @param name An optional name to set on the cached output. Useful for debugging.
  * @tparam T Type of the input to cache.

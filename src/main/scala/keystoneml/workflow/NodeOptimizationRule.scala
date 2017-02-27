@@ -138,7 +138,7 @@ private[workflow] class SampleCollector(graph: Graph, samplesPerPartition: Int) 
 /**
  * Node-level optimization, such as selecting a Linear Solver
  *
- * @param samplesPerPartition The number of items per partition to look at when optimizing keystoneml.nodes
+ * @param samplesPerPartition The number of items per partition to look at when optimizing nodes
  */
 class NodeOptimizationRule(samplesPerPartition: Int = 3) extends Rule {
 
@@ -149,7 +149,7 @@ class NodeOptimizationRule(samplesPerPartition: Int = 3) extends Rule {
 
     val executor = new SampleCollector(graph, samplesPerPartition)
 
-    // Get the set of keystoneml.nodes that we need to check for optimizations at.
+    // Get the set of nodes that we need to check for optimizations at.
     // This is any node that is Optimizable and does not depend on any source
     val nodesToOptimize = AnalysisUtils.linearize(graph).collect {
       case node: NodeId => (node, graph.getOperator(node))

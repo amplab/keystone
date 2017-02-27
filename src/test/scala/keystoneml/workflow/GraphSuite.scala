@@ -736,7 +736,7 @@ class GraphSuite extends FunSuite with PipelineContext with Logging {
       graph.replaceNodes(nodesToRemove, graph2, replacementSourceSplice, replacementSinkSplice)
     }
 
-    // May only replace dependencies on removed keystoneml.nodes
+    // May only replace dependencies on removed nodes
     intercept[IllegalArgumentException] {
       val nodesToRemove = Set(NodeId(3), NodeId(4), NodeId(6))
       val replacementSourceSplice = Map(SourceId(0) -> SourceId(1), SourceId(1) -> NodeId(1), SourceId(2) -> NodeId(2))
@@ -758,7 +758,7 @@ class GraphSuite extends FunSuite with PipelineContext with Logging {
       graph.replaceNodes(nodesToRemove, graph2, replacementSourceSplice, replacementSinkSplice)
     }
 
-    // May not connect replacement sources to keystoneml.nodes being removed
+    // May not connect replacement sources to nodes being removed
     intercept[IllegalArgumentException] {
       val nodesToRemove = Set(NodeId(3), NodeId(4), NodeId(6))
       val replacementSourceSplice = Map(SourceId(0) -> SourceId(1), SourceId(1) -> NodeId(1), SourceId(2) -> NodeId(3))
@@ -769,7 +769,7 @@ class GraphSuite extends FunSuite with PipelineContext with Logging {
       graph.replaceNodes(nodesToRemove, graph2, replacementSourceSplice, replacementSinkSplice)
     }
 
-    // May only connect replacement sources to existing keystoneml.nodes
+    // May only connect replacement sources to existing nodes
     intercept[IllegalArgumentException] {
       val nodesToRemove = Set(NodeId(3), NodeId(4), NodeId(6))
       val replacementSourceSplice = Map(

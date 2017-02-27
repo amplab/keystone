@@ -50,7 +50,7 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
 
   /**
    * Get an estimate for how many times the output of each node will be accessed, assuming
-   * the given set of keystoneml.nodes have their outputs cached.
+   * the given set of nodes have their outputs cached.
    *
    * Note: This assumes all sinks are accessed exactly once!
    */
@@ -81,7 +81,7 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
   }
 
   /**
-   * Get the initial set of what keystoneml.nodes will have their results effectively cached
+   * Get the initial set of what nodes will have their results effectively cached
    */
   def initCacheSet(graph: Graph): Set[NodeId] = {
     graph.nodes.filter { graph.getOperator(_) match {
@@ -141,11 +141,11 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
   )
 
   /**
-   * Get profiles of keystoneml.nodes in the pipeline
+   * Get profiles of nodes in the pipeline
    *
    * @param graph The pipeline DAG
-   * @param linearization A linearization in the keystoneml.nodes of the pipeline DAG
-   * @param nodesToProfile The keystoneml.nodes to collect profiling information for
+   * @param linearization A linearization in the nodes of the pipeline DAG
+   * @param nodesToProfile The nodes to collect profiling information for
    * @param partitionScales The scales to profile at (expected number of data points per partition)
    * @param numTrials The number of times to profile at each scale
    * @return
@@ -158,12 +158,12 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
     numTrials: Int
   ): Map[NodeId, Profile] = {
 
-    // We need to execute all instructions that the keystoneml.nodes we need to profile depend on.
+    // We need to execute all instructions that the nodes we need to profile depend on.
     val nodesToExecute = nodesToProfile.foldLeft(Set[NodeOrSourceId]()) {
       case (executeSet, node) => executeSet ++ AnalysisUtils.getAncestors(graph, node) + node
     }.map {
       case node: NodeId => node
-      case _ => throw new IllegalArgumentException("May not profile keystoneml.nodes dependent on sources!")
+      case _ => throw new IllegalArgumentException("May not profile nodes dependent on sources!")
     }
 
     val sortedScales = partitionScales.sorted
@@ -466,7 +466,7 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
 
 
   /**
-   * Estimates the total runtime of a pipeline given the cached set of keystoneml.nodes
+   * Estimates the total runtime of a pipeline given the cached set of nodes
    */
   def estimateCachedRunTime(
     graph: Graph,
@@ -487,7 +487,7 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
   }
 
   /**
-   * Given a pipeline DAG and an additional set of keystoneml.nodes to cache - return a DAG with the keystoneml.nodes cached.
+   * Given a pipeline DAG and an additional set of nodes to cache - return a DAG with the nodes cached.
    */
   def addCachesToPipeline(pipe: Graph, cachesToAdd: Set[NodeId]): Graph = {
     cachesToAdd.foldLeft(pipe) {
@@ -613,9 +613,9 @@ class AutoCacheRule(cachingMode: CachingStrategy) extends Rule with Logging {
         val runs = getRuns(linearization, childrenByNode, cached, nodeWeights)
         val descendantsOfSources = getDescendantsOfSources(plan)
 
-        // We have the possibility of caching all uncached keystoneml.nodes accessed more than once,
+        // We have the possibility of caching all uncached nodes accessed more than once,
         // That don't depend on the sources.
-        // TODO: MUST profile all Cacher keystoneml.nodes!!! (to get cachedMem to be correct)
+        // TODO: MUST profile all Cacher nodes!!! (to get cachedMem to be correct)
         val nodesToProfile = plan.nodes
           .filter(i => (!cached(i)) && (runs(i) > 1)) -- descendantsOfSources
 

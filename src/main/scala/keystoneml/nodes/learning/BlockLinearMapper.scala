@@ -26,7 +26,7 @@ class BlockLinearMapper(
     val featureScalersOpt: Option[Seq[Transformer[DenseVector[Double], DenseVector[Double]]]] = None)
   extends Transformer[DenseVector[Double], DenseVector[Double]] {
 
-  // Use identity keystoneml.nodes if we don't need to do scaling
+  // Use identity nodes if we don't need to do scaling
   val featureScalers = featureScalersOpt.getOrElse(
     Seq.fill(xs.length)(new Identity[DenseVector[Double]]))
   val vectorSplitter = new VectorSplitter(blockSize)

@@ -17,12 +17,12 @@ class MeanAveragePrecisionEvaluator(numClasses: Int)
    * Compute the mean average precision for multi-class classification
    * NOTE: The current implementation is only suitable when we have a 
    *       small number of classes and data items.
+   * @param testPredicted For every test image, this contains a list of scores for each class
    * @param testActual For every test image, this contains list of valid labels.
    *                     Labels are assumed to be class ids.
-   * @param testPredicted For every test image, this contains a list of scores for each class
    * @return An array containing average precision scores for each class
    */
-  def apply(
+  def evaluate(
       testPredicted: RDD[DenseVector[Double]],
       testActual: RDD[Array[Int]])
     : DenseVector[Double] = {

@@ -139,7 +139,7 @@ class MulticlassClassifierEvaluator(numClasses: Int) extends Evaluator[Int, Int,
    * @param actuals  An RDD of the true class labels. Must range from 0 until numClasses
    * @return  Common multiclass classifier metrics for this data
    */
-  def apply(predictions: RDD[Int], actuals: RDD[Int]): MulticlassMetrics = {
+  def evaluate(predictions: RDD[Int], actuals: RDD[Int]): MulticlassMetrics = {
     MulticlassMetrics(calculateConfusionMatrix(predictions, actuals, numClasses))
   }
 

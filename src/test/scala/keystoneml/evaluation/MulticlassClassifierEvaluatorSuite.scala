@@ -20,7 +20,7 @@ class MulticlassClassifierEvaluatorSuite extends FunSuite with PipelineContext {
       Seq((0.0, 0.0), (0.0, 1.0), (0.0, 0.0), (1.0, 0.0), (1.0, 1.0),
         (1.0, 1.0), (1.0, 1.0), (2.0, 2.0), (2.0, 0.0)), 2)
     val evaluator = new MulticlassClassifierEvaluator(3)
-    val metrics = evaluator(predictionAndLabels.map(_._1.toInt), predictionAndLabels.map(_._2.toInt)
+    val metrics = evaluator.evaluate(predictionAndLabels.map(_._1.toInt), predictionAndLabels.map(_._2.toInt)
     )
     val delta = 0.0000001
     val precision0 = 2.0 / (2 + 1)

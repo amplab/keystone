@@ -97,7 +97,7 @@ object VOCSIFTFisher extends Serializable with Logging {
 
     val predictions = predictor(testData)
 
-    val map = new MeanAveragePrecisionEvaluator(VOCLoader.NUM_CLASSES).apply(predictions, testActuals)
+    val map = new MeanAveragePrecisionEvaluator(VOCLoader.NUM_CLASSES).evaluate(predictions, testActuals)
     logInfo(s"TEST APs are: ${map.toArray.mkString(",")}")
     logInfo(s"TEST MAP is: ${mean(map)}")
 

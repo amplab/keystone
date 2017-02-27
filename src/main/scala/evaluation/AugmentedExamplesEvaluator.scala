@@ -6,12 +6,16 @@ import org.apache.spark.rdd.RDD
 
 import scala.reflect.ClassTag
 
-object AugmentedExamplesEvaluator extends Serializable {
+object AggregationPolicyType extends Enumeration {
+  type AggregationPolicyType = Value
+  val average, borda = Value
+}
 
-  object AggregationPolicyType extends Enumeration {
-    type AggregationPolicyType = Value
-    val average, borda = Value
-  }
+class AugmentedExamplesEvaluator[T : ClassTag](
+    names: RDD[T],
+    numClasses: Int,
+    policy: AggregationPolicyType.Value = AggregationPolicyType.average)
+  extends Evaluator[DenseVector[Double], Int, MulticlassMetrics] with Serializable {
 
   def averagePolicy(preds: Array[DenseVector[Double]]): DenseVector[Double] = {
     preds.reduce(_ + _) :/ preds.size.toDouble
@@ -33,12 +37,9 @@ object AugmentedExamplesEvaluator extends Serializable {
     ranks.reduceLeft(_ + _)
   }
 
-  def apply[T: ClassTag](
-      names: RDD[T],
+  def evaluate(
       predicted: RDD[DenseVector[Double]],
-      actualLabels: RDD[Int],
-      numClasses: Int,
-      policy: AggregationPolicyType.Value = AggregationPolicyType.average): MulticlassMetrics = {
+      actualLabels: RDD[Int]): MulticlassMetrics = {
 
     val aggFunc = policy match {
       case AggregationPolicyType.borda => bordaPolicy _
@@ -63,7 +64,7 @@ object AugmentedExamplesEvaluator extends Serializable {
     val finalPredictedLabels = MaxClassifier(finalPred.map(_._1))
     val finalActualLabels = finalPred.map(_._2)
 
-    val ret = MulticlassClassifierEvaluator(finalPredictedLabels, finalActualLabels, numClasses)
+    val ret = new MulticlassClassifierEvaluator(numClasses).evaluate(finalPredictedLabels, finalActualLabels)
     groupedPreds.unpersist()
     ret
   }

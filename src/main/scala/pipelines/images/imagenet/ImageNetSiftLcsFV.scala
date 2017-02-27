@@ -3,24 +3,17 @@ package pipelines.images.imagenet
 import java.io.File
 
 import breeze.linalg._
-import breeze.stats._
-
-import scopt.OptionParser
-
-import org.apache.spark.{SparkConf, SparkContext}
-import org.apache.spark.rdd.RDD
-
-import evaluation.MulticlassClassifierEvaluator
 import loaders.ImageNetLoader
-import pipelines.Logging
-
-import nodes.images.external.{FisherVector, SIFTExtractor}
 import nodes.images._
+import nodes.images.external.{FisherVector, SIFTExtractor}
 import nodes.learning._
 import nodes.stats._
 import nodes.util._
-
-import utils.{Image, MatrixUtils, Stats}
+import org.apache.spark.rdd.RDD
+import org.apache.spark.{SparkConf, SparkContext}
+import pipelines.Logging
+import scopt.OptionParser
+import utils.{Image, Stats}
 import workflow.Pipeline
 
 object ImageNetSiftLcsFV extends Serializable with Logging {

@@ -69,15 +69,15 @@ object RandomPatchCifar extends Serializable with Logging {
         new Cacher[Int]
 
     // Calculate training error.
-    val trainEval = MulticlassClassifierEvaluator(
-      predictionPipeline(trainImages), LabelExtractor(trainData), numClasses)
+    val evaluator = new MulticlassClassifierEvaluator(numClasses)
+    val trainEval = evaluator.evaluate(predictionPipeline(trainImages), LabelExtractor(trainData))
 
     // Do testing.
     val testData = CifarLoader(sc, conf.testLocation)
     val testImages = ImageExtractor(testData)
     val testLabels = labelExtractor(testData)
 
-    val testEval = MulticlassClassifierEvaluator(predictionPipeline(testImages), LabelExtractor(testData), numClasses)
+    val testEval = evaluator.evaluate(predictionPipeline(testImages), LabelExtractor(testData))
 
     logInfo(s"Training error is: ${trainEval.totalError}")
     logInfo(s"Test error is: ${testEval.totalError}")

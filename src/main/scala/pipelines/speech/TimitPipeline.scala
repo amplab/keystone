@@ -99,10 +99,10 @@ object TimitPipeline extends Logging {
     val actual = timitFeaturesData.test.labels.cache().setName("actual")
 
     // Calculate test error
-    val testEval = MulticlassClassifierEvaluator(
+    val evaluator = new MulticlassClassifierEvaluator(TimitFeaturesDataLoader.numClasses)
+    val testEval = evaluator.evaluate(
       predictor(testData),
-      actual,
-      TimitFeaturesDataLoader.numClasses)
+      actual)
     logInfo("TEST Error is " + (100 * testEval.totalError) + "%")
 
     predictor

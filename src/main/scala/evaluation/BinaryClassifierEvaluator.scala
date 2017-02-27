@@ -56,7 +56,7 @@ case class BinaryClassificationMetrics(tp: Double, fp: Double, tn: Double, fn: D
   }
 }
 
-object BinaryClassifierEvaluator {
+object BinaryClassifierEvaluator extends Evaluator[Boolean, Boolean, BinaryClassificationMetrics] with Serializable {
   /**
    * Calculates the contingency table and binary classification metrics for a binary classifier
    * given predictions and truth labels
@@ -67,7 +67,7 @@ object BinaryClassifierEvaluator {
    * @param predictions  An RDD[Boolean] containing the predictions
    * @param actuals  An RDD[Boolean] containing the true labels, must be zippable with predictions
    */
-  def apply(predictions: RDD[Boolean], actuals: RDD[Boolean]): BinaryClassificationMetrics = {
+  def evaluate(predictions: RDD[Boolean], actuals: RDD[Boolean]): BinaryClassificationMetrics = {
     predictions.zip(actuals).map { case (pred, actual) =>
       val tp = if (pred && actual) 1d else 0d
       val fp = if (pred && !actual) 1d else 0d

@@ -37,7 +37,7 @@ class AugmentedExamplesEvaluator[T : ClassTag](
     ranks.reduceLeft(_ + _)
   }
 
-  def apply(
+  def evaluate(
       predicted: RDD[DenseVector[Double]],
       actualLabels: RDD[Int]): MulticlassMetrics = {
 
@@ -64,7 +64,7 @@ class AugmentedExamplesEvaluator[T : ClassTag](
     val finalPredictedLabels = MaxClassifier(finalPred.map(_._1))
     val finalActualLabels = finalPred.map(_._2)
 
-    val ret = new MulticlassClassifierEvaluator(numClasses).apply(finalPredictedLabels, finalActualLabels)
+    val ret = new MulticlassClassifierEvaluator(numClasses).evaluate(finalPredictedLabels, finalActualLabels)
     groupedPreds.unpersist()
     ret
   }

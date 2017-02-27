@@ -39,14 +39,14 @@ object LinearPixels extends Logging {
 
     // Calculate training error.
     val evaluator = new MulticlassClassifierEvaluator(numClasses)
-    val trainEval = evaluator(predictionPipeline(trainImages), LabelExtractor(trainData))
+    val trainEval = evaluator.evaluate(predictionPipeline(trainImages), LabelExtractor(trainData))
 
     // Do testing.
     val testData = CifarLoader(sc, config.testLocation)
     val testImages = ImageExtractor(testData)
     val testLabels = labelExtractor(testData)
 
-    val testEval = evaluator(predictionPipeline(testImages), LabelExtractor(testData))
+    val testEval = evaluator.evaluate(predictionPipeline(testImages), LabelExtractor(testData))
 
     logInfo(s"Training accuracy: \n${trainEval.totalAccuracy}")
     logInfo(s"Test accuracy: \n${testEval.totalAccuracy}")

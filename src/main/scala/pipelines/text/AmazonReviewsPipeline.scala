@@ -37,7 +37,7 @@ object AmazonReviewsPipeline extends Logging {
     val testData = LabeledData(amazonTestData.repartition(conf.numParts).cache())
     val testLabels = testData.labels
     val testResults = predictor(testData.data)
-    val eval = BinaryClassifierEvaluator(testResults.get.map(_ > 0), testLabels.map(_ > 0))
+    val eval = BinaryClassifierEvaluator.evaluate(testResults.get.map(_ > 0), testLabels.map(_ > 0))
 
     logInfo("\n" + eval.summary())
     predictor

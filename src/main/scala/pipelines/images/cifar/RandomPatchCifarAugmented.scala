@@ -99,7 +99,7 @@ object RandomPatchCifarAugmented extends Serializable with Logging {
     val testPredictions = predictionPipeline(testImagesAugmented)
 
     val testEvaluator = new AugmentedExamplesEvaluator(testImageIdsAugmented, numClasses)
-    val testEval = testEvaluator(testPredictions, testLabelsAugmented)
+    val testEval = testEvaluator.evaluate(testPredictions, testLabelsAugmented)
     logInfo(s"Test error is: ${testEval.totalError}")
 
     predictionPipeline

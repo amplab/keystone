@@ -16,7 +16,7 @@ class BinaryClassifierEvaluatorSuite extends FunSuite with PipelineContext {
 
     val predictionAndLabels = sc.parallelize( Seq.fill(6)((true, true)) ++ Seq.fill(2)((false, true))
         ++ Seq.fill(1)((true, false)) ++ Seq.fill(3)((false, false)), 2)
-    val metrics = BinaryClassifierEvaluator(predictionAndLabels.map(_._1), predictionAndLabels.map(_._2))
+    val metrics = BinaryClassifierEvaluator.evaluate(predictionAndLabels.map(_._1), predictionAndLabels.map(_._2))
 
     assert(metrics.tp === 6)
     assert(metrics.fp === 1)

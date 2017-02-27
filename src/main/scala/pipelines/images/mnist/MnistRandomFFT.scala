@@ -56,11 +56,11 @@ object MnistRandomFFT extends Serializable with Logging {
 
     // Calculate train error
     val evaluator = new MulticlassClassifierEvaluator(numClasses)
-    val trainEval = evaluator(pipeline(train.data), train.labels)
+    val trainEval = evaluator.evaluate(pipeline(train.data), train.labels)
     logInfo("TRAIN Error is " + (100 * trainEval.totalError) + "%")
 
     // Calculate test error
-    val testEval = evaluator(pipeline(test.data), test.labels)
+    val testEval = evaluator.evaluate(pipeline(test.data), test.labels)
     logInfo("TEST Error is " + (100 * testEval.totalError) + "%")
 
     val endTime = System.nanoTime()

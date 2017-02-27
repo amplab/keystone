@@ -22,7 +22,7 @@ class MeanAveragePrecisionEvaluator(numClasses: Int)
    * @param testPredicted For every test image, this contains a list of scores for each class
    * @return An array containing average precision scores for each class
    */
-  def apply(
+  def evaluate(
       testPredicted: RDD[DenseVector[Double]],
       testActual: RDD[Array[Int]])
     : DenseVector[Double] = {

@@ -23,7 +23,7 @@ class MeanAveragePrecisionSuite extends FunSuite with PipelineContext {
 
     val predictedRdd = sc.parallelize(predicted)
 
-    val map = new MeanAveragePrecisionEvaluator(4).apply(predictedRdd, actualRdd)
+    val map = new MeanAveragePrecisionEvaluator(4).evaluate(predictedRdd, actualRdd)
 
     // Expected values from running this in MATLAB
     val expected = DenseVector(1.0, 0.3333, 0.5, 0.3333)

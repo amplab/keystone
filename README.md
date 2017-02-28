@@ -19,7 +19,7 @@ wget http://mnist-data.s3.amazonaws.com/train-mnist-dense-with-labels.data
 wget http://mnist-data.s3.amazonaws.com/test-mnist-dense-with-labels.data
 
 KEYSTONE_MEM=4g ./bin/run-pipeline.sh \
-  pipelines.images.mnist.MnistRandomFFT \
+  keystoneml.pipelines.images.mnist.MnistRandomFFT \
   --trainLocation ./train-mnist-dense-with-labels.data \
   --testLocation ./test-mnist-dense-with-labels.data \
   --numFFTs 4 \
@@ -38,7 +38,7 @@ that you can similarly use run-pipeline.sh to launch your pipeline.
 ```
 export SPARK_HOME=~/spark-1.3.1-bin-cdh4 # should match the version keystone is built with
 KEYSTONE_MEM=4g ./bin/run-pipeline.sh \
-  pipelines.images.mnist.MnistRandomFFT \
+  keystoneml.pipelines.images.mnist.MnistRandomFFT \
   --trainLocation ./train-mnist-dense-with-labels.data \
   --testLocation ./test-mnist-dense-with-labels.data \
   --numFFTs 4 \

@@ -21,3 +21,6 @@ project/plugins/project/
 
 # Jekyll stuff
 _site/
+
+# Data for running examples.
+example_data/

@@ -14,7 +14,7 @@ ENCEVALURL = "http://keystoneml.libs.s3.amazonaws.com/enceval-toolkit-1.1.tar.gz
 
 SCALA_VERSION = 2.10
 PROJECT = keystoneml
-PROJECT_VERSION = 0.3.0-SNAPSHOT
+PROJECT_VERSION = 0.4.0
 TARGET_JAR = target/scala-$(SCALA_VERSION)/$(PROJECT)-assembly-$(PROJECT_VERSION).jar
 
 CC = g++

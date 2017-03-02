@@ -5,6 +5,9 @@ set -e
 : ${KEYSTONE_MEM:=4g}
 export KEYSTONE_MEM
 
+: ${NUM_FFTS:=4}
+: ${BLOCK_SIZE:=2048}
+
 KEYSTONE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"/../..
 : ${EXAMPLE_DATA_DIR:=$KEYSTONE_DIR/example_data}
 
@@ -27,5 +30,5 @@ $KEYSTONE_DIR/bin/run-pipeline.sh \
   keystoneml.pipelines.images.mnist.MnistRandomFFT \
   --trainLocation $EXAMPLE_DATA_DIR/train-mnist-dense-with-labels.data \
   --testLocation $EXAMPLE_DATA_DIR/test-mnist-dense-with-labels.data \
-  --numFFTs 4 \
-  --blockSize 2048
+  --numFFTs $NUM_FFTS \
+  --blockSize $BLOCK_SIZE

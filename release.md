@@ -33,7 +33,8 @@ We’ve included a number of new Operators in this release. These include a Scal
 In particular, we’ve included both local and distributed PCA implementations, as well as a distributed approximate PCA algorithm which can be significantly faster than the exact algorithm when the number of principal components requested is small relative to the number of features in the matrix.
 
 ### Performance Improvements
-We’ve improved performance of a number of commonly used nodes like the Convolver and Pooler by aligning memory-access with physical layout, leading to a 5x improvement in node-level performance in some cases. 
+We’ve improved performance of a number of commonly used nodes like the Convolver and Pooler by aligning memory-access with physical layout, leading to a 5x improvement in node-level performance in some cases.
+ 
 ### Bug Fixes and Extra Testing
 Based on user feedback, we’ve been able to catch and fix a number of bugs in the software. Significant fixes were made to handle edge cases with empty partitions or irregularly sized blocks in the block solver and the vector splitter. The interfaces between Daisy and SIFT were unified so that each is a drop-in replacement for the other. A workaround for stack issues in Multi-BLAS in OpenBLAS was included in the run scripts. 
 

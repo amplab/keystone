@@ -26,7 +26,7 @@ credentials += Credentials("Sonatype Nexus Repository Manager",
                            "<userame>",
                            "<password>")
 
-5. Run `sbt/sbt publishSigned`. This should be sufficient for a snapshot release. To use a snapshot
+5. Run `sbt/sbt +publishSigned`. This should be sufficient for a snapshot release. To use a snapshot
 release users will need to add the Sonatype snapshot repository to their list of resolvers. In SBT
 it looks like
 ```scala
@@ -79,7 +79,7 @@ credentials += Credentials("Sonatype Nexus Repository Manager",
                            "<userame>",
                            "<password>")
 
-8. Run `sbt/sbt publishSigned` to deploy your artifact to a staging repository on Sonatype.
+8. Run `sbt/sbt +publishSigned` to deploy your artifact to a staging repository on Sonatype.
 
 9. Run `sbt/sbt sonatypeRelease` to close and release the repository.
 If that doesn't work, follow [these instructions](http://central.sonatype.org/pages/releasing-the-deployment.html) to

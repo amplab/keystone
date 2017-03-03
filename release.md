@@ -5,6 +5,30 @@ layout: default
 
 # Release Notes
 
+## Version 0.4 - 2017-03-02
+
+We are pleased to announce the fourth major release of KeystoneML with version 0.4.0, available immediately on Maven Central. This release includes a number of important enhancehments, highlighted below. This version includes contributions from: Michael Franklin, Eric Jonas, Tomer Kaftan, Benjamin Recht, Rebecca Roelofs, Vaishaal Shankar, Evan Sparks, Stephen Tu, and Shivaram Venkataraman, consisting of 17 closed issues and pull requests. 
+
+### Namespace Changes
+
+Due to requests from several users, we have moved all KeystoneML namespaces to the top-level `keystoneml` namespace. For users, your imports will need to change from (e.g. `import pipelines._` to `import keystoneml.pipelines._`). 
+
+### Spark 2 Support, Scala 2.11 and 2.10 compatibility.
+
+KeystoneML now supports Spark 2.x only. The reasons for lack of backwards compatibility with the 1.x line of Spark is due to lack of backwards compatibility in SparkSQL and Breeze, which KeystoneML depends on. Users wishing to continue to use Spark 1.x are encouraged to remain on version 0.3. If a significant need for 1.x remains, we will consider cutting a separate branch, but maintenance of two such branches going forward will be difficult. Further, KeystoneML now has Scala 2.10 and 2.11 artifacts published on Maven Central.
+
+### Optimizer Improvements
+
+Tomer Kaftan led an overhaul of the optimizer internals. The biggest user-facing consequence of this change is that pipelines now in general return `PipelineDataset` objects, which are a lazy wrapper around RDDs, which can be accessed via the `PipelineDataset.get` method. This change is designed to give the optimizer more complete purview of the underlying application enabling better optimizations. These changes went through extensive design reviews and we are confident that they have made the system faster, more robust, and more maintainable.
+
+### Kernel Methods
+
+Several members of the KeystoneML team contributed to design and implementation of the Kernel Ridge Regression estimator. This is the first large scale kernel method available in the software. We have used it to solve problems where the kernel matrix is up to 2m x 2m. 
+
+### Evaluator Interface
+
+We have standardized the interface for Evaluators such that they all have predictable usage and types and work equally well with `RDD`s and `PipelineDataset`s.
+
 ## Version 0.3 - 2016-03-24
 
 We are pleased to announce the third major release of KeystoneML with version 0.3.0, available immediately on Maven Central. This is the first release in 5 months, and carries with it a number of features, highlighted below. This release includes contributions from: Michael Franklin, Eric Jonas, Tomer Kaftan, Benjamin Recht, Vaishaal Shankar, Evan Sparks, Stephen Tu, and Shivaram Venkataraman, closing 28 issues, all tracked on Github. We expect to tighten the release cycle in future releases as the software becomes more mature.

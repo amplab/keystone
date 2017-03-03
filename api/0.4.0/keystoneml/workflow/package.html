@@ -1,0 +1,629 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html>
+        <head>
+          <title>workflow - keystoneml.workflow</title>
+          <meta name="description" content="workflow - keystoneml.workflow" />
+          <meta name="keywords" content="workflow keystoneml.workflow" />
+          <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+          
+      <link href="../../lib/template.css" media="screen" type="text/css" rel="stylesheet" />
+      <link href="../../lib/diagrams.css" media="screen" type="text/css" rel="stylesheet" id="diagrams-css" />
+      <script type="text/javascript">
+         if(top === self) {
+            var url = '../../index.html';
+            var hash = 'keystoneml.workflow.package';
+            var anchor = window.location.hash;
+            var anchor_opt = '';
+            if (anchor.length >= 1)
+              anchor_opt = '@' + anchor.substring(1);
+            window.location.href = url + '#' + hash + anchor_opt;
+         }
+   	  </script>
+    
+        </head>
+        <body class="value">
+      <div id="definition">
+        <img src="../../lib/package_big.png" />
+        <p id="owner"><a href="../package.html" class="extype" name="keystoneml">keystoneml</a></p>
+        <h1>workflow</h1>
+      </div>
+
+      <h4 id="signature" class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">package</span>
+      </span>
+      <span class="symbol">
+        <span class="name">workflow</span>
+      </span>
+      </h4>
+      
+          <div id="comment" class="fullcommenttop"></div>
+        
+
+      <div id="mbrsel">
+        <div id="textfilter"><span class="pre"></span><span class="input"><input id="mbrsel-input" type="text" accesskey="/" /></span><span class="post"></span></div>
+        
+        
+        <div id="visbl">
+            <span class="filtertype">Visibility</span>
+            <ol><li class="public in"><span>Public</span></li><li class="all out"><span>All</span></li></ol>
+          </div>
+      </div>
+
+      <div id="template">
+        <div id="allMembers">
+        
+
+        <div id="types" class="types members">
+              <h3>Type Members</h3>
+              <ol><li name="keystoneml.workflow.AutoCacheRule" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="AutoCacheRuleextendsRulewithLogging"></a>
+      <a id="AutoCacheRule:AutoCacheRule"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="AutoCacheRule.html"><span class="name">AutoCacheRule</span></a><span class="result"> extends <a href="Rule.html" class="extype" name="keystoneml.workflow.Rule">Rule</a> with <a href="../pipelines/Logging.html" class="extype" name="keystoneml.pipelines.Logging">Logging</a></span>
+      </span>
+      </h4>
+      
+    </li><li name="keystoneml.workflow.AutoCachingOptimizer" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="AutoCachingOptimizerextendsOptimizer"></a>
+      <a id="AutoCachingOptimizer:AutoCachingOptimizer"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="AutoCachingOptimizer.html"><span class="name">AutoCachingOptimizer</span></a><span class="result"> extends <a href="Optimizer.html" class="extype" name="keystoneml.workflow.Optimizer">Optimizer</a></span>
+      </span>
+      </h4>
+      <p class="comment cmt">Optimizes a Pipeline DAG, with auto-caching
+</p>
+    </li><li name="keystoneml.workflow.Chainable" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="Chainable[A,B]extendsAnyRef"></a>
+      <a id="Chainable[A,B]:Chainable[A,B]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">trait</span>
+      </span>
+      <span class="symbol">
+        <a href="Chainable.html"><span class="name">Chainable</span></a><span class="tparams">[<span name="A">A</span>, <span name="B">B</span>]</span><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4>
+      <p class="comment cmt">This trait provides methods to chain an object with <a href="Estimator.html" class="extype" name="keystoneml.workflow.Estimator">Estimator</a>s, <a href="LabelEstimator.html" class="extype" name="keystoneml.workflow.LabelEstimator">LabelEstimator</a>s, and other
+<a href="Chainable.html" class="extype" name="keystoneml.workflow.Chainable">Chainable</a>s to construct <a href="Pipeline.html" class="extype" name="keystoneml.workflow.Pipeline">Pipeline</a>s.</p>
+    </li><li name="keystoneml.workflow.Estimator" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="Estimator[A,B]extendsEstimatorOperator"></a>
+      <a id="Estimator[A,B]:Estimator[A,B]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">abstract </span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="Estimator.html"><span class="name">Estimator</span></a><span class="tparams">[<span name="A">A</span>, <span name="B">B</span>]</span><span class="result"> extends <span class="extype" name="keystoneml.workflow.EstimatorOperator">EstimatorOperator</span></span>
+      </span>
+      </h4>
+      <p class="comment cmt">An estimator has a <code>fitRDD</code> method which takes an input and emits a <a href="Transformer.html" class="extype" name="keystoneml.workflow.Transformer">Transformer</a></p>
+    </li><li name="keystoneml.workflow.FittedPipeline" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="FittedPipeline[A,B]extendsChainable[A,B]withSerializable"></a>
+      <a id="FittedPipeline[A,B]:FittedPipeline[A,B]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="FittedPipeline.html"><span class="name">FittedPipeline</span></a><span class="tparams">[<span name="A">A</span>, <span name="B">B</span>]</span><span class="result"> extends <a href="Chainable.html" class="extype" name="keystoneml.workflow.Chainable">Chainable</a>[<span class="extype" name="keystoneml.workflow.FittedPipeline.A">A</span>, <span class="extype" name="keystoneml.workflow.FittedPipeline.B">B</span>] with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4>
+      <p class="comment cmt">This is the result of fitting a <a href="Pipeline.html" class="extype" name="keystoneml.workflow.Pipeline">Pipeline</a>.</p>
+    </li><li name="keystoneml.workflow.Identity" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Identity[T]extendsTransformer[T,T]withProductwithSerializable"></a>
+      <a id="Identity[T]:Identity[T]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="Identity.html"><span class="name">Identity</span></a><span class="tparams">[<span name="T">T</span>]</span><span class="params">()</span><span class="params">(<span class="implicit">implicit </span><span name="evidence$1">evidence$1: <span class="extype" name="scala.reflect.ClassTag">ClassTag</span>[<span class="extype" name="keystoneml.workflow.Identity.T">T</span>]</span>)</span><span class="result"> extends <a href="Transformer.html" class="extype" name="keystoneml.workflow.Transformer">Transformer</a>[<span class="extype" name="keystoneml.workflow.Identity.T">T</span>, <span class="extype" name="keystoneml.workflow.Identity.T">T</span>] with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4>
+      <p class="comment cmt">This transformer performs a no-op on its input.</p>
+    </li><li name="keystoneml.workflow.LabelEstimator" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="LabelEstimator[A,B,L]extendsEstimatorOperator"></a>
+      <a id="LabelEstimator[A,B,L]:LabelEstimator[A,B,L]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">abstract </span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="LabelEstimator.html"><span class="name">LabelEstimator</span></a><span class="tparams">[<span name="A">A</span>, <span name="B">B</span>, <span name="L">L</span>]</span><span class="result"> extends <span class="extype" name="keystoneml.workflow.EstimatorOperator">EstimatorOperator</span></span>
+      </span>
+      </h4>
+      <p class="comment cmt">A LabelEstimator has a <code>fitRDDs</code> method which takes input data and input labels,
+and emits a <a href="Transformer.html" class="extype" name="keystoneml.workflow.Transformer">Transformer</a>.</p>
+    </li><li name="keystoneml.workflow.NodeOptimizationRule" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="NodeOptimizationRuleextendsRule"></a>
+      <a id="NodeOptimizationRule:NodeOptimizationRule"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="NodeOptimizationRule.html"><span class="name">NodeOptimizationRule</span></a><span class="result"> extends <a href="Rule.html" class="extype" name="keystoneml.workflow.Rule">Rule</a></span>
+      </span>
+      </h4>
+      <p class="comment cmt">Node-level optimization, such as selecting a Linear Solver
+</p>
+    </li><li name="keystoneml.workflow.Optimizable" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="OptimizableextendsAnyRef"></a>
+      <a id="Optimizable:Optimizable"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">sealed </span>
+        <span class="kind">trait</span>
+      </span>
+      <span class="symbol">
+        <a href="Optimizable.html"><span class="name">Optimizable</span></a><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4>
+      
+    </li><li name="keystoneml.workflow.OptimizableEstimator" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="OptimizableEstimator[A,B]extendsEstimator[A,B]withOptimizable"></a>
+      <a id="OptimizableEstimator[A,B]:OptimizableEstimator[A,B]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">abstract </span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="OptimizableEstimator.html"><span class="name">OptimizableEstimator</span></a><span class="tparams">[<span name="A">A</span>, <span name="B">B</span>]</span><span class="result"> extends <a href="Estimator.html" class="extype" name="keystoneml.workflow.Estimator">Estimator</a>[<span class="extype" name="keystoneml.workflow.OptimizableEstimator.A">A</span>, <span class="extype" name="keystoneml.workflow.OptimizableEstimator.B">B</span>] with <a href="Optimizable.html" class="extype" name="keystoneml.workflow.Optimizable">Optimizable</a></span>
+      </span>
+      </h4>
+      <p class="comment cmt">Represents a node-level optimizable Estimator and its optimization rules
+</p>
+    </li><li name="keystoneml.workflow.OptimizableLabelEstimator" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="OptimizableLabelEstimator[A,B,L]extendsLabelEstimator[A,B,L]withOptimizable"></a>
+      <a id="OptimizableLabelEstimator[A,B,L]:OptimizableLabelEstimator[A,B,L]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">abstract </span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="OptimizableLabelEstimator.html"><span class="name">OptimizableLabelEstimator</span></a><span class="tparams">[<span name="A">A</span>, <span name="B">B</span>, <span name="L">L</span>]</span><span class="result"> extends <a href="LabelEstimator.html" class="extype" name="keystoneml.workflow.LabelEstimator">LabelEstimator</a>[<span class="extype" name="keystoneml.workflow.OptimizableLabelEstimator.A">A</span>, <span class="extype" name="keystoneml.workflow.OptimizableLabelEstimator.B">B</span>, <span class="extype" name="keystoneml.workflow.OptimizableLabelEstimator.L">L</span>] with <a href="Optimizable.html" class="extype" name="keystoneml.workflow.Optimizable">Optimizable</a></span>
+      </span>
+      </h4>
+      <p class="comment cmt">Represents a node-level optimizable LabelEstimator and its optimization rules
+</p>
+    </li><li name="keystoneml.workflow.OptimizableTransformer" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="OptimizableTransformer[A,B]extendsTransformer[A,B]withOptimizable"></a>
+      <a id="OptimizableTransformer[A,B]:OptimizableTransformer[A,B]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">abstract </span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="OptimizableTransformer.html"><span class="name">OptimizableTransformer</span></a><span class="tparams">[<span name="A">A</span>, <span name="B">B</span>]</span><span class="result"> extends <a href="Transformer.html" class="extype" name="keystoneml.workflow.Transformer">Transformer</a>[<span class="extype" name="keystoneml.workflow.OptimizableTransformer.A">A</span>, <span class="extype" name="keystoneml.workflow.OptimizableTransformer.B">B</span>] with <a href="Optimizable.html" class="extype" name="keystoneml.workflow.Optimizable">Optimizable</a></span>
+      </span>
+      </h4>
+      <p class="comment cmt">Represents a node-level optimizable transformer and its optimization rules
+</p>
+    </li><li name="keystoneml.workflow.Optimizer" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="OptimizerextendsRuleExecutor"></a>
+      <a id="Optimizer:Optimizer"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">abstract </span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="Optimizer.html"><span class="name">Optimizer</span></a><span class="result"> extends <a href="RuleExecutor.html" class="extype" name="keystoneml.workflow.RuleExecutor">RuleExecutor</a></span>
+      </span>
+      </h4>
+      
+    </li><li name="keystoneml.workflow.Pipeline" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Pipeline[A,B]extendsChainable[A,B]"></a>
+      <a id="Pipeline[A,B]:Pipeline[A,B]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="Pipeline.html"><span class="name">Pipeline</span></a><span class="tparams">[<span name="A">A</span>, <span name="B">B</span>]</span><span class="result"> extends <a href="Chainable.html" class="extype" name="keystoneml.workflow.Chainable">Chainable</a>[<span class="extype" name="keystoneml.workflow.Pipeline.A">A</span>, <span class="extype" name="keystoneml.workflow.Pipeline.B">B</span>]</span>
+      </span>
+      </h4>
+      <p class="comment cmt">A Pipeline takes data as input (single item or an RDD), and outputs some transformation
+of that data.</p>
+    </li><li name="keystoneml.workflow.PipelineDataset" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="PipelineDataset[T]extendsPipelineResult[org.apache.spark.rdd.RDD[T]]"></a>
+      <a id="PipelineDataset[T]:PipelineDataset[T]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="PipelineDataset.html"><span class="name">PipelineDataset</span></a><span class="tparams">[<span name="T">T</span>]</span><span class="result"> extends <a href="PipelineResult.html" class="extype" name="keystoneml.workflow.PipelineResult">PipelineResult</a>[<span class="extype" name="org.apache.spark.rdd.RDD">RDD</span>[<span class="extype" name="keystoneml.workflow.PipelineDataset.T">T</span>]]</span>
+      </span>
+      </h4>
+      <p class="comment cmt">This class is a lazy wrapper around the output of a pipeline that was passed an RDD as input.</p>
+    </li><li name="keystoneml.workflow.PipelineDatum" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="PipelineDatum[T]extendsPipelineResult[T]"></a>
+      <a id="PipelineDatum[T]:PipelineDatum[T]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="PipelineDatum.html"><span class="name">PipelineDatum</span></a><span class="tparams">[<span name="T">T</span>]</span><span class="result"> extends <a href="PipelineResult.html" class="extype" name="keystoneml.workflow.PipelineResult">PipelineResult</a>[<span class="extype" name="keystoneml.workflow.PipelineDatum.T">T</span>]</span>
+      </span>
+      </h4>
+      <p class="comment cmt">This class is a lazy wrapper around the output of a pipeline that was passed a single datum as input.</p>
+    </li><li name="keystoneml.workflow.PipelineEnv" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="PipelineEnvextendsAnyRef"></a>
+      <a id="PipelineEnv:PipelineEnv"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="PipelineEnv.html"><span class="name">PipelineEnv</span></a><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4>
+      <p class="comment cmt">PipelineEnv is an environment shared by multiple <a href="Pipeline.html" class="extype" name="keystoneml.workflow.Pipeline">Pipeline</a>s, containing variables
+such as the Prefix state table and the current Pipeline <a href="Optimizer.html" class="extype" name="keystoneml.workflow.Optimizer">Optimizer</a>.</p>
+    </li><li name="keystoneml.workflow.PipelineResult" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="PipelineResult[T]extendsAnyRef"></a>
+      <a id="PipelineResult[T]:PipelineResult[T]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">abstract </span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="PipelineResult.html"><span class="name">PipelineResult</span></a><span class="tparams">[<span name="T">T</span>]</span><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4>
+      <p class="comment cmt">A PipelineResult is a lazy wrapper around the result of applying a <a href="Pipeline.html" class="extype" name="keystoneml.workflow.Pipeline">Pipeline</a> to data.</p>
+    </li><li name="keystoneml.workflow.Profile" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="ProfileextendsProductwithSerializable"></a>
+      <a id="Profile:Profile"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="Profile.html"><span class="name">Profile</span></a><span class="params">(<span name="ns">ns: <span class="extype" name="scala.Long">Long</span></span>, <span name="rddMem">rddMem: <span class="extype" name="scala.Long">Long</span></span>, <span name="driverMem">driverMem: <span class="extype" name="scala.Long">Long</span></span>)</span><span class="result"> extends <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4>
+      
+    </li><li name="keystoneml.workflow.Rule" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="RuleextendsAnyRef"></a>
+      <a id="Rule:Rule"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">abstract </span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="Rule.html"><span class="name">Rule</span></a><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4>
+      <p class="comment cmt">Represents a DAG transformation rule: A transformation from one DAG
+to a differently-executed but logically equivalent DAG.</p>
+    </li><li name="keystoneml.workflow.RuleExecutor" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="RuleExecutorextendsLogging"></a>
+      <a id="RuleExecutor:RuleExecutor"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">abstract </span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="RuleExecutor.html"><span class="name">RuleExecutor</span></a><span class="result"> extends <a href="../pipelines/Logging.html" class="extype" name="keystoneml.pipelines.Logging">Logging</a></span>
+      </span>
+      </h4>
+      
+    </li><li name="keystoneml.workflow.SampleProfile" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="SampleProfileextendsProductwithSerializable"></a>
+      <a id="SampleProfile:SampleProfile"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="SampleProfile.html"><span class="name">SampleProfile</span></a><span class="params">(<span name="scale">scale: <span class="extype" name="scala.Long">Long</span></span>, <span name="profile">profile: <a href="Profile.html" class="extype" name="keystoneml.workflow.Profile">Profile</a></span>)</span><span class="result"> extends <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4>
+      
+    </li><li name="keystoneml.workflow.Transformer" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="Transformer[A,B]extendsTransformerOperatorwithChainable[A,B]"></a>
+      <a id="Transformer[A,B]:Transformer[A,B]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">abstract </span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="Transformer.html"><span class="name">Transformer</span></a><span class="tparams">[<span name="A">A</span>, <span name="B">B</span>]</span><span class="result"> extends <span class="extype" name="keystoneml.workflow.TransformerOperator">TransformerOperator</span> with <a href="Chainable.html" class="extype" name="keystoneml.workflow.Chainable">Chainable</a>[<span class="extype" name="keystoneml.workflow.Transformer.A">A</span>, <span class="extype" name="keystoneml.workflow.Transformer.B">B</span>]</span>
+      </span>
+      </h4>
+      <p class="comment cmt">Transformers are operators that may be applied both to single input items and to RDDs of input items.</p>
+    </li><li name="keystoneml.workflow.TransformerChain" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="TransformerChain[A,B,C]extendsTransformer[A,C]withProductwithSerializable"></a>
+      <a id="TransformerChain[A,B,C]:TransformerChain[A,B,C]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="TransformerChain.html"><span class="name">TransformerChain</span></a><span class="tparams">[<span name="A">A</span>, <span name="B">B</span>, <span name="C">C</span>]</span><span class="params">(<span name="first">first: <a href="Transformer.html" class="extype" name="keystoneml.workflow.Transformer">Transformer</a>[<span class="extype" name="keystoneml.workflow.TransformerChain.A">A</span>, <span class="extype" name="keystoneml.workflow.TransformerChain.B">B</span>]</span>, <span name="second">second: <a href="Transformer.html" class="extype" name="keystoneml.workflow.Transformer">Transformer</a>[<span class="extype" name="keystoneml.workflow.TransformerChain.B">B</span>, <span class="extype" name="keystoneml.workflow.TransformerChain.C">C</span>]</span>)</span><span class="params">(<span class="implicit">implicit </span><span name="evidence$1">evidence$1: <span class="extype" name="scala.reflect.ClassTag">ClassTag</span>[<span class="extype" name="keystoneml.workflow.TransformerChain.C">C</span>]</span>)</span><span class="result"> extends <a href="Transformer.html" class="extype" name="keystoneml.workflow.Transformer">Transformer</a>[<span class="extype" name="keystoneml.workflow.TransformerChain.A">A</span>, <span class="extype" name="keystoneml.workflow.TransformerChain.C">C</span>] with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4>
+      <p class="comment cmt">A chain of two Transformers in a row (as a Transformer)</p>
+    </li><li name="keystoneml.workflow.TransformerEstimatorChain" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="TransformerEstimatorChain[A,B,C]extendsEstimator[A,C]withProductwithSerializable"></a>
+      <a id="TransformerEstimatorChain[A,B,C]:TransformerEstimatorChain[A,B,C]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="TransformerEstimatorChain.html"><span class="name">TransformerEstimatorChain</span></a><span class="tparams">[<span name="A">A</span>, <span name="B">B</span>, <span name="C">C</span>]</span><span class="params">(<span name="first">first: <a href="Transformer.html" class="extype" name="keystoneml.workflow.Transformer">Transformer</a>[<span class="extype" name="keystoneml.workflow.TransformerEstimatorChain.A">A</span>, <span class="extype" name="keystoneml.workflow.TransformerEstimatorChain.B">B</span>]</span>, <span name="second">second: <a href="Estimator.html" class="extype" name="keystoneml.workflow.Estimator">Estimator</a>[<span class="extype" name="keystoneml.workflow.TransformerEstimatorChain.B">B</span>, <span class="extype" name="keystoneml.workflow.TransformerEstimatorChain.C">C</span>]</span>)</span><span class="params">(<span class="implicit">implicit </span><span name="evidence$2">evidence$2: <span class="extype" name="scala.reflect.ClassTag">ClassTag</span>[<span class="extype" name="keystoneml.workflow.TransformerEstimatorChain.C">C</span>]</span>)</span><span class="result"> extends <a href="Estimator.html" class="extype" name="keystoneml.workflow.Estimator">Estimator</a>[<span class="extype" name="keystoneml.workflow.TransformerEstimatorChain.A">A</span>, <span class="extype" name="keystoneml.workflow.TransformerEstimatorChain.C">C</span>] with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4>
+      <p class="comment cmt">A chain of a Transformer followed by an Estimator (as an Estimator)</p>
+    </li><li name="keystoneml.workflow.TransformerLabelEstimatorChain" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="TransformerLabelEstimatorChain[A,B,C,L]extendsLabelEstimator[A,C,L]withProductwithSerializable"></a>
+      <a id="TransformerLabelEstimatorChain[A,B,C,L]:TransformerLabelEstimatorChain[A,B,C,L]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="TransformerLabelEstimatorChain.html"><span class="name">TransformerLabelEstimatorChain</span></a><span class="tparams">[<span name="A">A</span>, <span name="B">B</span>, <span name="C">C</span>, <span name="L">L</span>]</span><span class="params">(<span name="first">first: <a href="Transformer.html" class="extype" name="keystoneml.workflow.Transformer">Transformer</a>[<span class="extype" name="keystoneml.workflow.TransformerLabelEstimatorChain.A">A</span>, <span class="extype" name="keystoneml.workflow.TransformerLabelEstimatorChain.B">B</span>]</span>, <span name="second">second: <a href="LabelEstimator.html" class="extype" name="keystoneml.workflow.LabelEstimator">LabelEstimator</a>[<span class="extype" name="keystoneml.workflow.TransformerLabelEstimatorChain.B">B</span>, <span class="extype" name="keystoneml.workflow.TransformerLabelEstimatorChain.C">C</span>, <span class="extype" name="keystoneml.workflow.TransformerLabelEstimatorChain.L">L</span>]</span>)</span><span class="params">(<span class="implicit">implicit </span><span name="evidence$3">evidence$3: <span class="extype" name="scala.reflect.ClassTag">ClassTag</span>[<span class="extype" name="keystoneml.workflow.TransformerLabelEstimatorChain.C">C</span>]</span>)</span><span class="result"> extends <a href="LabelEstimator.html" class="extype" name="keystoneml.workflow.LabelEstimator">LabelEstimator</a>[<span class="extype" name="keystoneml.workflow.TransformerLabelEstimatorChain.A">A</span>, <span class="extype" name="keystoneml.workflow.TransformerLabelEstimatorChain.C">C</span>, <span class="extype" name="keystoneml.workflow.TransformerLabelEstimatorChain.L">L</span>] with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4>
+      <p class="comment cmt">A chain of a Transformer followed by a LabelEstimator (as a LabelEstimator)</p>
+    </li><li name="keystoneml.workflow.WeightedNode" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="WeightedNodeextendsAnyRef"></a>
+      <a id="WeightedNode:WeightedNode"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">trait</span>
+      </span>
+      <span class="symbol">
+        <a href="WeightedNode.html"><span class="name">WeightedNode</span></a><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4>
+      <p class="comment cmt">A mix-in that attaches a weight to a node that represents how often it must iterate
+over its input.</p>
+    </li><li name="keystoneml.workflow.WeightedOperator" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="WeightedOperatorextendsAnyRef"></a>
+      <a id="WeightedOperator:WeightedOperator"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">trait</span>
+      </span>
+      <span class="symbol">
+        <a href="WeightedOperator.html"><span class="name">WeightedOperator</span></a><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4>
+      <p class="comment cmt">A mix-in that attaches a weight to an operator that represents how often it must iterate
+over its input.</p>
+    </li></ol>
+            </div>
+
+        
+
+        <div id="values" class="values members">
+              <h3>Value Members</h3>
+              <ol><li name="keystoneml.workflow.AutoCacheRule" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="AutoCacheRule"></a>
+      <a id="AutoCacheRule:AutoCacheRule"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="AutoCacheRule$.html"><span class="name">AutoCacheRule</span></a>
+      </span>
+      </h4>
+      
+    </li><li name="keystoneml.workflow.DefaultOptimizer" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="DefaultOptimizer"></a>
+      <a id="DefaultOptimizer:DefaultOptimizer"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="DefaultOptimizer$.html"><span class="name">DefaultOptimizer</span></a><span class="result"> extends <a href="Optimizer.html" class="extype" name="keystoneml.workflow.Optimizer">Optimizer</a></span>
+      </span>
+      </h4>
+      <p class="comment cmt">The default Pipeline optimizer used when executing pipelines.</p>
+    </li><li name="keystoneml.workflow.EquivalentNodeMergeRule" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="EquivalentNodeMergeRule"></a>
+      <a id="EquivalentNodeMergeRule:EquivalentNodeMergeRule"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="EquivalentNodeMergeRule$.html"><span class="name">EquivalentNodeMergeRule</span></a><span class="result"> extends <a href="Rule.html" class="extype" name="keystoneml.workflow.Rule">Rule</a></span>
+      </span>
+      </h4>
+      <p class="comment cmt">A rule to merge equivalent nodes in the DAG.</p>
+    </li><li name="keystoneml.workflow.ExtractSaveablePrefixes" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="ExtractSaveablePrefixes"></a>
+      <a id="ExtractSaveablePrefixes:ExtractSaveablePrefixes"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="ExtractSaveablePrefixes$.html"><span class="name">ExtractSaveablePrefixes</span></a><span class="result"> extends <a href="Rule.html" class="extype" name="keystoneml.workflow.Rule">Rule</a></span>
+      </span>
+      </h4>
+      <p class="comment cmt">Extract the prefixes of all Nodes whose state we want to save for reuse by other Pipeline apply and fit calls.</p>
+    </li><li name="keystoneml.workflow.Pipeline" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Pipeline"></a>
+      <a id="Pipeline:Pipeline"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="Pipeline$.html"><span class="name">Pipeline</span></a>
+      </span>
+      </h4>
+      
+    </li><li name="keystoneml.workflow.PipelineDataset" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="PipelineDataset"></a>
+      <a id="PipelineDataset:PipelineDataset"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="PipelineDataset$.html"><span class="name">PipelineDataset</span></a>
+      </span>
+      </h4>
+      
+    </li><li name="keystoneml.workflow.PipelineDatum" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="PipelineDatum"></a>
+      <a id="PipelineDatum:PipelineDatum"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="PipelineDatum$.html"><span class="name">PipelineDatum</span></a>
+      </span>
+      </h4>
+      
+    </li><li name="keystoneml.workflow.PipelineEnv" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="PipelineEnv"></a>
+      <a id="PipelineEnv:PipelineEnv"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="PipelineEnv$.html"><span class="name">PipelineEnv</span></a>
+      </span>
+      </h4>
+      
+    </li><li name="keystoneml.workflow.SavedStateLoadRule" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="SavedStateLoadRule"></a>
+      <a id="SavedStateLoadRule:SavedStateLoadRule"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="SavedStateLoadRule$.html"><span class="name">SavedStateLoadRule</span></a><span class="result"> extends <a href="Rule.html" class="extype" name="keystoneml.workflow.Rule">Rule</a></span>
+      </span>
+      </h4>
+      <p class="comment cmt">A rule to load any saved state for the <span class="extype" name="PipelineEnv.state">PipelineEnv.state</span> prefix state table
+for nodes we want to consider either loading or saving the results of.</p>
+    </li><li name="keystoneml.workflow.Transformer" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Transformer"></a>
+      <a id="Transformer:Transformer"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="Transformer$.html"><span class="name">Transformer</span></a><span class="result"> extends <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4>
+      
+    </li><li name="keystoneml.workflow.UnusedBranchRemovalRule" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="UnusedBranchRemovalRule"></a>
+      <a id="UnusedBranchRemovalRule:UnusedBranchRemovalRule"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="UnusedBranchRemovalRule$.html"><span class="name">UnusedBranchRemovalRule</span></a><span class="result"> extends <a href="Rule.html" class="extype" name="keystoneml.workflow.Rule">Rule</a></span>
+      </span>
+      </h4>
+      <p class="comment cmt">A rule to remove all nodes &amp; sources in a graph that don't lead to any sink,
+and are effectively unused.</p>
+    </li><li name="keystoneml.workflow.WorkflowUtils" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="WorkflowUtils"></a>
+      <a id="WorkflowUtils:WorkflowUtils"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="WorkflowUtils$.html"><span class="name">WorkflowUtils</span></a>
+      </span>
+      </h4>
+      
+    </li></ol>
+            </div>
+
+        
+
+        
+        </div>
+
+        <div id="inheritedMembers">
+        
+        
+        </div>
+
+        <div id="groupedMembers">
+        <div class="group" name="Ungrouped">
+              <h3>Ungrouped</h3>
+              
+            </div>
+        </div>
+
+      </div>
+
+      <div id="tooltip"></div>
+
+      <div id="footer">  </div>
+      <script defer="defer" type="text/javascript" id="jquery-js" src="../../lib/jquery.js"></script><script defer="defer" type="text/javascript" id="jquery-ui-js" src="../../lib/jquery-ui.js"></script><script defer="defer" type="text/javascript" id="tools-tooltip-js" src="../../lib/tools.tooltip.js"></script><script defer="defer" type="text/javascript" id="template-js" src="../../lib/template.js"></script>
+    </body>
+      </html>

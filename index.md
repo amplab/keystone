@@ -13,6 +13,7 @@ We contributed to the design of [spark.ml](https://spark.apache.org/docs/latest/
 KeystoneML also presents a richer set of operators than those present in `spark.ml` including featurizers for images, text, and speech, and provides several example pipelines that reproduce state-of-the-art academic results on public data sets.
 
 ## News
+* 2017-03-02 KeystoneML version 0.4.0 has been released and pushed to Maven central. See [the release notes](release.html) for more information.
 * 2016-03-24 KeystoneML version 0.3.0 has been released and pushed to Maven central. See [the release notes](release.html) for more information.
 * 2015-10-08 We've put together a [minimal example application](https://github.com/amplab/keystone-example) for you to use as a basis for starting your own projects that use KeystoneML.
 * 2015-09-18 KeystoneML version 0.2.0 has been pushed to Maven central. See [the release notes](release.html) for more information.

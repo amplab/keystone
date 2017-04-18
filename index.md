@@ -13,6 +13,7 @@ We contributed to the design of [spark.ml](https://spark.apache.org/docs/latest/
 KeystoneML also presents a richer set of operators than those present in `spark.ml` including featurizers for images, text, and speech, and provides several example pipelines that reproduce state-of-the-art academic results on public data sets.
 
 ## News
+* 2017-04-18 The KeystoneML [paper](https://amplab.cs.berkeley.edu/wp-content/uploads/2017/01/ICDE_2017_CameraReady_475.pdf) will be presented at ICDE 2017. See you in San Diego!
 * 2017-03-02 KeystoneML version 0.4.0 has been released and pushed to Maven central. See [the release notes](release.html) for more information.
 * 2016-03-24 KeystoneML version 0.3.0 has been released and pushed to Maven central. See [the release notes](release.html) for more information.
 * 2015-10-08 We've put together a [minimal example application](https://github.com/amplab/keystone-example) for you to use as a basis for starting your own projects that use KeystoneML.
@@ -155,6 +156,12 @@ For help using the software please join and send mail to the [KeystoneML users l
 
 KeystoneML is an Apache Licensed open-source project and we welcome contributions.
 Have a look at our [Github Issues page](http://github.com/amplab/keystone/issues) if you'd like to contribute, and feel free to fork the repo and submit a pull request!
+
+## Citing
+
+If you use KeystoneML in academic work, please cite the following paper:
+
+Sparks, E. R., Venkataraman, S., Kaftan, T., Franklin, M. J., Recht, B. "KeystoneML: Optimizing Pipelines for Large-Scale Advanced Analytics" Data Engineering (ICDE), 2017.
 
 ## Acknowledgements
 Research on KeystoneML is a part of the [AMPLab at UC Berkeley](http://amplab.cs.berkeley.edu/). This research is supported in part by NSF CISE Expeditions Award CCF-1139158, DOE Award SN10040 DE-SC0012463, and DARPA XData Award FA8750-12-2-0331, and gifts from Amazon Web Services, Google, IBM, SAP, The Thomas and Stacey Siebel Foundation, Adatao, Adobe, Apple, Inc., Blue Goji, Bosch, C3Energy, Cisco, Cray, Cloudera, EMC2, Ericsson, Facebook, Guavus, HP, Huawei, Informatica, Intel, Microsoft, NetApp, Pivotal, Samsung, Schlumberger, Splunk, Virdata and VMware.
